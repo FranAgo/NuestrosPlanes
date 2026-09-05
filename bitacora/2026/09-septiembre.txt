@@ -1,0 +1,17 @@
+BITÁCORA — SEPTIEMBRE 2026
+========================================================
+
+========================================================
+2026-09-05 17:55 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- CLAUDE.md — nuevo. Define el flujo de trabajo: commit + push a main
+  solo al cerrar la sesión y tras confirmación clara del usuario; y las
+  reglas de la bitácora.
+- bitacora/README.md — nuevo. Explica cómo se organiza la bitácora.
+- bitacora/2026/09-septiembre.txt — nuevo. Este archivo, primera entrada.
+- skills/identidad-visual/SKILL.md — se incluye en este commit (estaba
+  sin trackear de antes de esta sesión).
+========================================================
