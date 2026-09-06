@@ -1178,6 +1178,7 @@
       .login-card  { padding: 2rem 1.5rem; }
     }
   </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -1203,20 +1204,12 @@
         <div class="login-divider-line"></div>
       </div>
 
-      <div class="form-group">
-        <label>Usuario</label>
-        <input type="text" id="login-user" placeholder="Tu usuario" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label>Contraseña</label>
-        <input type="password" id="login-pass" placeholder="Tu contraseña" autocomplete="current-password" />
-      </div>
+      <p class="subtitle" style="margin-bottom:1.3rem">Entrá con tu cuenta de Google</p>
 
-      <button class="btn btn-primary" id="btn-login">
-        Entrar
-      </button>
+      <div id="g_id_signin" style="display:flex; justify-content:center; min-height:44px"></div>
+      <div class="login-status" id="login-status" style="font-size:0.8rem; color:var(--text-soft); margin-top:0.6rem; min-height:1em"></div>
 
-      <div class="error-msg" id="login-error">Usuario o contraseña incorrectos.</div>
+      <div class="error-msg" id="login-error">No se pudo iniciar sesión.</div>
     </div>
   </div>
 
@@ -1409,6 +1402,10 @@
     // ====================================================
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
 
+    // Client ID de Google OAuth. NO es un secreto: está pensado para vivir en el frontend.
+    // Tiene que ser el mismo que OAUTH_CLIENT_ID en el backend (Script Properties).
+    const GOOGLE_CLIENT_ID = '223985831716-tjfd9qachr7uqb15mjchotp5fodnedi7.apps.googleusercontent.com';
+
     const PRESET_COLORS = [
       '#e8a0a0', '#f5c6a0', '#f5e6a0', '#a0c8a0',
       '#a0c8e8', '#c8a0e8', '#e8a0c8', '#9ab89a',
@@ -1548,34 +1545,33 @@
     const loginScreen = document.getElementById('login-screen');
     const appScreen   = document.getElementById('app-screen');
 
-    document.getElementById('btn-login').addEventListener('click', e => {
-      addRipple(e.currentTarget, e);
-      handleLogin();
-    });
+    // Inicializa Google Sign-In cuando la librería GSI está disponible.
+    let gsiReady = false;
+    function initGoogleSignIn() {
+      if (gsiReady) return;
+      if (!window.google || !google.accounts || !google.accounts.id) return;
+      gsiReady = true;
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback:  handleGoogleCredential,
+        auto_select: false,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('g_id_signin'),
+        { theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 240 }
+      );
+    }
+    // La librería llama a este hook al terminar de cargar; si ya cargó, el boot() lo intenta igual.
+    window.onGoogleLibraryLoad = initGoogleSignIn;
 
-    document.getElementById('login-pass').addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleLogin();
-    });
-
-    async function handleLogin() {
-      const userId   = document.getElementById('login-user').value.trim();
-      const password = document.getElementById('login-pass').value;
+    async function handleGoogleCredential(response) {
       const errorEl  = document.getElementById('login-error');
-      const btn      = document.getElementById('btn-login');
-
+      const statusEl = document.getElementById('login-status');
       errorEl.classList.remove('visible');
-
-      if (!userId || !password) {
-        errorEl.textContent = 'Completá usuario y contraseña.';
-        errorEl.classList.add('visible');
-        return;
-      }
-
-      btn.innerHTML = '<span class="spinner"></span>';
-      btn.disabled  = true;
+      statusEl.textContent = 'Verificando…';
 
       try {
-        const data = await api('login', { userId, password });
+        const data = await api('loginGoogle', { idToken: response.credential });
 
         if (data.status === 200) {
           state.session = {
@@ -1585,18 +1581,18 @@
             fotoUrl:       data.user.fotoUrl,
           };
           saveSession();
+          statusEl.textContent = '';
           await initApp();
         } else {
-          errorEl.textContent = data.error || 'Credenciales incorrectas.';
+          statusEl.textContent = '';
+          errorEl.textContent = data.error || 'No se pudo iniciar sesión.';
           errorEl.classList.add('visible');
         }
       } catch {
+        statusEl.textContent = '';
         errorEl.textContent = 'Error de conexión. Intentá de nuevo.';
         errorEl.classList.add('visible');
       }
-
-      btn.innerHTML = 'Entrar';
-      btn.disabled  = false;
     }
 
     // ====================================================
@@ -1686,11 +1682,14 @@
     // ====================================================
     document.getElementById('btn-logout').addEventListener('click', () => {
       clearSession();
+      if (window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.disableAutoSelect();
+      }
       appScreen.classList.remove('visible');
       appScreen.style.display = 'none';
       loginScreen.style.display = 'flex';
-      document.getElementById('login-user').value = '';
-      document.getElementById('login-pass').value = '';
+      document.getElementById('login-error').classList.remove('visible');
+      document.getElementById('login-status').textContent = '';
       initStars();
     });
 
@@ -2438,6 +2437,14 @@
     // ====================================================
     (async function boot() {
       initStars();
+      initGoogleSignIn();
+      // Reintento por si la librería GSI todavía no cargó al arrancar.
+      let tries = 0;
+      const gsiTimer = setInterval(() => {
+        initGoogleSignIn();
+        if (gsiReady || ++tries > 40) clearInterval(gsiTimer);
+      }, 150);
+
       const saved = loadSession();
       if (saved?.userId && saved?.sessionToken) {
         state.session = saved;

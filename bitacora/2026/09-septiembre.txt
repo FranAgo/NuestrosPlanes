@@ -15,3 +15,54 @@ Cambios:
 - skills/identidad-visual/SKILL.md — se incluye en este commit (estaba
   sin trackear de antes de esta sesión).
 ========================================================
+
+========================================================
+2026-09-05 21:17 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestión: Paul (PM) — REQ-AUTH-001
+--------------------------------------------------------
+Cambios: se reemplaza el login usuario/contraseña por autenticación
+con Google Sign-In y se sacan todas las credenciales duras del código.
+
+- Code.gs
+  - Config (SPREADSHEET_ID, DRIVE_FOLDER_ID, OAUTH_CLIENT_ID,
+    SESSION_SECRET) movida a Script Properties. Se elimina el salt
+    hardcodeado 'couple_plans_salt_2024'.
+  - Nuevo endpoint 'loginGoogle': verifica el ID token contra
+    oauth2.googleapis.com/tokeninfo, valida aud/iss/exp y autoriza
+    solo emails de la lista blanca (hoja Usuarios).
+  - Nueva función verifyGoogleIdToken().
+  - Se eliminan handleLogin(), hashPassword() y el login por password.
+  - Token de sesión ahora deriva de SESSION_SECRET (Script Properties).
+  - Hoja Usuarios: headers pasan a [usuario_id, nombre_display, email,
+    google_sub, foto_url]. handleGetUser/handleUpdateAvatar ajustados
+    a la nueva posición de foto_url (col 5).
+  - Se elimina setupUsuarios() y generateId() (sin uso). Los usuarios
+    se administran a mano en la hoja.
+  - Nueva setupConfig() para cargar Script Properties una sola vez.
+- index.html
+  - Se agrega el script de Google Identity Services (GSI).
+  - Pantalla de login: se quitan los campos usuario/contraseña y el
+    botón "Entrar"; se agrega el botón de Google (#g_id_signin).
+  - Nueva GOOGLE_CLIENT_ID en CONFIG (no es secreto).
+  - handleLogin() reemplazado por handleGoogleCredential() +
+    initGoogleSignIn(); logout llama a disableAutoSelect().
+- README.md
+  - Nuevo paso de setup: OAuth Client ID en Google Cloud.
+  - Setup de Apps Script reescrito (setupConfig, Script Properties,
+    usuarios por email). Sección Seguridad actualizada.
+
+Configuración de infraestructura (hecha por el usuario en esta sesión):
+- OAuth Client ID creado en Google Cloud (origen https://franago.github.io),
+  app en modo Testing, franco y noelita como usuarios de prueba.
+- Script Properties cargadas via setupConfig() (las 4). setupSheets() corrido.
+- Hoja Usuarios migrada: usuario_id | nombre_display | email | google_sub |
+  foto_url. Filas Fran y Noelita con sus emails cargados.
+- GOOGLE_CLIENT_ID real puesto en index.html.
+- Web App republicado (versión nueva, misma URL).
+- Nota: la ruta de GitHub Pages pasa a /NuestrosPlanes/ (repo renombrado).
+
+PENDIENTE:
+- Validación de Julia (AppSec) y Duck (QA) antes de dar REQ-AUTH-001 por cerrado.
+========================================================

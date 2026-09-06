@@ -8,8 +8,18 @@
 // CONFIGURACIÓN
 // ------------------------------------------------------------
 
-const SPREADSHEET_ID = 'TU_SPREADSHEET_ID_AQUI'; // Reemplazar con el ID real
-const DRIVE_FOLDER_ID = 'TU_FOLDER_ID_AQUI';     // Carpeta de Drive para fotos de perfil
+// Toda la configuración sensible vive en Script Properties, no en el código.
+// Configurar una sola vez con setupConfig() o desde
+// Project Settings > Script Properties:
+//   SPREADSHEET_ID   -> ID de la planilla de datos
+//   DRIVE_FOLDER_ID  -> carpeta de Drive para fotos de perfil
+//   OAUTH_CLIENT_ID  -> Client ID de Google OAuth (mismo que usa el frontend)
+//   SESSION_SECRET   -> string aleatorio largo para firmar los tokens de sesión
+const PROPS = PropertiesService.getScriptProperties();
+const SPREADSHEET_ID  = PROPS.getProperty('SPREADSHEET_ID');
+const DRIVE_FOLDER_ID = PROPS.getProperty('DRIVE_FOLDER_ID');
+const OAUTH_CLIENT_ID = PROPS.getProperty('OAUTH_CLIENT_ID');
+const SESSION_SECRET  = PROPS.getProperty('SESSION_SECRET');
 
 const SHEETS = {
   USUARIOS:    'Usuarios',
@@ -27,7 +37,7 @@ function doPost(e) {
     const action = body.action;
 
     // Endpoints que NO requieren sesión válida
-    const publicActions = ['login'];
+    const publicActions = ['loginGoogle'];
 
     if (!publicActions.includes(action)) {
       const sessionError = validateSession(body.sessionToken, body.userId);
@@ -36,7 +46,7 @@ function doPost(e) {
 
     switch (action) {
       // Auth
-      case 'login':           return handleLogin(body);
+      case 'loginGoogle':     return handleLoginGoogle(body);
 
       // Usuarios
       case 'getUser':         return handleGetUser(body);
@@ -70,53 +80,104 @@ function doPost(e) {
 // AUTENTICACIÓN
 // ------------------------------------------------------------
 
-function handleLogin(body) {
-  const { userId, password } = body;
+// Login con Google Sign-In.
+// El frontend obtiene un ID token de Google y lo manda acá.
+// Verificamos el token contra Google, y solo dejamos entrar a los emails
+// que estén cargados en la hoja Usuarios (lista blanca).
+// No se almacena ni se compara ninguna contraseña.
+function handleLoginGoogle(body) {
+  const { idToken } = body;
 
-  if (!userId || !password) {
-    return respond(400, { error: 'Usuario y contraseña requeridos.' });
+  if (!idToken) {
+    return respond(400, { error: 'Token de Google requerido.' });
   }
+  if (!OAUTH_CLIENT_ID || !SESSION_SECRET) {
+    Logger.log('Falta configurar OAUTH_CLIENT_ID o SESSION_SECRET en Script Properties.');
+    return respond(500, { error: 'Autenticación no configurada en el servidor.' });
+  }
+
+  const payload = verifyGoogleIdToken(idToken);
+  if (!payload) {
+    return respond(401, { error: 'Token de Google inválido o vencido.' });
+  }
+
+  const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+  if (!emailVerified) {
+    return respond(403, { error: 'El email de Google no está verificado.' });
+  }
+
+  const email = (payload.email || '').toString().trim().toLowerCase();
+  const googleSub = (payload.sub || '').toString();
 
   const sheet = getSheet(SHEETS.USUARIOS);
   const data = sheet.getDataRange().getValues();
 
-  // Fila 0 = headers: [usuario_id, nombre_display, password, foto_url]
+  // Headers: [usuario_id, nombre_display, email, google_sub, foto_url]
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (row[0] === userId) {
-      const storedPassword = row[2].toString();
-
-      if (storedPassword !== password) {
-        return respond(401, { error: 'Credenciales incorrectas.' });
+    const rowEmail = (row[2] || '').toString().trim().toLowerCase();
+    if (rowEmail && rowEmail === email) {
+      // Guardar el google_sub la primera vez que entra, para trazabilidad.
+      if (!row[3] && googleSub) {
+        sheet.getRange(i + 1, 4).setValue(googleSub);
       }
 
+      const userId = row[0];
       const sessionToken = generateSessionToken(userId);
 
       return respond(200, {
         sessionToken,
         user: {
-          userId:       row[0],
+          userId:        userId,
           nombreDisplay: row[1],
-          fotoUrl:      row[3] || null,
+          fotoUrl:       row[4] || null,
         }
       });
     }
   }
 
-  return respond(401, { error: 'Credenciales incorrectas.' });
+  return respond(403, { error: 'Cuenta no autorizada para esta aplicación.' });
+}
+
+// Verifica el ID token contra el endpoint oficial de Google.
+// Google valida la firma; nosotros validamos que el token sea para NUESTRA app.
+function verifyGoogleIdToken(idToken) {
+  try {
+    const url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken);
+    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return null;
+
+    const payload = JSON.parse(res.getContentText());
+
+    // El token tiene que haber sido emitido para nuestro Client ID.
+    if (payload.aud !== OAUTH_CLIENT_ID) return null;
+
+    // Emisor esperado.
+    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+      return null;
+    }
+
+    // No vencido (con 5 min de tolerancia de reloj).
+    if (payload.exp && (Number(payload.exp) * 1000) < (Date.now() - 5 * 60 * 1000)) {
+      return null;
+    }
+
+    return payload;
+  } catch (err) {
+    Logger.log('verifyGoogleIdToken error: ' + err.toString());
+    return null;
+  }
 }
 
 // ------------------------------------------------------------
 // VALIDACIÓN DE SESIÓN
 // Valida que el token corresponde al userId declarado.
-// El token es SHA-256(userId + SECRET_SALT).
+// El token es SHA-256(userId + SESSION_SECRET).
 // Es stateless: no requiere almacenar sesiones en Sheets.
 // ------------------------------------------------------------
 
-const SECRET_SALT = 'couple_plans_salt_2024';
-
 function generateSessionToken(userId) {
-  return hashString(userId + SECRET_SALT);
+  return hashString(userId + SESSION_SECRET);
 }
 
 function validateSession(sessionToken, userId) {
@@ -141,7 +202,7 @@ function handleGetUser(body) {
       return respond(200, {
         userId:        row[0],
         nombreDisplay: row[1],
-        fotoUrl:       row[3] || null,
+        fotoUrl:       row[4] || null,
       });
     }
   }
@@ -159,7 +220,7 @@ function handleUpdateAvatar(body) {
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === userId) {
-      sheet.getRange(i + 1, 4).setValue(fotoUrl); // columna 4 = foto_url
+      sheet.getRange(i + 1, 5).setValue(fotoUrl); // columna 5 = foto_url
       return respond(200, { success: true, fotoUrl });
     }
   }
@@ -448,10 +509,6 @@ function respond(statusCode, data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function hashPassword(password) {
-  return hashString(password);
-}
-
 function hashString(input) {
   const rawHash = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
@@ -459,10 +516,6 @@ function hashString(input) {
     Utilities.Charset.UTF_8
   );
   return rawHash.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-}
-
-function generateId(prefix) {
-  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 }
 
 function formatDate(value) {
@@ -510,7 +563,7 @@ function setupSheets() {
     return sheet;
   }
 
-  ensureSheet(SHEETS.USUARIOS,   ['usuario_id', 'nombre_display', 'password_hash', 'foto_url']);
+  ensureSheet(SHEETS.USUARIOS,   ['usuario_id', 'nombre_display', 'email', 'google_sub', 'foto_url']);
   ensureSheet(SHEETS.CATEGORIAS, ['categoria_id', 'nombre', 'color_hex']);
   ensureSheet(SHEETS.PLANES,     ['plan_id', 'titulo', 'categoria_id', 'creado_por',
                                    'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
@@ -519,21 +572,25 @@ function setupSheets() {
 }
 
 // ------------------------------------------------------------
-// SETUP USUARIOS — Correr una sola vez para crear los dos usuarios
-// Reemplazar los valores antes de ejecutar.
+// SETUP CONFIG — Correr una sola vez para cargar Script Properties.
+// Reemplazar los valores y ejecutar. Después borrar los valores de acá
+// (quedan guardados en Project Settings > Script Properties).
+// SESSION_SECRET: generar un string aleatorio largo (ej. 40+ caracteres).
 // ------------------------------------------------------------
 
-function setupUsuarios() {
-  const sheet = getSheet(SHEETS.USUARIOS);
+function setupConfig() {
+  PropertiesService.getScriptProperties().setProperties({
+    SPREADSHEET_ID:  'REEMPLAZAR',
+    DRIVE_FOLDER_ID: 'REEMPLAZAR',
+    OAUTH_CLIENT_ID: 'REEMPLAZAR.apps.googleusercontent.com',
+    SESSION_SECRET:  'REEMPLAZAR_CON_STRING_ALEATORIO_LARGO',
+  }, false);
 
-  const usuarios = [
-    { id: 'franco',  nombre: 'Franco',  password: 'TU_PASSWORD_AQUI' },
-    { id: 'novia',   nombre: 'Tu Novia', password: 'SU_PASSWORD_AQUI' },
-  ];
-
-  usuarios.forEach(u => {
-    sheet.appendRow([u.id, u.nombre, u.password, '']);
-  });
-
-  Logger.log('Usuarios creados. Eliminá las contraseñas en texto plano de este script.');
+  Logger.log('Config cargada. Borrá los valores de esta función.');
 }
+
+// Los usuarios se administran a mano en la hoja Usuarios:
+//   usuario_id | nombre_display | email | google_sub | foto_url
+// Para agregar a alguien: fila nueva con su email + agregarlo como
+// usuario de prueba en la pantalla de consentimiento de Google Cloud.
+// Para darlo de baja: borrar su fila.
