@@ -66,3 +66,47 @@ Configuración de infraestructura (hecha por el usuario en esta sesión):
 PENDIENTE:
 - Validación de Julia (AppSec) y Duck (QA) antes de dar REQ-AUTH-001 por cerrado.
 ========================================================
+
+========================================================
+2026-09-05 22:40 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestión: Jay (Front-End)
+--------------------------------------------------------
+Cambios: mejora de diseño de la pantalla de login (el botón de Google
+default se veía genérico contra la card oscura).
+
+- index.html
+  - Botón "Continuar con Google" con la estética de la app: rectángulo
+    redondeado oscuro, borde cobre, logo G a color dentro de un chip
+    oscuro, hover con barrido de luz + glow cálido + micro-elevación
+    (ideas tomadas de una referencia de Google Stitch, adaptadas a la
+    paleta cobre). El botón real de Google (GSI) se renderiza invisible
+    por encima y capta el clic (patrón overlay), así se mantiene el
+    flujo de ID token sin cambios en el backend.
+  - Descartado de la referencia Stitch: claim "cifrado de extremo a
+    extremo" (falso), registro/"crear rincón", footer de Términos.
+  - Nuevo estado "cargando" del botón mientras se abre el popup de Google,
+    con limpieza al volver del popup / al cerrar sesión / ante error.
+  - Copy: se quita "Entrá con tu cuenta de Google" redundante; pie con
+    ícono de candado + "Solo nosotros dos", más legible (antes casi no
+    se leía por el color).
+  - CSS del login movido a clases (.gsi-shell, #gsi-custom, .login-status,
+    .login-foot); se sacan estilos inline.
+
+Revisión contra el criterio de diseño de Franco (skill identidad-visual),
+ajustes aplicados en esta pasada:
+- El halo del cursor personalizado ahora crece y se tiñe de cobre al pasar
+  sobre elementos clickeables (afford. de "clickeable", que faltaba porque
+  la app usa cursor:none global).
+- Iconos "✕" de cerrar (logout + 3 modales) reemplazados por SVG, con
+  aria-label. Regla: nada de glifos como iconos de UI.
+- Barrido de luz del botón de Google: 0.9s -> 0.7s.
+- Glifos "+" (Nuevo Plan / Nueva) y "✓" (Completado) -> SVG.
+QUEDA PENDIENTE (pasada de UI aparte, no bloquea REQ-AUTH-001):
+- Glifos "♡" (login/header — es identidad de marca) y "✦" (empty state) -> SVG.
+- confirm() nativo en borrar plan/categoría -> modal propio.
+- nav-tab / filter-chip como <div> -> <button> (semántica/a11y).
+- Estado de carga (skeleton) mientras initApp trae datos.
+- Layout del section-header (botón "+ Nuevo Plan" se estira de más).
+========================================================

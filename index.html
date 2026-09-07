@@ -79,7 +79,15 @@
       pointer-events: none;
       z-index: 9998;
       transform: translate(-50%, -50%);
-      transition: width 0.2s, height 0.2s;
+      transition: width 0.2s, height 0.2s, border-color 0.2s, background 0.2s;
+    }
+
+    /* afford. de "clickeable": el halo crece sobre elementos interactivos */
+    #cursor-halo.is-hovering {
+      width: 46px;
+      height: 46px;
+      border-color: var(--copper);
+      background: rgba(184,120,58,0.09);
     }
 
     /* ====================================================
@@ -242,6 +250,132 @@
     .login-divider-line { flex: 1; height: 0.5px; background: var(--border); }
     .login-divider-dot  { width: 3px; height: 3px; border-radius: 50%; background: rgba(184,120,58,0.45); }
 
+    /* ====================================================
+       BOTÓN DE GOOGLE (login)
+       El botón real de Google se renderiza invisible encima
+       de #gsi-custom, que es el que ve el usuario.
+    ==================================================== */
+    .gsi-shell {
+      position: relative;
+      width: 280px;
+      max-width: 100%;
+      height: 46px;
+      margin: 0.5rem auto 0;
+    }
+
+    /* botón visible, con la estética de la app */
+    #gsi-custom {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.7rem;
+      border: 0.5px solid var(--copper-dim);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, #1C1712 0%, #141110 100%);
+      color: var(--text-main);
+      font-family: 'Jost', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    /* barrido de luz en hover */
+    #gsi-custom::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      transform: translateX(-120%);
+      background: linear-gradient(105deg, transparent 32%, rgba(212,160,96,0.16) 50%, transparent 68%);
+      transition: transform 0.7s ease;
+    }
+
+    /* glow cálido desde abajo en hover */
+    #gsi-custom::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 135%, rgba(184,120,58,0.22) 0%, transparent 62%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .gsi-shell:hover #gsi-custom {
+      border-color: var(--copper);
+      transform: translateY(-1px);
+    }
+
+    .gsi-shell:hover #gsi-custom::before { transform: translateX(120%); }
+    .gsi-shell:hover #gsi-custom::after  { opacity: 1; }
+    .gsi-shell:active #gsi-custom { transform: translateY(0); }
+
+    /* la G en su chip oscuro */
+    .gsi-g {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: 7px;
+      transition: var(--transition);
+    }
+
+    .gsi-shell:hover .gsi-g { border-color: var(--copper-dim); }
+    .gsi-g svg { width: 14px; height: 14px; display: block; }
+    .gsi-label { position: relative; }
+
+    /* botón real de Google: encima, transparente, capta el clic */
+    #g_id_signin {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.001;            /* invisible pero clickeable */
+      overflow: hidden;
+    }
+
+    #g_id_signin iframe { transform: scale(2.4); }  /* agranda el área de clic si GSI usa iframe */
+
+    /* estado de carga: mientras se verifica */
+    .gsi-shell.is-loading { pointer-events: none; }
+    .gsi-shell.is-loading #gsi-custom { border-color: var(--border-soft); color: var(--text-muted); }
+    .gsi-shell.is-loading .gsi-g { opacity: 0.35; }
+
+    .login-status {
+      min-height: 1em;
+      margin-top: 0.9rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      color: var(--copper-light);
+    }
+
+    .login-foot {
+      margin-top: 1.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      font-size: 0.74rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .login-foot svg {
+      width: 11px;
+      height: 11px;
+      color: var(--copper);
+      opacity: 0.85;
+    }
+
     .form-group {
       margin-bottom: 1.1rem;
       text-align: left;
@@ -326,6 +460,13 @@
       overflow: hidden;
     }
 
+    .btn svg,
+    .completado-label svg {
+      width: 0.95em;
+      height: 0.95em;
+      flex-shrink: 0;
+    }
+
     .btn-primary {
       border: 0.5px solid var(--copper-dim);
       background: transparent;
@@ -384,6 +525,12 @@
     .btn-icon:hover {
       background: var(--bg-card);
       color: var(--text-main);
+    }
+
+    .btn-icon svg {
+      width: 15px;
+      height: 15px;
+      display: block;
     }
 
     .error-msg {
@@ -1204,12 +1351,30 @@
         <div class="login-divider-line"></div>
       </div>
 
-      <p class="subtitle" style="margin-bottom:1.3rem">Entrá con tu cuenta de Google</p>
+      <div class="gsi-shell" id="gsi-shell">
+        <div id="gsi-custom">
+          <span class="gsi-g">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+          </span>
+          <span class="gsi-label">Continuar con Google</span>
+        </div>
+        <div id="g_id_signin"></div>
+      </div>
 
-      <div id="g_id_signin" style="display:flex; justify-content:center; min-height:44px"></div>
-      <div class="login-status" id="login-status" style="font-size:0.8rem; color:var(--text-soft); margin-top:0.6rem; min-height:1em"></div>
-
+      <div class="login-status" id="login-status"></div>
       <div class="error-msg" id="login-error">No se pudo iniciar sesión.</div>
+
+      <p class="login-foot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+        Solo nosotros dos
+      </p>
     </div>
   </div>
 
@@ -1224,7 +1389,9 @@
           <div class="avatar" id="header-avatar"></div>
           <span id="header-nombre" style="font-size:0.82rem; font-weight:400; color:var(--text-soft)"></span>
         </div>
-        <button class="btn-icon" id="btn-logout" title="Cerrar sesión">✕</button>
+        <button class="btn-icon" id="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
     </header>
 
@@ -1243,7 +1410,10 @@
             <h2>Nuestros Planes</h2>
             <p class="section-header-sub">lo que queremos vivir juntos</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-nuevo-plan">+ Nuevo Plan</button>
+          <button class="btn btn-primary btn-sm" id="btn-nuevo-plan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Nuevo Plan
+          </button>
         </div>
 
         <div class="filters-bar" id="filters-bar">
@@ -1260,7 +1430,10 @@
       <div id="tab-categorias" style="display:none">
         <div class="section-header">
           <h2>Categorías</h2>
-          <button class="btn btn-primary btn-sm" id="btn-nueva-categoria">+ Nueva</button>
+          <button class="btn btn-primary btn-sm" id="btn-nueva-categoria">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Nueva
+          </button>
         </div>
         <div class="categorias-list" id="categorias-list"></div>
       </div>
@@ -1301,7 +1474,9 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-plan-title">Nuevo Plan</h3>
-        <button class="btn-icon" id="btn-close-modal-plan">✕</button>
+        <button class="btn-icon" id="btn-close-modal-plan" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
       <div class="form-group">
@@ -1336,7 +1511,9 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-categoria-title">Nueva Categoría</h3>
-        <button class="btn-icon" id="btn-close-modal-cat">✕</button>
+        <button class="btn-icon" id="btn-close-modal-cat" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
       <div class="form-group">
@@ -1363,7 +1540,9 @@
     <div class="modal">
       <div class="modal-header">
         <h3>Mi foto de perfil</h3>
-        <button class="btn-icon" id="btn-close-modal-foto">✕</button>
+        <button class="btn-icon" id="btn-close-modal-foto" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
       <!-- Sección: previsualización de foto actual -->
@@ -1434,11 +1613,18 @@
     const cursorHalo = document.getElementById('cursor-halo');
     let haloX = 0, haloY = 0, dotX = 0, dotY = 0;
 
+    const CLICKABLE_SEL = 'a, button, input, select, textarea, label, ' +
+      '.btn, .btn-icon, .nav-tab, .filter-chip, .plan-card, .categoria-row, ' +
+      '.user-chip, .color-option, .perfil-avatar-wrapper, #gsi-shell, [role="button"]';
+
     document.addEventListener('mousemove', e => {
       dotX = e.clientX;
       dotY = e.clientY;
       cursorDot.style.left = dotX + 'px';
       cursorDot.style.top  = dotY + 'px';
+
+      const overClickable = e.target instanceof Element && e.target.closest(CLICKABLE_SEL);
+      cursorHalo.classList.toggle('is-hovering', !!overClickable);
     });
 
     (function animateHalo() {
@@ -1556,13 +1742,28 @@
         callback:  handleGoogleCredential,
         auto_select: false,
       });
+      // El botón real se renderiza invisible (ver CSS): solo capta el clic.
       google.accounts.id.renderButton(
         document.getElementById('g_id_signin'),
-        { theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 240 }
+        { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 280 }
       );
     }
     // La librería llama a este hook al terminar de cargar; si ya cargó, el boot() lo intenta igual.
     window.onGoogleLibraryLoad = initGoogleSignIn;
+
+    // Estado de "cargando" del botón mientras se abre el popup de Google.
+    const gsiShell = document.getElementById('gsi-shell');
+
+    gsiShell.addEventListener('click', () => {
+      gsiShell.classList.add('is-loading');
+    });
+
+    // Si el usuario vuelve del popup sin loguearse, se limpia el estado.
+    window.addEventListener('focus', () => {
+      setTimeout(() => {
+        if (!state.session) gsiShell.classList.remove('is-loading');
+      }, 400);
+    });
 
     async function handleGoogleCredential(response) {
       const errorEl  = document.getElementById('login-error');
@@ -1585,11 +1786,13 @@
           await initApp();
         } else {
           statusEl.textContent = '';
+          gsiShell.classList.remove('is-loading');
           errorEl.textContent = data.error || 'No se pudo iniciar sesión.';
           errorEl.classList.add('visible');
         }
       } catch {
         statusEl.textContent = '';
+        gsiShell.classList.remove('is-loading');
         errorEl.textContent = 'Error de conexión. Intentá de nuevo.';
         errorEl.classList.add('visible');
       }
@@ -1690,6 +1893,7 @@
       loginScreen.style.display = 'flex';
       document.getElementById('login-error').classList.remove('visible');
       document.getElementById('login-status').textContent = '';
+      gsiShell.classList.remove('is-loading');
       initStars();
     });
 
@@ -1790,7 +1994,7 @@
           : initial;
 
         const actions = plan.estado === 'completado'
-          ? `<span class="completado-label">✓ Completado</span>`
+          ? `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`
           : `<button class="btn-completar" onclick="completarPlan('${plan.planId}')">Marcar completado</button>
              <button class="btn-icon" onclick="editarPlan('${plan.planId}')" title="Editar">
                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
