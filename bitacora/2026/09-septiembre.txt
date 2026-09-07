@@ -110,3 +110,48 @@ QUEDA PENDIENTE (pasada de UI aparte, no bloquea REQ-AUTH-001):
 - Estado de carga (skeleton) mientras initApp trae datos.
 - Layout del section-header (botón "+ Nuevo Plan" se estira de más).
 ========================================================
+
+========================================================
+2026-09-07 01:39 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestión: Paul (PM) — cierre de REQ-AUTH-001
+--------------------------------------------------------
+No hubo cambios de código en esta entrada. Registro del cierre del ítem.
+
+Pruebas en produccion (Duck), https://franago.github.io/NuestrosPlanes/:
+- F1 sin campos user/pass en el DOM ........................ OK
+- F2 endpoints privados con sesion valida (getPlanes/getCategorias 200) OK
+- F3 halo del cursor sobre clickeables (28->46px, cobre) ... OK
+- F4 logout: borra sesion local, vuelve a login con Google . OK (usuario)
+- F5 token de Google invalido -> 401 ...................... OK
+    (el 403 "cuenta no autorizada" con cuenta Google real no
+     listada quedo sin probar; verificado por codigo)
+- F6 login de Noelia desde su cuenta ...................... OK (usuario)
+- negativos: sesion falsa -> 401, sin sesion -> 401,
+  loginGoogle sin token -> 400 ............................ OK
+- No habia planes cargados: getPlanes [] es correcto, no regresion.
+
+Revision de seguridad (Julia): APTO PARA PRODUCCION. Sin criticos ni
+altos. Verificacion de token correcta (aud/iss/exp/email_verified),
+secretos en Script Properties, todos los endpoints privados con
+validateSession. 6 hallazgos al backlog (ver abajo).
+
+REQ-AUTH-001: CERRADO. Jay entrego, Duck aprobo, Paul verifico los
+criterios originales.
+
+Backlog abierto (prioridad sugerida):
+1. [Bob]  Token de sesion con expiracion + HMAC (hoy permanente e
+   irrevocable individualmente).
+2. [Jay]  Escapar cat.nombre / cat.colorHex / fotoUrl en renderPlanes
+   (XSS almacenado).
+3. [Jay]  Pasada de UI: glifos ♡/✦ -> SVG, confirm() -> modal propio,
+   nav-tab/filter-chip como <button>, skeletons, layout del header.
+4. [Bob]  Chequear google_sub una vez seteado; sanitizar celdas
+   = + - @; pre-validar JWT antes de tokeninfo.
+5. [Roy/Gary]  Confirmar que la planilla no es publica y que la carpeta
+   de Drive comparte solo los archivos de avatar.
+
+Housekeeping: el remote de git sigue apuntando a FranAgo/Peroncitos
+(funciona por redireccion). Actualizar a FranAgo/NuestrosPlanes.
+========================================================
