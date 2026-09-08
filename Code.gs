@@ -1,7 +1,8 @@
 // ============================================================
 // COUPLE PLANS — Google Apps Script Backend
 // Modelo de datos: Google Sheets
-// Hojas requeridas: Usuarios, Categorias, Planes
+// Hojas requeridas: Usuarios, Categorias, Planes, Archivos
+// Diseño del modelo: docs/modelo-datos.md
 // ============================================================
 
 // ------------------------------------------------------------
@@ -25,6 +26,24 @@ const SHEETS = {
   USUARIOS:    'Usuarios',
   CATEGORIAS:  'Categorias',
   PLANES:      'Planes',
+  ARCHIVOS:    'Archivos',
+};
+
+// Esquema de la hoja Archivos. Ver docs/modelo-datos.md sección 4.
+// Se define una sola vez y se reutiliza en el setup y en las inserciones,
+// así el orden de columnas nunca queda desincronizado.
+const ARCHIVOS_HEADERS = [
+  'archivo_id', 'owner_tipo', 'owner_id', 'proposito', 'titulo',
+  'fecha_contenido', 'drive_file_id', 'mime_type', 'tamano_bytes',
+  'subido_por', 'fecha_subida', 'modificado_por', 'fecha_modificacion',
+  'estado', 'eliminado_por', 'fecha_eliminacion',
+];
+
+// Extensión de archivo según el tipo MIME, para nombrar el archivo en Drive.
+const MIME_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png':  'png',
+  'image/webp': 'webp',
 };
 
 // ------------------------------------------------------------
@@ -50,7 +69,6 @@ function doPost(e) {
 
       // Usuarios
       case 'getUser':         return handleGetUser(body);
-      case 'updateAvatar':    return handleUpdateAvatar(body);
       case 'uploadPhoto':     return handleUploadPhoto(body);
 
       // Categorías
@@ -210,24 +228,6 @@ function handleGetUser(body) {
   return respond(404, { error: 'Usuario no encontrado.' });
 }
 
-function handleUpdateAvatar(body) {
-  const { userId, fotoUrl } = body;
-
-  if (!fotoUrl) return respond(400, { error: 'URL de foto requerida.' });
-
-  const sheet = getSheet(SHEETS.USUARIOS);
-  const data = sheet.getDataRange().getValues();
-
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === userId) {
-      sheet.getRange(i + 1, 5).setValue(fotoUrl); // columna 5 = foto_url
-      return respond(200, { success: true, fotoUrl });
-    }
-  }
-
-  return respond(404, { error: 'Usuario no encontrado.' });
-}
-
 function handleUploadPhoto(body) {
   const { userId, fileBase64, mimeType } = body;
 
@@ -235,37 +235,88 @@ function handleUploadPhoto(body) {
     return respond(400, { error: 'Archivo y tipo MIME requeridos.' });
   }
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(mimeType)) {
+  if (!MIME_EXT[mimeType]) {
     return respond(400, { error: 'Tipo de archivo no permitido. Solo JPG, PNG o WEBP.' });
   }
 
-  try {
-    const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-    const blob = Utilities.newBlob(
-      Utilities.base64Decode(fileBase64),
-      mimeType,
-      `avatar_${userId}_${Date.now()}`
-    );
+  if (!userExists(userId)) {
+    return respond(404, { error: 'Usuario no encontrado.' });
+  }
 
-    const file = folder.createFile(blob);
+  try {
+    const bytes     = Utilities.base64Decode(fileBase64);
+    const archivoId = newId('arc');
+    const nombre    = archivoId + '.' + MIME_EXT[mimeType];
+
+    const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    const file   = folder.createFile(Utilities.newBlob(bytes, mimeType, nombre));
+
+    // Metadata en la descripción del archivo: si algún día se pierde la hoja
+    // Archivos, se puede reconstruir recorriendo Drive.
+    file.setDescription(JSON.stringify({
+      archivo_id:   archivoId,
+      owner_tipo:   'usuario',
+      owner_id:     userId,
+      proposito:    'avatar',
+      subido_por:   userId,
+      fecha_subida: new Date().toISOString(),
+    }));
+
+    // El sharing público se mantiene SOLO hasta REQ-MEDIA-001, que agrega el
+    // endpoint getArchivo y hace que el frontend deje de usar la URL pública.
+    // En ese REQ esta línea se elimina y se revoca el permiso.
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-    const fileId = file.getId();
-    // La URL uc?export=view fue bloqueada por Google para hotlinking desde externos.
-    // La URL de thumbnail (sz=w400) es pública para archivos compartidos con "anyone with link"
-    // y funciona correctamente como src de <img>.
+    const fileId    = file.getId();
     const publicUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
 
-    // Actualizar URL en Sheets
-    const updateBody = { ...body, fotoUrl: publicUrl };
-    handleUpdateAvatar(updateBody);
+    // Modelo nuevo. Orden importante: primero se archiva el avatar anterior,
+    // después se inserta el nuevo como activo. Así, si algo falla en el medio,
+    // queda 0 avatares activos (el foto_url viejo sigue renderizando y se
+    // autocorrige en la próxima subida) en vez de 2, que violaría la regla
+    // "un solo avatar activo por usuario".
+    archivarAvataresActivos(userId, archivoId);
+    insertArchivo({
+      archivoId:   archivoId,
+      ownerTipo:   'usuario',
+      ownerId:     userId,
+      proposito:   'avatar',
+      driveFileId: fileId,
+      mimeType:    mimeType,
+      tamanoBytes: bytes.length,
+      subidoPor:   userId,
+      estado:      'activo',
+    });
 
-    return respond(200, { success: true, fotoUrl: publicUrl });
+    // Cache transitorio en Usuarios (avatar_archivo_id + foto_url).
+    setAvatarEnUsuario(userId, archivoId, publicUrl);
+
+    return respond(200, { success: true, fotoUrl: publicUrl, archivoId: archivoId });
   } catch (err) {
-    Logger.log('Error al subir foto: ' + err.toString());
+    // Sin binario en el log.
+    Logger.log('Error al subir foto (usuario ' + userId + '): ' + err.toString());
     return respond(500, { error: 'Error al subir la imagen.' });
   }
+}
+
+// Escribe el avatar del usuario en la hoja Usuarios: avatar_archivo_id (modelo
+// nuevo) y foto_url (cache transitorio). Uso interno — no es un endpoint.
+function setAvatarEnUsuario(userId, archivoId, fotoUrl) {
+  const sheet = getSheet(SHEETS.USUARIOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId     = h.indexOf('usuario_id');
+  const iFoto   = h.indexOf('foto_url');
+  const iAvatar = h.indexOf('avatar_archivo_id');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] === userId) {
+      if (iAvatar !== -1)              sheet.getRange(i + 1, iAvatar + 1).setValue(archivoId);
+      if (iFoto !== -1 && fotoUrl)     sheet.getRange(i + 1, iFoto + 1).setValue(fotoUrl);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ------------------------------------------------------------
@@ -546,6 +597,139 @@ function userExists(userId) {
 }
 
 // ------------------------------------------------------------
+// IDs
+// ------------------------------------------------------------
+
+// ID ordenable cronológicamente (base36 del timestamp) + sufijo aleatorio
+// anti-colisión de 6 caracteres (~2.000 millones de combinaciones, suficiente
+// para descartar colisiones aunque se generen muchos IDs en el mismo
+// milisegundo). Ej: newId('arc') -> 'arc_m8x2k1p9_7f3a2c'.
+// Los IDs viejos ('cat_' + Date.now(), 'plan_' + ...) no se migran.
+function newId(prefijo) {
+  const ts  = Date.now().toString(36);
+  const rnd = Math.random().toString(36).slice(2, 8).padEnd(6, '0');
+  return prefijo + '_' + ts + '_' + rnd;
+}
+
+// ------------------------------------------------------------
+// ARCHIVOS — acceso a la hoja Archivos
+// Esquema y reglas en docs/modelo-datos.md sección 4.
+// Las FKs no las hace cumplir Sheets: se validan acá en código.
+// ------------------------------------------------------------
+
+// Inserta una fila en Archivos. Campos en camelCase; el server completa
+// archivo_id (si no viene), fecha_subida y fecha_modificacion.
+// Devuelve el archivo_id.
+function insertArchivo(fields) {
+  const sheet     = getSheet(SHEETS.ARCHIVOS);
+  const ahora     = new Date().toISOString();
+  const archivoId = fields.archivoId || newId('arc');
+
+  const valores = ARCHIVOS_HEADERS.map(col => {
+    switch (col) {
+      case 'archivo_id':         return archivoId;
+      case 'owner_tipo':         return fields.ownerTipo;
+      case 'owner_id':           return fields.ownerId || '';
+      case 'proposito':          return fields.proposito;
+      case 'titulo':             return fields.titulo || '';
+      case 'fecha_contenido':    return fields.fechaContenido || ahora.split('T')[0];
+      case 'drive_file_id':      return fields.driveFileId;
+      case 'mime_type':          return fields.mimeType || '';
+      case 'tamano_bytes':       return fields.tamanoBytes != null ? fields.tamanoBytes : '';
+      case 'subido_por':         return fields.subidoPor || '';
+      case 'fecha_subida':       return ahora;
+      case 'modificado_por':     return '';
+      case 'fecha_modificacion': return ahora;
+      case 'estado':             return fields.estado || 'activo';
+      case 'eliminado_por':      return '';
+      case 'fecha_eliminacion':  return '';
+      default:                   return '';
+    }
+  });
+
+  sheet.appendRow(valores);
+  return archivoId;
+}
+
+// Devuelve la fila de Archivos como objeto {header: valor, _rowIndex}, o null.
+function getArchivoRow(archivoId) {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === archivoId) {
+      const obj = { _rowIndex: i + 1 };
+      h.forEach((col, j) => { obj[col] = data[i][j]; });
+      return obj;
+    }
+  }
+  return null;
+}
+
+function archivoExists(archivoId) {
+  return getArchivoRow(archivoId) !== null;
+}
+
+// Devuelve el archivo_id del avatar 'activo' de un usuario, o null.
+function buscarAvatarActivo(usuarioId) {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId      = h.indexOf('archivo_id');
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] === 'usuario' && r[iOwnerId] === usuarioId &&
+        r[iProp] === 'avatar'    && r[iEstado] === 'activo') {
+      return r[iId];
+    }
+  }
+  return null;
+}
+
+// Marca como 'archivado' todos los avatares 'activo' de un usuario, salvo el
+// que se pasa en exceptoArchivoId. Mantiene la regla "un solo avatar activo
+// por usuario".
+function archivarAvataresActivos(usuarioId, exceptoArchivoId) {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId      = h.indexOf('archivo_id');
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+  const iMod     = h.indexOf('fecha_modificacion');
+  const ahora    = new Date().toISOString();
+
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] === 'usuario' && r[iOwnerId] === usuarioId &&
+        r[iProp] === 'avatar'    && r[iEstado] === 'activo'   &&
+        r[iId] !== exceptoArchivoId) {
+      sheet.getRange(i + 1, iEstado + 1).setValue('archivado');
+      sheet.getRange(i + 1, iMod + 1).setValue(ahora);
+    }
+  }
+}
+
+// Extrae el ID de archivo de Drive de una URL. Soporta los formatos que la app
+// pudo haber guardado en foto_url.
+function extraerDriveFileId(url) {
+  const s = (url || '').toString();
+  const porQuery = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);       // thumbnail?id=, uc?id=
+  if (porQuery) return porQuery[1];
+  const porPath = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);    // /file/d/<ID>/view
+  if (porPath) return porPath[1];
+  return null;
+}
+
+// ------------------------------------------------------------
 // SETUP INICIAL — Correr una sola vez para crear las hojas
 // ------------------------------------------------------------
 
@@ -563,12 +747,91 @@ function setupSheets() {
     return sheet;
   }
 
-  ensureSheet(SHEETS.USUARIOS,   ['usuario_id', 'nombre_display', 'email', 'google_sub', 'foto_url']);
+  // Agrega una columna al final si el header no existe. Nunca inserta ni
+  // reordena columnas: los datos existentes no se tocan.
+  function ensureColumn(sheet, headerName) {
+    const lastCol = Math.max(sheet.getLastColumn(), 1);
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (headers.indexOf(headerName) !== -1) return;
+    sheet.getRange(1, lastCol + 1).setValue(headerName);
+  }
+
+  const usuarios = ensureSheet(SHEETS.USUARIOS,
+    ['usuario_id', 'nombre_display', 'email', 'google_sub', 'foto_url']);
+  ensureColumn(usuarios, 'avatar_archivo_id');
+
   ensureSheet(SHEETS.CATEGORIAS, ['categoria_id', 'nombre', 'color_hex']);
   ensureSheet(SHEETS.PLANES,     ['plan_id', 'titulo', 'categoria_id', 'creado_por',
                                    'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
+  ensureSheet(SHEETS.ARCHIVOS,   ARCHIVOS_HEADERS);
 
-  Logger.log('Hojas creadas correctamente.');
+  Logger.log('Hojas creadas/actualizadas correctamente.');
+}
+
+// ------------------------------------------------------------
+// MIGRACIÓN REQ-DATA-001 — Correr una sola vez, después de setupSheets().
+// Por cada usuario con foto_url, crea su fila en Archivos y setea
+// avatar_archivo_id. Idempotente: si el usuario ya tiene avatar_archivo_id,
+// lo saltea. No toca Drive ni el sharing de los archivos.
+// ------------------------------------------------------------
+
+function migrarAvataresAArchivos() {
+  const uSheet = getSheet(SHEETS.USUARIOS);
+  const uData  = uSheet.getDataRange().getValues();
+  const h      = uData[0];
+  const iUsuarioId = h.indexOf('usuario_id');
+  const iFotoUrl   = h.indexOf('foto_url');
+  const iAvatarId  = h.indexOf('avatar_archivo_id');
+
+  if (iAvatarId === -1) {
+    throw new Error('Falta la columna avatar_archivo_id en Usuarios. Corré setupSheets() primero.');
+  }
+
+  let creados = 0, yaMigrados = 0, reparados = 0, saltados = 0, sinFoto = 0;
+
+  for (let i = 1; i < uData.length; i++) {
+    const row       = uData[i];
+    const usuarioId = row[iUsuarioId];
+    if (!usuarioId) continue;
+
+    if (row[iAvatarId]) { yaMigrados++; continue; }              // idempotencia
+
+    const fotoUrl = (row[iFotoUrl] || '').toString().trim();
+    if (!fotoUrl) { sinFoto++; continue; }
+
+    // Recuperación: si una corrida previa creó la fila en Archivos pero murió
+    // antes de escribir avatar_archivo_id, reusamos esa fila en vez de
+    // duplicarla (F2).
+    const existente = buscarAvatarActivo(usuarioId);
+    if (existente) {
+      uSheet.getRange(i + 1, iAvatarId + 1).setValue(existente);
+      reparados++;
+      continue;
+    }
+
+    const fileId = extraerDriveFileId(fotoUrl);
+    if (!fileId) {
+      Logger.log('migrarAvatares: no se pudo extraer file ID de la foto del usuario ' +
+                 usuarioId + '. Se salta.');
+      saltados++;
+      continue;
+    }
+
+    const archivoId = insertArchivo({
+      ownerTipo:   'usuario',
+      ownerId:     usuarioId,
+      proposito:   'avatar',
+      driveFileId: fileId,
+      subidoPor:   usuarioId,
+      estado:      'activo',
+    });
+    uSheet.getRange(i + 1, iAvatarId + 1).setValue(archivoId);
+    creados++;
+  }
+
+  const resumen = { creados, yaMigrados, reparados, saltados, sinFoto };
+  Logger.log('migrarAvatares: ' + JSON.stringify(resumen));
+  return resumen;
 }
 
 // ------------------------------------------------------------

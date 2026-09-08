@@ -155,3 +155,105 @@ Backlog abierto (prioridad sugerida):
 Housekeeping: el remote de git sigue apuntando a FranAgo/Peroncitos
 (funciona por redireccion). Actualizar a FranAgo/NuestrosPlanes.
 ========================================================
+
+========================================================
+2026-09-08 00:10 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul (PM) — REQ-DATA-001 (Fundacion del modelo de archivos)
+--------------------------------------------------------
+Se disena el modelo de datos para que las fotos (hoy avatares; a futuro
+fotos por plan y por fecha) sean una entidad de primera clase, y se
+implementa la fundacion + la migracion de los avatares existentes.
+
+Documentacion nueva:
+- docs/modelo-datos.md
+  - Diseno completo del modelo. Convenciones de nombres (hojas, columnas,
+    PKs con prefijo, enums, booleanos, auditoria estandar).
+  - Generacion de IDs: helper newId(prefijo) = <pref>_<base36 tiempo>_<6
+    aleatorios>. Reemplaza 'cat_'+Date.now(). Los IDs viejos no se migran.
+  - Convencion de fechas: timestamps de sistema/auditoria en texto ISO 8601
+    UTC; fechas del dominio en AAAA-MM-DD; nunca hora local. Deuda conocida:
+    la hoja Planes usa fecha nativa de Sheets, se estandariza en REQ-DATA-002.
+  - Hoja Archivos (16 columnas) con esquema y constraints (FKs validadas en
+    codigo). owner_tipo = usuario|plan|libre; un solo avatar activo por
+    usuario; borrado logico (nunca deleteRow).
+  - Estructura de Drive espejando el modelo (media/usuarios|planes|libres),
+    nombre de archivo = <archivo_id>.<ext>, particion por ano/mes en libres,
+    metadata en la descripcion del archivo para recuperacion ante desastre.
+  - Config vs Script Properties; rol admin; cambio de la carpeta raiz desde
+    la web (endpoint setDriveRootFolder) — disenado, no implementado.
+  - Hoja Auditoria (Ley 25.326) — disenada, no implementada.
+  - D1 (servido de imagenes) CERRADA por Julia: opcion B (endpoint getArchivo
+    con sesion; los archivos nunca se comparten como ANYONE/ANYONE_WITH_LINK).
+    La carpeta raiz se comparte con la cuenta de Noelia como Viewer, para que
+    quede todo accesible en Drive si algun dia se deja de usar el sistema.
+- docs/requerimientos/REQ-DATA-001.md
+  - El requerimiento, criterios de aceptacion, riesgos, plan de pruebas y
+    el cierre.
+
+Codigo (Code.gs) — REQ-DATA-001:
+- SHEETS suma ARCHIVOS. Constantes ARCHIVOS_HEADERS (fuente unica del orden
+  de columnas) y MIME_EXT.
+- Helper newId(prefijo).
+- Helpers de Archivos: insertArchivo, getArchivoRow, archivoExists,
+  buscarAvatarActivo, archivarAvataresActivos, extraerDriveFileId.
+- setupSheets(): nuevo ensureColumn (agrega columna al final, nunca
+  reordena) -> agrega avatar_archivo_id a Usuarios; crea la hoja Archivos.
+  Idempotente.
+- migrarAvataresAArchivos(): one-shot idempotente. Por cada usuario con
+  foto_url extrae el file ID de Drive, crea la fila en Archivos
+  (owner_tipo=usuario, proposito=avatar, estado=activo) y setea
+  avatar_archivo_id. Formato de URL desconocido -> salta y loguea.
+- handleUploadPhoto(): reescrito. Sube a Drive con nombre <archivo_id>.<ext>,
+  escribe metadata en la descripcion, ARCHIVA el avatar anterior y despues
+  inserta el nuevo como activo (orden a prueba de fallo parcial), actualiza
+  avatar_archivo_id + foto_url (cache transitorio). Logs sin binario.
+  La linea setSharing(ANYONE_WITH_LINK) se MANTIENE hasta REQ-MEDIA-001.
+- handleUpdateAvatar eliminado (guardaba una URL arbitraria; nadie del
+  frontend lo llamaba). Reemplazado por setAvatarEnUsuario (interno).
+  Sale del router 'updateAvatar'.
+- Cabecera: hojas requeridas ahora incluye Archivos; referencia a
+  docs/modelo-datos.md.
+
+Revision de QA (Duck) — 2 bugs encontrados en revision y corregidos ANTES
+de cualquier deploy:
+- F1: el orden en handleUploadPhoto podia dejar 2 avatares activos ante un
+  fallo parcial. Corregido: archivar antes de insertar.
+- F2: la migracion no era idempotente si una corrida previa moria a mitad
+  (entre insertar en Archivos y escribir avatar_archivo_id). Corregido:
+  buscarAvatarActivo reusa la fila existente (contador 'reparados').
+
+Pruebas:
+- Harness node con Sheets/Drive mockeados: 31/31 criterios + 6/6 F1/F2.
+- Planilla de test (copia de produccion): setupSheets + migracion x2
+  (creados:2, luego creados:0/yaMigrados:2), IDs coinciden entre Archivos
+  y Usuarios. F3 (formato de foto_url) descartado con datos reales.
+- Smoke test en produccion tras republicar: login OK, planes/categorias sin
+  regresion, avatar existente OK, subida de avatar nueva crea fila activo +
+  archiva la anterior. Los 10 criterios verificados.
+
+Acciones sobre produccion en esta sesion (hechas por el usuario):
+- Code.gs nuevo pegado en el Apps Script de produccion.
+- setupSheets() y migrarAvataresAArchivos() corridos sobre la planilla real.
+- Web App republicado (version nueva, misma URL).
+
+REQ-DATA-001: CERRADO.
+
+Backlog (prioridad sugerida):
+1. [Bob] REQ-SEC-001 — token de sesion con expiracion + revocable.
+2. [Jay] XSS almacenado en renderPlanes (escapar cat.nombre, colorHex, fotoUrl).
+3. [Bob] REQ-DATA-002 — borrado logico en Categorias/Planes + columnas de
+   auditoria + hoja Auditoria + estandarizar timestamps a ISO UTC.
+4. [Roy] Compartir la carpeta raiz de Drive con Noelia como Viewer (D1).
+5. [Bob] REQ-ADMIN-001 — rol admin + hoja Config + setDriveRootFolder + panel.
+6. [Bob] REQ-MEDIA-001 — getArchivo, revocar ANYONE_WITH_LINK, fotos de planes,
+   backfill de mime_type/tamano_bytes en las 2 filas migradas.
+7. [Jay] Pasada de UI (glifos hearts/star -> SVG, confirm() -> modal propio,
+   nav-tab/filter-chip como <button>, skeletons, layout del header).
+8. [Roy] Corregir la nota del README: para mantener la misma URL se hace
+   "editar implementacion -> version nueva", no "nueva implementacion".
+
+Housekeeping (sigue pendiente de sesiones anteriores):
+- Remote de git apuntando a FranAgo/Peroncitos. Actualizar a FranAgo/NuestrosPlanes.
+========================================================
