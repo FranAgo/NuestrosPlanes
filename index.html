@@ -1161,6 +1161,46 @@
       animation: spin 0.7s linear infinite;
     }
 
+    /* Overlay de carga de la app (mientras initApp trae los datos) */
+    #app-loading {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.9rem;
+      background: var(--bg);
+    }
+
+    #app-loading .spinner {
+      width: 22px;
+      height: 22px;
+      border-width: 2px;
+    }
+
+    #app-loading p {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+      letter-spacing: 0.02em;
+    }
+
+    #app-loading .retry-btn {
+      margin-top: 0.3rem;
+      padding: 0.5rem 1.1rem;
+      background: transparent;
+      border: 0.5px solid var(--copper-dim);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      font-family: 'Jost', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    #app-loading .retry-btn:hover { border-color: var(--copper); }
+
     /* ====================================================
        ANIMACIONES
     ==================================================== */
@@ -1371,6 +1411,12 @@
        APP PRINCIPAL
   ================================================ -->
   <div id="app-screen">
+    <!-- Overlay mientras initApp() trae los datos (arranque en frío del Web App). -->
+    <div id="app-loading" hidden>
+      <span class="spinner"></span>
+      <p id="app-loading-text">Cargando…</p>
+    </div>
+
     <header class="app-header">
       <div class="logo"><span class="logo-heart">♡</span> Nuestros Planes</div>
       <div class="header-actions">
@@ -1840,14 +1886,41 @@
     // ====================================================
     // INIT APP
     // ====================================================
+    const appLoading = document.getElementById('app-loading');
+
+    function showAppLoading(texto) {
+      appLoading.innerHTML =
+        '<span class="spinner"></span><p>' + escapeHtml(texto || 'Cargando…') + '</p>';
+      appLoading.hidden = false;
+    }
+
+    function showAppLoadError() {
+      appLoading.innerHTML =
+        '<p>No se pudieron cargar los datos.</p>' +
+        '<button type="button" class="retry-btn" id="app-retry">Reintentar</button>';
+      appLoading.hidden = false;
+      document.getElementById('app-retry').addEventListener('click', () => {
+        if (state.session) initApp();
+      });
+    }
+
     async function initApp() {
       loginScreen.style.display = 'none';
       appScreen.classList.add('visible');
+      showAppLoading('Cargando…');
       updateHeaderUser();
-      await Promise.all([loadCategorias(), loadPlanes()]);
-      await loadOtherUsers();
-      renderPlanes();
-      renderCategorias();
+
+      try {
+        await Promise.all([loadCategorias(), loadPlanes()]);
+        // Si un 401 en el medio disparó forceLogout, ya estamos en el login.
+        if (!state.session) return;
+        await loadOtherUsers();
+        renderPlanes();
+        renderCategorias();
+        appLoading.hidden = true;
+      } catch (e) {
+        if (state.session) showAppLoadError();
+      }
     }
 
     // Registra al usuario logueado y pide datos del resto de usuarios
@@ -1918,6 +1991,7 @@
       }
 
       if (!yaEnLogin) {
+        appLoading.hidden = true;
         appScreen.classList.remove('visible');
         appScreen.style.display = 'none';
         loginScreen.style.display = 'flex';

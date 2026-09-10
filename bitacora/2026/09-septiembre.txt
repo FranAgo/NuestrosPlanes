@@ -368,3 +368,45 @@ Housekeeping:
 - Remote de git ya apunta a FranAgo/NuestrosPlanes (el item viejo estaba
   desactualizado, ya estaba hecho).
 ========================================================
+
+========================================================
+2026-09-09 22:58 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Bob / Jay — hotfix post-deploy de REQ-SEC-001
+--------------------------------------------------------
+Despues de republicar el Web App, el login entraba pero quedaba en pantalla
+negra hasta recargar.
+
+Causa: crearSesion hacia appendRow en la hoja Sesiones y el request de login
+terminaba; el frontend disparaba getCategorias/getPlanes de inmediato (otras
+invocaciones del Web App) y esos requests todavia no veian la fila recien
+escrita (Apps Script bufferea escrituras de Sheets) -> 401 -> initApp ya habia
+cambiado de pantalla.
+
+- Code.gs
+  - crearSesion: SpreadsheetApp.flush() despues del appendRow (dentro del lock).
+  - revocarSesion: flush() despues de marcar revocada, para que el logout haga
+    efecto en el request siguiente.
+- index.html
+  - Overlay #app-loading (spinner + "Cargando...") mientras initApp() trae los
+    datos. Antes: pantalla negra durante el arranque en frio del Web App.
+  - initApp() ahora es resiliente: try/catch, corta si un 401 disparo
+    forceLogout en el medio, y si la carga falla por otro motivo muestra un
+    boton "Reintentar" en vez de quedar en negro.
+  - forceLogout oculta el overlay para no taparlo sobre el login.
+
+Sobre la "sesion vieja en otro navegador": NO era acceso real. Ese navegador
+tenia el index.html viejo cacheado; el token viejo (64 hex sin punto) lo
+rechaza validarSesion -> 401 en todo. Lo que se veia era el cascaron del front
+viejo (sin manejo de 401) renderizando lo que habia en localStorage. Cero
+datos, cero acciones. El hard-refresh lo resuelve y el front nuevo ya saca al
+login solo ante un 401. El deploy de hecho invalido todas las sesiones
+permanentes viejas de una.
+
+Pruebas: harness node 53/53, funcion de test en Apps Script 28/28, smoke del
+overlay en el navegador (carga OK / error con Reintentar / 401 en el medio).
+
+PENDIENTE: repegar Code.gs en produccion, republicar el Web App, y verificar
+que el login ya no queda en negro.
+========================================================

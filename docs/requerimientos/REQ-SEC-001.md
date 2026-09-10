@@ -235,6 +235,26 @@ otra sesión, identidad desde la sesión (no del body), `getUser` cruzado, HMAC
 real + comparación constante, logs sin secreto, `purgarSesiones`, CRUD sin
 regresión.
 
+## Hotfix post-deploy (2026-09-09) — pantalla negra al loguearse
+
+Tras el deploy a producción, el login entraba pero quedaba en pantalla negra
+hasta recargar. Causa: `crearSesion` hacía `appendRow` en la hoja `Sesiones` y
+el request de login terminaba; el frontend disparaba `getCategorias`/`getPlanes`
+de inmediato (otras invocaciones del Web App) y esos requests **no veían todavía
+la fila** (Apps Script bufferea escrituras de Sheets) → 401 → `initApp` ya había
+cambiado de pantalla.
+
+- `Code.gs`: `SpreadsheetApp.flush()` al final de `crearSesion` (dentro del lock)
+  y de `revocarSesion` (para que el logout haga efecto en el request siguiente).
+- `index.html`: overlay `#app-loading` mientras `initApp()` trae los datos
+  (antes: pantalla negra durante el arranque en frío del Web App). `initApp`
+  ahora es resiliente: si un 401 dispara `forceLogout` en el medio corta limpio;
+  si la carga falla por otro motivo muestra "Reintentar" en vez de quedar negra.
+  `forceLogout` oculta el overlay para no tapar el login.
+
+Verificado en el navegador: carga OK oculta el overlay, error muestra Reintentar,
+401 en el medio → login sin overlay encima.
+
 ## Cierre
 
-_pendiente — QA en deployment de test + smoke en producción_
+_pendiente — QA en producción tras el hotfix + smoke_

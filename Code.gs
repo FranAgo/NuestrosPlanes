@@ -259,6 +259,10 @@ function crearSesion(userId) {
   lock.waitLock(10000);
   try {
     sheet.appendRow(fila);
+    // Forzar el commit: el request de login termina acá y el frontend dispara
+    // getCategorias/getPlanes de inmediato (otra invocación del Web App).
+    // Sin flush(), esos requests pueden no ver todavía la fila y dar 401.
+    SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
   }
@@ -340,6 +344,7 @@ function revocarSesion(sessionId) {
       sheet.getRange(i + 1, iEst + 1).setValue('revocada');
       sheet.getRange(i + 1, iPor + 1).setValue(data[i][iUsr] || '');
       sheet.getRange(i + 1, iFec + 1).setValue(new Date().toISOString());
+      SpreadsheetApp.flush();  // el logout tiene que hacer efecto en el request siguiente
       return true;
     }
   }
