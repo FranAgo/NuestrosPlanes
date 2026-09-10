@@ -1,1 +1,5 @@
 config-local-NO-SUBIR.md
+.claude/settings.local.json
+.clasp.json
+.clasp-test.json
+.clasp-prod.json

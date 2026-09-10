@@ -407,6 +407,60 @@ permanentes viejas de una.
 Pruebas: harness node 53/53, funcion de test en Apps Script 28/28, smoke del
 overlay en el navegador (carga OK / error con Reintentar / 401 en el medio).
 
-PENDIENTE: repegar Code.gs en produccion, republicar el Web App, y verificar
-que el login ya no queda en negro.
+PENDIENTE: verificar que el login ya no queda en negro (deploy hecho, ver
+entrada siguiente).
+========================================================
+
+========================================================
+2026-09-09 23:40 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Roy — deploy con clasp + deploy del hotfix a produccion
+--------------------------------------------------------
+Se deja de pegar Code.gs a mano: ahora el deploy de backend a produccion se
+hace con clasp (ya estaba instalado y logueado en la maquina).
+
+Infra / repo:
+- appsscript.json — nuevo. Manifiesto del proyecto de Apps Script (timezone,
+  runtimeV8, webapp ANYONE_ANONYMOUS / USER_DEPLOYING). Se commitea.
+- .clasp.json — apunta al proyecto de produccion. scriptExtensions solo .gs y
+  skipSubdirectories -> clasp push solo sube Code.gs + appsscript.json, nunca
+  index.html (eso lo sirve GitHub Pages).
+- .gitignore — agrega .claude/settings.local.json y .clasp*.json.
+- .claude/settings.local.json (no se sube) — permisos Bash(git push:*) y
+  Bash(clasp:*) para que Claude pueda pushear y deployar.
+- El archivo del editor de prod se renombro de "Codigo" a "Code" (hecho por el
+  usuario) para que matchee con Code.gs del repo. Sin efecto funcional.
+
+Script IDs:
+- prod: 1Hd1LPRiWDhqAA0nsBqUErMfXrhi7QMSpx11mx7d9o3xssUH0XZ1Oc18d
+- test: 1yV7KZehlyOAHthMOqc2n3cNY0UsUpk5bIrQHn0-b9uQiXJVxpcxjQJjt
+- deployment del Web App (el que usa el frontend):
+  AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d
+
+Flujo de deploy de backend a prod:
+  clasp push -f
+  clasp version "<desc>"
+  clasp redeploy <deploymentId> -V <n> -d "<desc>"
+El redeploy actualiza la implementacion existente a una version nueva -> mismo
+URL (equivale a "editar implementacion -> version nueva"). Rollback: mismo
+redeploy con -V <version anterior>.
+
+Deploy del hotfix (flush + overlay):
+- clasp push -f -> Code.gs subido, identico al repo (verificado con clone+diff).
+- Version 12 creada.
+- Web App redeployado a @12, mismo URL.
+- Endpoint verificado en vivo: loginGoogle sin token -> 400, getPlanes sin
+  sesion -> 401 "Sesion requerida.", token roto -> 401 "Sesion invalida o
+  expirada.". Backend nuevo OK.
+- index.html (overlay) ya estaba en Pages desde el commit a718feb.
+
+PENDIENTE:
+- Login real de los dos -> confirmar que entra sin pantalla negra (con el
+  spinner "Cargando...").
+- QA e2e que quedo de la entrada anterior: selector de cuenta, cuenta ajena,
+  logout deja la fila revocada, XSS con dato real en Categorias. Con eso Duck
+  firma REQ-SEC-001 / SEC-002 / AUTH-002.
+- Corregir la nota del README sobre republicado (backlog Roy #6): ahora ademas
+  documentar el flujo con clasp.
 ========================================================
