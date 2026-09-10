@@ -16,8 +16,9 @@
 // lo restaura en el finally, pase lo que pase.
 //
 // Fuera de alcance de probarDATA002 (se cubren aparte):
-//   - Auditoría de 'login' / 'login_denegado': requieren un access token real de
-//     Google. Cubierto por el harness de Node + un smoke manual de login en test.
+//   - 'login_denegado': requiere un access token real de Google. Cubierto por el
+//     harness de Node + un smoke manual de login en test. (El login OK ya no
+//     escribe en Auditoria: queda registrado en la hoja Sesiones.)
 //   - Subida de avatar: requiere Drive + binario base64. Sin regresión esperada
 //     (REQ-DATA-002 no toca handleUploadPhoto).
 // ============================================================
@@ -271,12 +272,19 @@ function grupoAuditoria(R) {
   R.check('C12 · todas las fechas de Auditoria en ISO 8601 UTC',
           filas.every(f => ISO_UTC.test(String(f[iFec]))));
 
-  // C12 — logout escribe una fila
+  // C12 — un login (crearSesion) NO escribe en Auditoria; queda en Sesiones.
+  const antesLogin = filasDe('Auditoria').length;
   const token = crearSesion('usr_fran');
   const sessionId = token.split('.')[0];
+  R.eq('C12 · crear sesión (login) NO agrega fila a Auditoria',
+       filasDe('Auditoria').length, antesLogin);
+
+  // C12 — logout sí escribe una fila
   handleLogout({ sessionToken: token });
   const logout = filasDe('Auditoria').filter(f => f[iAcc] === 'logout' && f[iEnt] === sessionId)[0];
   R.check('C12 · logout registra fila en Auditoria (con session_id)', !!logout);
+  R.check('C12 · Auditoria no tiene ninguna fila accion=login',
+          !filasDe('Auditoria').some(f => f[iAcc] === 'login'));
 
   // C15 — ninguna celda de Auditoria contiene secretos
   const hexLargo = /\b[0-9a-f]{64}\b/i;
@@ -286,7 +294,7 @@ function grupoAuditoria(R) {
   }));
   R.check('C15 · Auditoria no contiene token_hash / secretos / hash de 64 hex', !sospechoso);
 
-  R.nota('C12 · auditoría de login/login_denegado NO se prueba acá (requiere token real de Google) — ver harness de Node + smoke manual');
+  R.nota('C12 · login_denegado NO se prueba acá (requiere token real de Google) — ver harness de Node + smoke manual. El login OK ya no escribe en Auditoria (queda en Sesiones).');
 }
 
 // Criterio 14 — si la hoja Auditoria no está, las operaciones siguen andando;

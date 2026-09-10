@@ -101,13 +101,15 @@ Helper **`registrarAuditoria(usuarioId, accion, entidad, entidadId, detalle)`**:
 - Nunca registra binario, tokens, secretos ni contraseñas.
 - Falla silenciosa: si el append a `Auditoria` tira, se loguea con `Logger.log`
   pero **no** se aborta la operación principal (auditar no debe romper la app).
+- Hace `SpreadsheetApp.flush()` después del append: la fila nunca queda como
+  escritura pendiente que se flushee después de la respuesta HTTP y colisione
+  con la request siguiente del frontend (bug de pantalla negra post-login).
 
 Puntos de registro en este REQ (allowlist — nada más):
 
 | accion | entidad | entidad_id | detalle | dónde |
 |---|---|---|---|---|
-| `login` | `Usuarios` | `usuario_id` | `{email}` | `handleLoginGoogle` al crear sesión OK |
-| `login_denegado` | `Usuarios` | `''` | `{email}` | `handleLoginGoogle` cuenta no whitelisteada |
+| `login_denegado` | `Usuarios` | `''` | `{email enmascarado}` | `handleLoginGoogle` cuenta no whitelisteada (camino de error, no compite con nada) |
 | `logout` | `Sesiones` | `session_id` | `{}` | `handleLogout` cuando revoca una sesión activa |
 | `categoria.eliminar` | `Categorias` | `categoria_id` | `{nombre}` | `handleDeleteCategoria` |
 | `plan.eliminar` | `Planes` | `plan_id` | `{titulo}` | `handleDeletePlan` |
@@ -152,7 +154,7 @@ Puntos de registro en este REQ (allowlist — nada más):
 | 9 | Crear una categoría nueva: `creado_por`, `fecha_creacion` (ISO UTC), `estado='activa'` quedan poblados. Editarla: `modificado_por` + `fecha_modificacion` (ISO UTC) se actualizan. |
 | 10 | Crear un plan nuevo: `fecha_creacion` se guarda como **texto ISO 8601 UTC** (no fecha nativa). `getPlanes` lo devuelve bien formateado. Las filas históricas de `Planes` se siguen leyendo sin romper. |
 | 11 | Se puede volver a crear una categoría con el mismo nombre que una eliminada (el chequeo de unicidad ignora las eliminadas). |
-| 12 | Login OK escribe 1 fila en `Auditoria` (`accion='login'`, `entidad='Usuarios'`, `entidad_id`=usuario, `detalle` con el email, `fecha` ISO UTC). Login de cuenta no autorizada escribe `accion='login_denegado'`. Logout que revoca una sesión activa escribe `accion='logout'`. |
+| 12 | Login OK **no** escribe en `Auditoria` — queda registrado por la fila nueva en `Sesiones` (`usuario_id` + `fecha_creacion`). Login de cuenta no autorizada escribe `accion='login_denegado'` con el email **enmascarado**. Logout que revoca una sesión activa escribe `accion='logout'`. Todas las `fecha` en ISO UTC. |
 | 13 | `deleteCategoria` y `deletePlan` escriben su fila en `Auditoria` (`categoria.eliminar` / `plan.eliminar`) con el `entidad_id` correcto. |
 | 14 | Si la hoja `Auditoria` se renombra/borra a mano, las operaciones (login, delete) **siguen funcionando** (fallo silencioso del log, queda en `Logger.log`). |
 | 15 | Ningún `Logger.log` ni fila de `Auditoria` contiene tokens de sesión, secretos, `token_hash` ni contenido de imagen. |
@@ -160,10 +162,11 @@ Puntos de registro en este REQ (allowlist — nada más):
 
 ## Datos sensibles (marcado para Julia y Gary)
 
-- `Auditoria` guarda `usuario_id` + `email` (en `detalle` de `login`) → dato
-  personal, Ley 25.326. **Julia:** confirmar que `detalle` nunca incluya el
-  `token_hash`, el `sessionToken` ni el `google_sub`. Solo email y campos de
-  dominio (nombre, título).
+- `Auditoria` guarda `usuario_id` + email **enmascarado** (en `detalle` de
+  `login_denegado`) → dato personal de un tercero, Ley 25.326. **Julia:**
+  confirmar que `detalle` nunca incluya el `token_hash`, el `sessionToken` ni el
+  `google_sub`. Solo email (enmascarado en `login_denegado`) y campos de dominio
+  (nombre, título).
 - **Gary:** revisar el esquema de `Auditoria` y de las columnas de auditoría
   nuevas antes de que Bob las cree. Confirmar tipos y que `estado` como enum de
   texto plano en `Categorias` es consistente con el resto del modelo.
@@ -189,13 +192,18 @@ Puntos de registro en este REQ (allowlist — nada más):
 
 ## Plan de pruebas (Duck)
 
-**Automatizado** — `Tests.gs :: probarDATA002()`, ejecutable con
-`clasp run probarDATA002 -P .clasp-test.json`. Crea una planilla scratch propia,
-corre contra Sheets real y verifica los criterios 1-16 salvo:
-- **login / login_denegado** (criterio 12, parte): requieren un access token real
-  de Google → cubierto por el harness de Node + un smoke manual de login en test.
+**Automatizado** — `Tests.gs :: probarDATA002()`, ejecutable por HTTP contra el
+Web App de test (`doGet` gateado por `TEST_RUNNER_KEY`). Crea una planilla
+scratch propia, corre contra Sheets real y verifica los criterios 1-16 salvo:
+- **`login_denegado`** (criterio 12, parte): requiere un access token real de
+  Google → cubierto por el harness de Node + un smoke manual de login en test.
 - **subida de avatar** (criterio 16, parte): Drive + base64 → REQ-DATA-002 no toca
   `handleUploadPhoto`, sin regresión esperada.
+
+Login OK ya no escribe en `Auditoria` (queda en `Sesiones`), así que el criterio
+12 para el login exitoso se verifica en el smoke: entrar y ver una fila nueva en
+`Sesiones`, y **que la app cargue** (getCategorias/getPlanes no se cuelgan
+después del login).
 
 El test se autovalidó con 5 mutantes (borrado físico en vez de lógico, fecha
 nativa en vez de ISO, sin filtro de eliminados, fuga de `token_hash` en el log,
@@ -211,7 +219,8 @@ sin fallo silencioso): los 5 dan `RECHAZADO`.
 6. `getCategorias` / `getPlanes` no devuelven lo eliminado (criterios 5, 8).
 7. `updateCategoria` / `updatePlan` / `completePlan` sobre lo eliminado → 404 (criterios 5, 8).
 8. Crear categoría con el nombre de la eliminada → 200 (criterio 11).
-9. Revisar `Auditoria`: filas de login, login_denegado, logout, categoria.eliminar, plan.eliminar (criterios 12, 13).
+9. Revisar `Auditoria`: filas de login_denegado, logout, categoria.eliminar, plan.eliminar (criterios 12, 13). Login OK → fila nueva en `Sesiones`, no en `Auditoria`.
 10. Renombrar `Auditoria` a mano, repetir un login y un delete → no rompe (criterio 14).
+11. **Smoke crítico:** login real → la app carga (getCategorias/getPlanes responden, no se cuelgan 30 s → 404). Este es el bug que rompió el primer deploy de v13.
 11. Revisión de código: logs y `detalle` sin secretos (criterio 15).
 12. Recorrer la app completa (criterio 16).

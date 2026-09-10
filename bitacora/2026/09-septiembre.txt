@@ -575,3 +575,68 @@ Backlog (actualizado):
 6. [Bob/Julia] Considerar seam de test para verifyGoogleAccessToken y cubrir la
    auditoria de login/login_denegado en probarDATA002 (hoy solo en Node).
 ========================================================
+
+========================================================
+2026-09-10 16:45 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: deploy de REQ-DATA-002 a prod -> BUG pantalla negra -> rollback.
+--------------------------------------------------------
+REQ-DATA-002: NO CERRADO. Codigo commiteado (9544d23) pero PROD SIGUE EN v12.
+
+Que se hizo:
+- Deploy a prod: clasp push -f, version 13, setupSheets() + backfill corridos en
+  prod OK (planilla real migrada: Categorias 3->10 cols, Planes 8->12, hoja
+  Auditoria creada, 1 categoria backfilleada a estado='activa').
+- Web App redeployado a @13.
+
+BUG encontrado en prod (v13): pantalla negra despues de loguearse.
+- Sintoma: login OK, pero los getCategorias/getPlanes que el frontend dispara
+  acto seguido (Promise.all, en paralelo) devuelven su echo?user_content_key=...
+  con 404 a los ~30 s. initApp() cae en el catch -> "No se pudieron cargar los
+  datos". El bug de a718feb/96a497e de nuevo, por otra causa.
+- Diagnostico: handleLoginGoogle en v13 agregaba registrarAuditoria('login')
+  DESPUES de crearSesion. Esa escritura a Auditoria quedaba pendiente de flush
+  y se flusheaba al terminar la ejecucion (despues de responder), chocando con
+  las 2 requests siguientes sobre la misma planilla.
+
+Fix intentado (v14, NO commiteado, queda en working tree):
+- handleLoginGoogle: SACADA la fila de auditoria 'login' del camino exitoso.
+  Los logins ya quedan registrados en la hoja Sesiones (fila por sesion con
+  usuario_id + fecha_creacion). El camino exitoso quedo identico a v12.
+- registrarAuditoria(): agrega SpreadsheetApp.flush() despues del appendRow, asi
+  ninguna escritura de auditoria queda pendiente para la request siguiente.
+- login_denegado se mantiene (camino de error, no compite). logout y
+  categoria/plan.eliminar se mantienen (con el flush).
+- Docs y tests actualizados. probarDATA002: 70/70 APTO contra Sheets real.
+
+v14 en prod: cargo bien 1 vez, despues volvio la pantalla negra -> INTERMITENTE
+(condicion de carrera). Con el camino de login identico a v12, se sospecha que
+Apps Script quedo con la cuota/estabilidad tocada por ~10 redeploys y cientos de
+ejecuciones de test en el dia. No se pudo confirmar si v14 tiene un bug real o
+es el entorno saturado.
+
+Estado final de la sesion:
+- PROD: rollback a v12 (@12). Estable. La migracion de la planilla no le molesta
+  a v12 (usa indices posicionales que siguen validos).
+- git: 9544d23 pusheado (= codigo v13, el que tiene el bug). El fix de v14 esta
+  SIN commitear en el working tree.
+
+Para la proxima sesion:
+1. Con Apps Script descansado, reintentar deploy de v14 limpio + smoke de login
+   (3+ intentos seguidos). Si carga siempre -> commitear el fix y cerrar.
+2. Si v14 sigue intermitente -> Paul parte REQ-DATA-002:
+   - 002a: borrado logico + columnas de auditoria + timestamps ISO. SIN hoja
+     Auditoria, SIN registrarAuditoria. Bajo riesgo, es lo valioso.
+   - 002b: hoja Auditoria + logging, redisenado para NO escribir en el hot path
+     de ningun request (cola + trigger time-driven, o escritura diferida).
+3. NO commitear 9544d23-como-esta a un release: tiene el bug de v13.
+
+Deployments prod (clasp deployments): el Web App es
+AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d
+Versiones: 12 = REQ-SEC-001 hotfix (estable, la que sirve). 13 = REQ-DATA-002
+(bug). 14 = REQ-DATA-002 + fix pantalla negra (intermitente).
+Test runner: doGet gateado por Script Property TEST_RUNNER_KEY en el proyecto de
+test. Deployment de test @exec:
+AKfycbxIA3ZgM6DfzUrtlkwJeWgL7jFTItn1wYUq_2T3At_D-WqrLhkTck3b2I5LvWJnS171Xg
+========================================================

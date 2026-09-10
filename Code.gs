@@ -235,7 +235,11 @@ function handleLoginGoogle(body) {
       const userId = row[0];
       const sessionToken = crearSesion(userId);
 
-      registrarAuditoria(userId, 'login', 'Usuarios', userId, { email: email });
+      // El login exitoso NO escribe en Auditoria a propósito: la hoja Sesiones
+      // ya registra cada login (fila nueva con usuario_id + fecha_creacion), y
+      // agregarle una escritura más al login —la ruta más sensible a cold start
+      // y a condiciones de carrera con los getCategorias/getPlanes que el
+      // frontend dispara acto seguido— es riesgo puro sin beneficio.
 
       return respond(200, {
         sessionToken,
@@ -1191,6 +1195,12 @@ function enmascararEmail(email) {
 
 // Escribe una fila en Auditoria. Fallo silencioso: si la hoja no existe o el
 // append tira, queda en Logger.log y la operación que llamó sigue normal.
+//
+// Hace flush() después del append: la fila no puede quedar como escritura
+// pendiente. Si quedara pendiente, se flushearía recién al terminar la
+// ejecución —después de devolver la respuesta HTTP— y colisionaría con la
+// request siguiente del frontend sobre la misma planilla (ver el bug de la
+// pantalla negra post-login: getCategorias/getPlanes colgados 30 s -> 404).
 function registrarAuditoria(usuarioId, accion, entidad, entidadId, detalle) {
   try {
     const sheet = getSheet(SHEETS.AUDITORIA);
@@ -1206,6 +1216,7 @@ function registrarAuditoria(usuarioId, accion, entidad, entidadId, detalle) {
       }
     });
     sheet.appendRow(fila);
+    SpreadsheetApp.flush();
   } catch (err) {
     Logger.log('registrarAuditoria falló (accion=' + accion + '): ' + err.toString());
   }
