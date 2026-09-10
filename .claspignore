@@ -1,0 +1,6 @@
+# clasp push a PRODUCCIÓN — allowlist explícita.
+# Solo Code.gs y el manifiesto llegan al proyecto de Apps Script de prod.
+# Tests.gs NO se despliega a prod (para test se usa: clasp push -I .claspignore-test).
+**/**
+!Code.gs
+!appsscript.json

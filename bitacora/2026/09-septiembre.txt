@@ -495,3 +495,83 @@ Backlog (actualizado):
 7. [Roy] Crear .clasp-test.json + manejar probarSesiones para poder deployar a
    test con clasp tambien (hoy probarSesiones vive solo en el proyecto de test).
 ========================================================
+
+========================================================
+2026-09-10 12:18 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza -> Gary/Bob/Julia/Roy/Duck. Backlog #1, #6 y #7.
+--------------------------------------------------------
+Flujo de trabajo (nuevo, en memoria + docs/requerimientos/REQ-DATA-002.md):
+- Toda implementacion la organiza Paul primero (alcance, orden, criterios).
+- Duck prueba cosa por cosa tras cada paso importante y antes de cerrar.
+- Si Duck propone un cambio, el ingeniero autor opina antes de aplicarlo.
+
+REQ-DATA-002 — IMPLEMENTADO, APTO de Duck. Falta smoke de login en prod + deploy.
+- docs/requerimientos/REQ-DATA-002.md — nuevo. Definicion de Paul, 16 criterios,
+  observaciones de Gary (O1-O6), plan de pruebas.
+- Code.gs:
+  * Borrado logico en Categorias y Planes: deleteCategoria/deletePlan setean
+    estado='eliminada'/'eliminado' + eliminado_por (de authUserId) +
+    fecha_eliminacion ISO UTC. La fila NUNCA se borra.
+  * getCategorias/getPlanes filtran lo eliminado. update/complete/categoriaExists
+    y el chequeo de nombre unico ignoran lo eliminado -> 404 al operar sobre algo
+    eliminado. El chequeo "categoria con planes" solo cuenta planes no eliminados.
+  * Columnas de auditoria nuevas en Categorias (7) y Planes (4), agregadas al
+    final con ensureColumn. Constantes CATEGORIAS_HEADERS / PLANES_HEADERS.
+  * Hoja Auditoria (headers: fecha, usuario_id, accion, entidad, entidad_id,
+    detalle) + helper registrarAuditoria() con FALLO SILENCIOSO (si la hoja no
+    esta, va a Logger.log y la operacion sigue). Puntos de registro: login,
+    login_denegado, logout, categoria.eliminar, plan.eliminar.
+  * sanitizarDetalleAuditoria(): allowlist de claves (nada de token_hash /
+    google_sub / sessionToken / secreto), valores forzados a primitivo, JSON
+    entre llaves (anti formula injection), tope 500 chars.
+  * enmascararEmail(): login_denegado guarda "i***@example.com" en vez del email
+    completo de un tercero (PII, Ley 25.326) — revision de Julia.
+  * Timestamps de sistema nuevos en ISO 8601 UTC. Planes.fecha_creacion pasa a
+    texto ISO para altas nuevas (las filas viejas no se reescriben, formatDate
+    normaliza).
+  * backfillAuditoriaCategoriasPlanes() — one-shot idempotente: deja Categorias
+    en estado='activa'. No toca Planes.estado.
+  * Seam de testing: var TEST_SPREADSHEET_ID_OVERRIDE (null en prod) + helper
+    abrirPlanilla(). Centraliza el openById que estaba duplicado.
+  * doGet(e) — runner de tests SOLO para test: gateado por Script Property
+    TEST_RUNNER_KEY (ausente en prod -> 403 siempre), corre solo probarDATA002.
+- Tests.gs — nuevo. probarDATA002(): crea su propia planilla scratch, corre
+  contra Sheets REAL, verifica los 16 criterios (menos login/login_denegado, que
+  necesitan token de Google), borra la planilla al terminar. Devuelve JSON.
+- .claspignore / .claspignore-test — nuevos. Allowlist por entorno: prod recibe
+  solo Code.gs + appsscript.json; test ademas Tests.gs.
+- .clasp-test.json — local (gitignored), apunta al scriptId de test.
+- README.md — seccion "Deploy del backend - clasp" (flujo prod: push/version/
+  redeploy; flujo test: push -I .claspignore-test + doGet runner). Corregida la
+  ficha de seguridad: el token de sesion ya no es SHA-256 stateless, es opaco con
+  estado en Sesiones (quedo viejo desde REQ-SEC-001). Estructura del repo.
+
+Pruebas:
+- Harness Node (mock de Sheets): 55/55. Cubre login/login_denegado/enmascarado.
+- probarDATA002 contra Sheets real via HTTP (proyecto de test): 68/68, APTO.
+  Autovalidado con 5 mutantes (borrado fisico, fecha nativa, sin filtro, fuga de
+  token_hash, sin fallo silencioso) -> los 5 dan RECHAZADO.
+- PENDIENTE: smoke de login manual en prod (criterio 12, parte) + deploy a prod
+  con clasp + correr setupSheets()/backfillAuditoriaCategoriasPlanes() en prod.
+
+Equipo: Paul organizo y verifico criterios. Gary reviso el esquema (O1-O6).
+Bob implemento. Julia APTO con 2 fixes (enmascarado + coercion a primitivo).
+Roy: .clasp-test.json + .claspignore + README + canal de test por HTTP. Duck:
+Tests.gs + APTO 68/68 sin hallazgos. Bob (autor) firmo los cambios post-entrega.
+
+Backlog (actualizado):
+1. [Roy] Compartir la carpeta raiz de Drive con Noelia como Viewer (D1).
+2. [Bob] REQ-ADMIN-001 — rol admin + hoja Config + setDriveRootFolder + panel.
+   Nota de Gary (O4): la vista del log de Auditoria tiene que venir con
+   paginacion o Auditoria_<anio>; enmascarar email para el rol no-owner (Julia).
+3. [Bob] REQ-MEDIA-001 — getArchivo, revocar ANYONE_WITH_LINK, fotos de planes,
+   backfill de mime_type/tamano_bytes en las 2 filas migradas.
+4. [Jay] Pasada de UI (glifos -> SVG, confirm() -> modal, nav-tab/filter-chip
+   como <button>, skeletons, delegacion de eventos — cierra deuda de SEC-002).
+5. [Roy] Mover probarSesiones + funciones de test del proyecto de test a
+   Tests.gs versionado (ya existe el archivo y el .claspignore por entorno).
+6. [Bob/Julia] Considerar seam de test para verifyGoogleAccessToken y cubrir la
+   auditoria de login/login_denegado en probarDATA002 (hoy solo en Node).
+========================================================

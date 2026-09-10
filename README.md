@@ -8,11 +8,20 @@ App web privada para gestionar planes en pareja. Frontend en GitHub Pages, backe
 
 ```
 /
-├── index.html          ← Frontend completo (HTML + CSS + JS)
-├── Code.gs             ← Google Apps Script (copiar manualmente)
+├── index.html          ← Frontend completo (HTML + CSS + JS), lo sirve GitHub Pages
+├── Code.gs             ← Backend Google Apps Script, se despliega con clasp
+├── Tests.gs            ← Pruebas server-side (probarDATA002…). Solo va a test, no a prod.
+├── appsscript.json     ← Manifiesto del proyecto de Apps Script (se commitea)
+├── .claspignore        ← push a prod: solo Code.gs + manifiesto
+├── .claspignore-test   ← push a test: además Tests.gs
+├── docs/               ← Diseño del modelo de datos y requerimientos (REQ-*)
+├── bitacora/           ← Registro de cambios por mes
 ├── skills/             ← Skills de Claude Code (personajes ingenieros)
 └── README.md
 ```
+
+> `.clasp.json` (prod) y `.clasp-test.json` (test) están en `.gitignore`: son
+> config local de deploy, apuntan a los script IDs de cada entorno.
 
 ---
 
@@ -59,13 +68,16 @@ App web privada para gestionar planes en pareja. Frontend en GitHub Pages, backe
    SESSION_SECRET:  '...'                         // string aleatorio largo (40+ caracteres)
    ```
    Después borrar esos valores de la función (quedan guardados en **Project Settings → Script Properties**).
-4. Ejecutar `setupSheets()` una sola vez (crea las hojas con los headers correctos).
-5. En la hoja `Usuarios`, dejar las columnas `usuario_id | nombre_display | email | google_sub | foto_url` y cargar a mano el **email de Google** real de cada usuario en la columna `email` (tiene que coincidir exacto). `google_sub` se completa solo en el primer login.
+4. Ejecutar `setupSheets()` una sola vez (crea/actualiza las hojas con los headers correctos). Es idempotente: se puede volver a correr sin romper nada.
+5. En la hoja `Usuarios`, cargar a mano el **email de Google** real de cada usuario en la columna `email` (tiene que coincidir exacto). `google_sub` se completa solo en el primer login.
 6. Ir a **Implementar → Nueva implementación**:
    - Tipo: **Aplicación web**
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier persona**
    - Copiar la URL que genera (la vas a necesitar en el frontend).
+
+A partir de acá, los cambios de backend NO se pegan a mano: se despliegan con
+`clasp` (ver [Deploy del backend](#deploy-del-backend-apps-script--clasp)).
 
 ---
 
@@ -99,12 +111,69 @@ App web privada para gestionar planes en pareja. Frontend en GitHub Pages, backe
 - El `GOOGLE_CLIENT_ID` en `index.html` **no es secreto**: los Client ID de OAuth están pensados para vivir en el frontend. Lo que lo protege son los orígenes autorizados en Google Cloud.
 - El Spreadsheet **no debe ser público**: contiene los datos (planes, emails). Ya no contiene contraseñas.
 - La URL del Apps Script Web App es pública (necesario para que GitHub Pages pueda llamarla), pero cada endpoint valida la sesión antes de operar.
-- El token de sesión es `SHA-256(userId + SESSION_SECRET)`, stateless. Suficiente para dos usuarios privados.
+- El token de sesión es opaco (`<session_id>.<secreto>`), con estado en la hoja `Sesiones`: expiración absoluta de 15 días y revocable (logout). La hoja guarda `HMAC-SHA256(secreto, SESSION_SECRET)`, nunca el secreto. Ver `docs/requerimientos/REQ-SEC-001.md`.
+- Accesos y cambios sensibles (login, login denegado, logout, borrado de categorías/planes) quedan registrados en la hoja `Auditoria` — la app maneja datos personales (Ley 25.326). Ver `docs/requerimientos/REQ-DATA-002.md`.
+
+---
+
+## Deploy del backend (Apps Script) — clasp
+
+`clasp` ya está instalado y logueado en la máquina de trabajo. El código vive
+en el repo (`Code.gs` + `appsscript.json`); `clasp push` lo sube al proyecto de
+Apps Script y `clasp redeploy` actualiza la implementación existente **a una
+versión nueva, manteniendo la misma URL** (equivale a *Implementar → Editar
+implementación → Versión nueva* en la consola). Ya **no** se crea una
+implementación nueva por cada cambio.
+
+### Entornos
+
+| Entorno | Config local | Script ID | Para qué |
+|---|---|---|---|
+| prod | `.clasp.json` | `1Hd1LPR…Oc18d` | la app real, la que usa el frontend |
+| test | `.clasp-test.json` | `1yV7KZe…QJjt` | pruebas de Duck antes de promover a prod |
+
+`clasp` usa `.clasp.json` por defecto; para el entorno de test se pasa
+`-P .clasp-test.json` en cada comando.
+
+### Flujo a producción
+
+```bash
+clasp push -f                                 # sube Code.gs + appsscript.json
+clasp version "REQ-XXX: descripción corta"     # crea una versión inmutable
+clasp deployments                              # ver el deploymentId del Web App y el nº de versión
+clasp redeploy <deploymentId> -V <n> -d "REQ-XXX: descripción"
+```
+
+El `deploymentId` del Web App que consume el frontend es el que aparece en
+`clasp deployments` con una descripción (no el `@HEAD`). La URL del Web App
+**no cambia** con `redeploy`, así que no hay que tocar `SCRIPT_URL` en el
+frontend.
+
+**Rollback:** el mismo `clasp redeploy <deploymentId> -V <versión anterior>`.
+
+### Flujo a test (para Duck / Claude)
+
+```bash
+clasp push -f -P .clasp-test.json -I .claspignore-test      # sube Code.gs + Tests.gs al proyecto de test
+clasp run probarDATA002 -P .clasp-test.json                 # corre las pruebas server-side, devuelve JSON
+```
+
+`probarDATA002()` (en `Tests.gs`) crea su **propia planilla scratch**, corre
+`setupSheets()` / `backfillAuditoriaCategoriasPlanes()` / los endpoints contra
+Sheets real, verifica los 16 criterios de REQ-DATA-002 y borra la planilla al
+terminar. No toca ni la planilla de prod ni la de test. Devuelve
+`{ req, total, ok, fail, veredicto, detalles, notas }`.
+
+Requisitos una sola vez para que `clasp run` funcione:
+1. Activar la **Apps Script API**: [script.google.com/home/usersettings](https://script.google.com/home/usersettings).
+2. `clasp login` (para que el token tenga el scope `script.projects`).
+
+Para promover a prod, seguir el flujo de producción de arriba (Tests.gs no se
+sube: `.claspignore` de prod es una allowlist de `Code.gs` + `appsscript.json`).
 
 ---
 
 ## Notas operativas
 
-- Si hacés cambios en el Apps Script, tenés que crear una **nueva implementación** (no actualizar la existente) y actualizar la `SCRIPT_URL` en el frontend.
 - Para agregar o cambiar un usuario: editá la hoja `Usuarios` (columna `email`) y agregá su email como usuario de prueba en la pantalla de consentimiento de Google Cloud. No hace falta tocar código.
-- El frontend no tiene build step: es un solo archivo HTML. Editalo directamente y hacé push.
+- El frontend no tiene build step: es un solo archivo HTML. Editalo directamente y hacé push (lo sirve GitHub Pages).

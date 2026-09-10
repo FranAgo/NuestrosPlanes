@@ -1,0 +1,6 @@
+# clasp push al proyecto de TEST — igual que prod pero incluye Tests.gs.
+# Uso:  clasp push -f -P .clasp-test.json -I .claspignore-test
+**/**
+!Code.gs
+!Tests.gs
+!appsscript.json

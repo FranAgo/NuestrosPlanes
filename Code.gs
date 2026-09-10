@@ -29,6 +29,7 @@ const SHEETS = {
   PLANES:      'Planes',
   ARCHIVOS:    'Archivos',
   SESIONES:    'Sesiones',
+  AUDITORIA:   'Auditoria',
 };
 
 // Esquema de la hoja Sesiones. Ver docs/requerimientos/REQ-SEC-001.md.
@@ -65,6 +66,38 @@ const MIME_EXT = {
   'image/png':  'png',
   'image/webp': 'webp',
 };
+
+// Esquema de Categorias y Planes con las columnas de auditoría (REQ-DATA-002).
+// Las columnas nuevas van SIEMPRE al final: setupSheets() las agrega con
+// ensureColumn() sin mover ni pisar los datos que ya están.
+//   Categorias.estado: 'activa' | 'eliminada'
+//   Planes.estado:     'pendiente' | 'completado' | 'eliminado'
+const CATEGORIAS_HEADERS = [
+  'categoria_id', 'nombre', 'color_hex',
+  'creado_por', 'fecha_creacion', 'modificado_por', 'fecha_modificacion',
+  'estado', 'eliminado_por', 'fecha_eliminacion',
+];
+
+const PLANES_HEADERS = [
+  'plan_id', 'titulo', 'categoria_id', 'creado_por',
+  'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado',
+  'modificado_por', 'fecha_modificacion', 'eliminado_por', 'fecha_eliminacion',
+];
+
+// Hoja Auditoria (REQ-DATA-002, ver docs/modelo-datos.md sección 8).
+// Log liviano de accesos y cambios sensibles — la app maneja datos personales
+// (Ley 25.326). Todos los timestamps en ISO 8601 UTC.
+const AUDITORIA_HEADERS = [
+  'fecha', 'usuario_id', 'accion', 'entidad', 'entidad_id', 'detalle',
+];
+
+// Claves permitidas en Auditoria.detalle. registrarAuditoria() descarta
+// cualquier otra clave antes de serializar — nunca confía en el que llama.
+// Prohibido explícito: token, token_hash, sessionToken, secreto, google_sub,
+// password y cualquier contenido binario/base64.
+const AUDITORIA_DETALLE_CLAVES_OK = [
+  'email', 'nombre', 'titulo', 'valor_anterior', 'valor_nuevo', 'motivo',
+];
 
 // ------------------------------------------------------------
 // ENTRY POINT — Router principal
@@ -126,6 +159,34 @@ function doPost(e) {
 }
 
 // ------------------------------------------------------------
+// doGet — runner de la suite de tests, SOLO para el entorno de test.
+//
+// En producción la Script Property TEST_RUNNER_KEY no está definida, así que
+// esto siempre devuelve 403 y no expone nada. No ejecuta funciones arbitrarias:
+// solo corre probarDATA002() (definida en Tests.gs, que no se despliega a prod).
+//
+// Uso en test: setear TEST_RUNNER_KEY en Script Properties del proyecto de test
+// y pegarle a  <URL del Web App>/exec?key=<TEST_RUNNER_KEY>
+// ------------------------------------------------------------
+function doGet(e) {
+  try {
+    const key  = PROPS.getProperty('TEST_RUNNER_KEY');
+    const dada = (e && e.parameter && e.parameter.key) ? String(e.parameter.key) : '';
+
+    if (!key || !comparacionConstante(dada, String(key))) {
+      return respond(403, { error: 'No disponible.' });
+    }
+    if (typeof probarDATA002 !== 'function') {
+      return respond(500, { error: 'La suite de tests no está desplegada en este entorno.' });
+    }
+    return respond(200, probarDATA002());
+  } catch (err) {
+    Logger.log('Error en doGet: ' + err.toString());
+    return respond(500, { error: 'Error interno del servidor.' });
+  }
+}
+
+// ------------------------------------------------------------
 // AUTENTICACIÓN
 // ------------------------------------------------------------
 
@@ -174,6 +235,8 @@ function handleLoginGoogle(body) {
       const userId = row[0];
       const sessionToken = crearSesion(userId);
 
+      registrarAuditoria(userId, 'login', 'Usuarios', userId, { email: email });
+
       return respond(200, {
         sessionToken,
         user: {
@@ -185,6 +248,10 @@ function handleLoginGoogle(body) {
     }
   }
 
+  // Email con token de Google válido pero fuera de la lista blanca. Se
+  // enmascara: es PII de un tercero que no es usuario del sistema y solo nos
+  // interesa detectar reintentos del mismo origen (revisión de Julia).
+  registrarAuditoria('', 'login_denegado', 'Usuarios', '', { email: enmascararEmail(email) });
   return respond(403, { error: 'Cuenta no autorizada para esta aplicación.' });
 }
 
@@ -322,13 +389,20 @@ function handleLogout(body) {
   const token     = (body.sessionToken || '').toString();
   const punto     = token.indexOf('.');
   const sessionId = punto > 0 ? token.slice(0, punto) : '';
-  if (sessionId) revocarSesion(sessionId);
+  if (sessionId) {
+    const usuarioId = revocarSesion(sessionId);
+    if (usuarioId !== null) {
+      registrarAuditoria(usuarioId, 'logout', 'Sesiones', sessionId, {});
+    }
+  }
   return respond(200, { success: true });
 }
 
 // Marca una sesión como revocada. No borra la fila (purgarSesiones lo hace
 // después). Idempotente: si ya estaba revocada o no existe, no hace nada.
 // revocada_por = el propio dueño de la sesión (self-service logout).
+// Devuelve el usuario_id de la sesión revocada (string, puede ser ''), o null
+// si no había ninguna sesión activa con ese id.
 function revocarSesion(sessionId) {
   const sheet = getSheet(SHEETS.SESIONES);
   const data  = sheet.getDataRange().getValues();
@@ -345,10 +419,10 @@ function revocarSesion(sessionId) {
       sheet.getRange(i + 1, iPor + 1).setValue(data[i][iUsr] || '');
       sheet.getRange(i + 1, iFec + 1).setValue(new Date().toISOString());
       SpreadsheetApp.flush();  // el logout tiene que hacer efecto en el request siguiente
-      return true;
+      return (data[i][iUsr] || '').toString();
     }
   }
-  return false;
+  return null;
 }
 
 // Devuelve la fila de Sesiones como objeto { header: valor, _rowIndex }, o null.
@@ -546,89 +620,153 @@ function setAvatarEnUsuario(userId, archivoId, fotoUrl) {
 // CATEGORÍAS
 // ------------------------------------------------------------
 
+// Una categoría "existe" (para el frontend y para las FK de Planes) solo si no
+// está eliminada lógicamente. estado vacío = fila anterior a la auditoría = activa.
+function categoriaEstaEliminada(estado) {
+  return (estado || '').toString() === 'eliminada';
+}
+
 function handleGetCategorias(body) {
   const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data = sheet.getDataRange().getValues();
-  const categorias = [];
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId    = h.indexOf('categoria_id');
+  const iNom   = h.indexOf('nombre');
+  const iColor = h.indexOf('color_hex');
+  const iEst   = h.indexOf('estado');
 
+  const categorias = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (row[0]) {
-      categorias.push({
-        categoriaId: row[0],
-        nombre:      row[1],
-        colorHex:    row[2],
-      });
-    }
+    if (!row[iId]) continue;
+    if (iEst !== -1 && categoriaEstaEliminada(row[iEst])) continue;
+
+    categorias.push({
+      categoriaId: row[iId],
+      nombre:      row[iNom],
+      colorHex:    row[iColor],
+    });
   }
 
   return respond(200, { categorias });
 }
 
 function handleCreateCategoria(body) {
-  const { nombre, colorHex } = body;
+  const { nombre, colorHex, authUserId } = body;
 
   if (!nombre || !colorHex) {
     return respond(400, { error: 'Nombre y color requeridos.' });
   }
 
-  // Verificar nombre único
   const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iNom  = h.indexOf('nombre');
+  const iEst  = h.indexOf('estado');
+
+  // Nombre único entre las categorías NO eliminadas: se puede reusar el nombre
+  // de una categoría borrada.
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1].toString().toLowerCase() === nombre.toLowerCase()) {
+    if (iEst !== -1 && categoriaEstaEliminada(data[i][iEst])) continue;
+    if ((data[i][iNom] || '').toString().toLowerCase() === nombre.toLowerCase()) {
       return respond(409, { error: 'Ya existe una categoría con ese nombre.' });
     }
   }
 
   const categoriaId = 'cat_' + Date.now();
-  sheet.appendRow([categoriaId, nombre, colorHex]);
+  const ahora       = new Date().toISOString();
+
+  const fila = CATEGORIAS_HEADERS.map(col => {
+    switch (col) {
+      case 'categoria_id':       return categoriaId;
+      case 'nombre':             return nombre;
+      case 'color_hex':          return colorHex;
+      case 'creado_por':         return authUserId || '';
+      case 'fecha_creacion':     return ahora;
+      case 'modificado_por':     return '';
+      case 'fecha_modificacion': return '';
+      case 'estado':             return 'activa';
+      case 'eliminado_por':      return '';
+      case 'fecha_eliminacion':  return '';
+      default:                   return '';
+    }
+  });
+  sheet.appendRow(fila);
 
   return respond(200, { success: true, categoriaId });
 }
 
 function handleUpdateCategoria(body) {
-  const { categoriaId, nombre, colorHex } = body;
+  const { categoriaId, nombre, colorHex, authUserId } = body;
 
   if (!categoriaId) return respond(400, { error: 'ID de categoría requerido.' });
 
   const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('categoria_id');
+  const iNom  = h.indexOf('nombre');
+  const iCol  = h.indexOf('color_hex');
+  const iEst  = h.indexOf('estado');
+  const iMod  = h.indexOf('modificado_por');
+  const iFMod = h.indexOf('fecha_modificacion');
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === categoriaId) {
-      if (nombre)    sheet.getRange(i + 1, 2).setValue(nombre);
-      if (colorHex)  sheet.getRange(i + 1, 3).setValue(colorHex);
-      return respond(200, { success: true });
-    }
+    if (data[i][iId] !== categoriaId) continue;
+    if (iEst !== -1 && categoriaEstaEliminada(data[i][iEst])) break;  // eliminada -> 404
+
+    if (nombre)   sheet.getRange(i + 1, iNom + 1).setValue(nombre);
+    if (colorHex) sheet.getRange(i + 1, iCol + 1).setValue(colorHex);
+    if (iMod  !== -1) sheet.getRange(i + 1, iMod  + 1).setValue(authUserId || '');
+    if (iFMod !== -1) sheet.getRange(i + 1, iFMod + 1).setValue(new Date().toISOString());
+    return respond(200, { success: true });
   }
 
   return respond(404, { error: 'Categoría no encontrada.' });
 }
 
+// Borrado lógico: la fila nunca se borra. Se marca estado='eliminada' con quién
+// y cuándo. getCategorias deja de devolverla; se puede recuperar editando la
+// planilla a mano.
 function handleDeleteCategoria(body) {
-  const { categoriaId } = body;
+  const { categoriaId, authUserId } = body;
 
   if (!categoriaId) return respond(400, { error: 'ID de categoría requerido.' });
 
-  // Verificar que no haya planes asociados
+  // No se puede eliminar si tiene al menos un plan NO eliminado que la usa.
   const planesSheet = getSheet(SHEETS.PLANES);
-  const planesData = planesSheet.getDataRange().getValues();
+  const planesData  = planesSheet.getDataRange().getValues();
+  const ph          = planesData[0];
+  const iPCat       = ph.indexOf('categoria_id');
+  const iPEst       = ph.indexOf('estado');
   for (let i = 1; i < planesData.length; i++) {
-    if (planesData[i][2] === categoriaId) {
-      return respond(409, {
-        error: 'No se puede eliminar: hay planes que usan esta categoría.'
-      });
-    }
+    if (planesData[i][iPCat] !== categoriaId) continue;
+    if (iPEst !== -1 && planesData[i][iPEst] === 'eliminado') continue;
+    return respond(409, {
+      error: 'No se puede eliminar: hay planes que usan esta categoría.'
+    });
   }
 
   const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('categoria_id');
+  const iNom  = h.indexOf('nombre');
+  const iEst  = h.indexOf('estado');
+  const iElim = h.indexOf('eliminado_por');
+  const iFel  = h.indexOf('fecha_eliminacion');
+
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === categoriaId) {
-      sheet.deleteRow(i + 1);
-      return respond(200, { success: true });
-    }
+    if (data[i][iId] !== categoriaId) continue;
+    if (iEst !== -1 && categoriaEstaEliminada(data[i][iEst])) break;  // ya eliminada -> 404
+
+    const nombre = (data[i][iNom] || '').toString();
+    if (iEst  !== -1) sheet.getRange(i + 1, iEst  + 1).setValue('eliminada');
+    if (iElim !== -1) sheet.getRange(i + 1, iElim + 1).setValue(authUserId || '');
+    if (iFel  !== -1) sheet.getRange(i + 1, iFel  + 1).setValue(new Date().toISOString());
+
+    registrarAuditoria(authUserId, 'categoria.eliminar', 'Categorias', categoriaId, { nombre: nombre });
+    return respond(200, { success: true });
   }
 
   return respond(404, { error: 'Categoría no encontrada.' });
@@ -636,28 +774,56 @@ function handleDeleteCategoria(body) {
 
 // ------------------------------------------------------------
 // PLANES
-// Headers: [plan_id, titulo, categoria_id, creado_por,
-//           fecha_creacion, fecha_programada, fecha_vencimiento, estado]
+// Headers: ver PLANES_HEADERS. estado: pendiente | completado | eliminado.
+// Los campos nuevos se leen/escriben por lookup de header (no por número de
+// columna): las columnas de auditoría se agregaron al final y no queremos
+// depender del orden físico.
 // ------------------------------------------------------------
+
+// Devuelve el índice de fila (1-based) de un plan NO eliminado, o -1.
+// Además expone el header para que el caller resuelva columnas.
+function buscarPlanActivo(sheet, planId) {
+  const data = sheet.getDataRange().getValues();
+  const h    = data[0];
+  const iId  = h.indexOf('plan_id');
+  const iEst = h.indexOf('estado');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] !== planId) continue;
+    if (iEst !== -1 && data[i][iEst] === 'eliminado') return { rowIndex: -1, h: h, encontrado: true };
+    return { rowIndex: i + 1, h: h, encontrado: true };
+  }
+  return { rowIndex: -1, h: h, encontrado: false };
+}
 
 function handleGetPlanes(body) {
   const sheet = getSheet(SHEETS.PLANES);
-  const data = sheet.getDataRange().getValues();
-  const planes = [];
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('plan_id');
+  const iTit  = h.indexOf('titulo');
+  const iCat  = h.indexOf('categoria_id');
+  const iCre  = h.indexOf('creado_por');
+  const iFCre = h.indexOf('fecha_creacion');
+  const iFPro = h.indexOf('fecha_programada');
+  const iFVen = h.indexOf('fecha_vencimiento');
+  const iEst  = h.indexOf('estado');
 
+  const planes = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (!row[0]) continue;
+    if (!row[iId]) continue;
+    if (row[iEst] === 'eliminado') continue;
 
     planes.push({
-      planId:           row[0],
-      titulo:           row[1],
-      categoriaId:      row[2] || null,
-      creadoPor:        row[3],
-      fechaCreacion:    formatDate(row[4]),
-      fechaProgramada:  formatDate(row[5]),
-      fechaVencimiento: row[6] ? formatDate(row[6]) : null,
-      estado:           row[7],
+      planId:           row[iId],
+      titulo:           row[iTit],
+      categoriaId:      row[iCat] || null,
+      creadoPor:        row[iCre],
+      fechaCreacion:    formatDate(row[iFCre]),
+      fechaProgramada:  formatDate(row[iFPro]),
+      fechaVencimiento: row[iFVen] ? formatDate(row[iFVen]) : null,
+      estado:           row[iEst],
     });
   }
 
@@ -671,106 +837,135 @@ function handleCreatePlan(body) {
     return respond(400, { error: 'Título, usuario y fecha programada son requeridos.' });
   }
 
-  // Validar que la categoría existe solo si se proporcionó una
+  // Validar que la categoría existe (y no está eliminada) solo si se proporcionó
   if (categoriaId && !categoriaExists(categoriaId)) {
     return respond(404, { error: 'La categoría indicada no existe.' });
   }
 
-  // Validar que el usuario existe
   if (!userExists(userId)) {
     return respond(404, { error: 'Usuario no encontrado.' });
   }
 
   const planId = 'plan_' + Date.now();
-  const fechaCreacion = new Date();
+  const ahora  = new Date().toISOString();  // timestamp de sistema en ISO 8601 UTC
 
   const sheet = getSheet(SHEETS.PLANES);
-  sheet.appendRow([
-    planId,
-    titulo,
-    categoriaId,
-    userId,
-    fechaCreacion,
-    new Date(fechaProgramada),
-    fechaVencimiento ? new Date(fechaVencimiento) : '',
-    'pendiente',
-  ]);
+  const fila = PLANES_HEADERS.map(col => {
+    switch (col) {
+      case 'plan_id':            return planId;
+      case 'titulo':             return titulo;
+      case 'categoria_id':       return categoriaId || '';
+      case 'creado_por':         return userId;
+      case 'fecha_creacion':     return ahora;
+      case 'fecha_programada':   return new Date(fechaProgramada);
+      case 'fecha_vencimiento':  return fechaVencimiento ? new Date(fechaVencimiento) : '';
+      case 'estado':             return 'pendiente';
+      case 'modificado_por':     return '';
+      case 'fecha_modificacion': return '';
+      case 'eliminado_por':      return '';
+      case 'fecha_eliminacion':  return '';
+      default:                   return '';
+    }
+  });
+  sheet.appendRow(fila);
 
   return respond(200, { success: true, planId });
 }
 
 function handleUpdatePlan(body) {
-  const { planId, titulo, categoriaId, fechaProgramada, fechaVencimiento } = body;
+  const { planId, titulo, categoriaId, fechaProgramada, fechaVencimiento, authUserId } = body;
 
   if (!planId) return respond(400, { error: 'ID de plan requerido.' });
 
   const sheet = getSheet(SHEETS.PLANES);
-  const data = sheet.getDataRange().getValues();
+  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+  if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === planId) {
-      if (titulo)                      sheet.getRange(i + 1, 2).setValue(titulo);
-      if (categoriaId !== undefined) {
-        if (categoriaId && !categoriaExists(categoriaId)) {
-          return respond(404, { error: 'La categoría indicada no existe.' });
-        }
-        sheet.getRange(i + 1, 3).setValue(categoriaId || '');
-      }
-      if (fechaProgramada)             sheet.getRange(i + 1, 6).setValue(new Date(fechaProgramada));
-      if (fechaVencimiento !== undefined) {
-        sheet.getRange(i + 1, 7).setValue(
-          fechaVencimiento ? new Date(fechaVencimiento) : ''
-        );
-      }
-      return respond(200, { success: true });
+  const col = name => h.indexOf(name) + 1;  // 1-based; 0 si no existe
+
+  if (titulo) sheet.getRange(rowIndex, col('titulo')).setValue(titulo);
+
+  if (categoriaId !== undefined) {
+    if (categoriaId && !categoriaExists(categoriaId)) {
+      return respond(404, { error: 'La categoría indicada no existe.' });
     }
+    sheet.getRange(rowIndex, col('categoria_id')).setValue(categoriaId || '');
   }
 
-  return respond(404, { error: 'Plan no encontrado.' });
+  if (fechaProgramada) {
+    sheet.getRange(rowIndex, col('fecha_programada')).setValue(new Date(fechaProgramada));
+  }
+  if (fechaVencimiento !== undefined) {
+    sheet.getRange(rowIndex, col('fecha_vencimiento'))
+      .setValue(fechaVencimiento ? new Date(fechaVencimiento) : '');
+  }
+
+  if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
+  if (col('fecha_modificacion')) sheet.getRange(rowIndex, col('fecha_modificacion')).setValue(new Date().toISOString());
+
+  return respond(200, { success: true });
 }
 
 function handleCompletePlan(body) {
-  const { planId } = body;
+  const { planId, authUserId } = body;
 
   if (!planId) return respond(400, { error: 'ID de plan requerido.' });
 
   const sheet = getSheet(SHEETS.PLANES);
-  const data = sheet.getDataRange().getValues();
+  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+  if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === planId) {
-      sheet.getRange(i + 1, 8).setValue('completado'); // columna 8 = estado
-      return respond(200, { success: true });
-    }
-  }
+  const col = name => h.indexOf(name) + 1;
 
-  return respond(404, { error: 'Plan no encontrado.' });
+  sheet.getRange(rowIndex, col('estado')).setValue('completado');
+  if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
+  if (col('fecha_modificacion')) sheet.getRange(rowIndex, col('fecha_modificacion')).setValue(new Date().toISOString());
+
+  return respond(200, { success: true });
 }
 
+// Borrado lógico: la fila nunca se borra. estado='eliminado' (se pierde el
+// estado previo pendiente/completado, aceptado en REQ-DATA-002).
 function handleDeletePlan(body) {
-  const { planId } = body;
+  const { planId, authUserId } = body;
 
   if (!planId) return respond(400, { error: 'ID de plan requerido.' });
 
   const sheet = getSheet(SHEETS.PLANES);
-  const data = sheet.getDataRange().getValues();
+  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+  if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === planId) {
-      sheet.deleteRow(i + 1);
-      return respond(200, { success: true });
-    }
-  }
+  const col   = name => h.indexOf(name) + 1;
+  const data  = sheet.getDataRange().getValues();
+  const iTit  = h.indexOf('titulo');
+  const titulo = (data[rowIndex - 1][iTit] || '').toString();
 
-  return respond(404, { error: 'Plan no encontrado.' });
+  sheet.getRange(rowIndex, col('estado')).setValue('eliminado');
+  if (col('eliminado_por'))     sheet.getRange(rowIndex, col('eliminado_por')).setValue(authUserId || '');
+  if (col('fecha_eliminacion')) sheet.getRange(rowIndex, col('fecha_eliminacion')).setValue(new Date().toISOString());
+
+  registrarAuditoria(authUserId, 'plan.eliminar', 'Planes', planId, { titulo: titulo });
+  return respond(200, { success: true });
 }
 
 // ------------------------------------------------------------
 // HELPERS
 // ------------------------------------------------------------
 
+// Seam de testing (Tests.gs / probarDATA002). En producción SIEMPRE es null y
+// toda la lógica trabaja contra SPREADSHEET_ID (Script Properties). Tests.gs lo
+// apunta a una planilla scratch mientras corre y lo vuelve a null al terminar.
+// Cada invocación de Apps Script tiene su propio estado global, así que un
+// request del Web App no puede ver este override.
+var TEST_SPREADSHEET_ID_OVERRIDE = null;
+
+// Planilla de datos activa. Única puerta de acceso: nadie abre por ID suelto.
+function abrirPlanilla() {
+  return SpreadsheetApp.openById(TEST_SPREADSHEET_ID_OVERRIDE || SPREADSHEET_ID);
+}
+
 function getSheet(sheetName) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = abrirPlanilla();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) throw new Error(`Hoja "${sheetName}" no encontrada.`);
   return sheet;
@@ -792,11 +987,17 @@ function formatDate(value) {
   return null;
 }
 
+// Una categoría eliminada lógicamente no "existe" para las FK de Planes.
 function categoriaExists(categoriaId) {
   const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('categoria_id');
+  const iEst  = h.indexOf('estado');
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === categoriaId) return true;
+    if (data[i][iId] !== categoriaId) continue;
+    if (iEst !== -1 && categoriaEstaEliminada(data[i][iEst])) return false;
+    return true;
   }
   return false;
 }
@@ -944,11 +1145,78 @@ function extraerDriveFileId(url) {
 }
 
 // ------------------------------------------------------------
+// AUDITORIA (REQ-DATA-002)
+// Log liviano de accesos y cambios sensibles. La app maneja datos personales
+// (Ley 25.326). Escribir en el log NUNCA debe romper la operación principal:
+// si el append falla, se loguea y se sigue.
+// ------------------------------------------------------------
+
+// Serializa Auditoria.detalle. Tres capas de defensa (revisión de Julia):
+//  1. Allowlist de claves: nada de token/token_hash/secreto/google_sub/binario
+//     aunque el que llama lo pase.
+//  2. Los valores se fuerzan a primitivo (string/number/boolean). Un objeto o
+//     array anidado se descarta: no se puede filtrar data por la forma del valor.
+//  3. El resultado es SIEMPRE un JSON entre llaves, así que la celda nunca
+//     empieza con = + - @ → no se interpreta como fórmula al abrir la planilla
+//     (anti CSV / formula injection).
+// Objeto vacío -> ''. Excede 500 chars -> {"_truncado":true}.
+function sanitizarDetalleAuditoria(detalle) {
+  if (!detalle || typeof detalle !== 'object' || Array.isArray(detalle)) return '';
+
+  const limpio = {};
+  Object.keys(detalle).forEach(clave => {
+    if (AUDITORIA_DETALLE_CLAVES_OK.indexOf(clave) === -1) return;
+    const valor = detalle[clave];
+    const tipo  = typeof valor;
+    if (tipo !== 'string' && tipo !== 'number' && tipo !== 'boolean') return;
+    if (valor === '') return;
+    limpio[clave] = valor;
+  });
+
+  const json = JSON.stringify(limpio);
+  if (json === '{}') return '';
+  if (json.length > 500) return JSON.stringify({ _truncado: true });
+  return json;
+}
+
+// Enmascara un email para el log: guarda lo justo para detectar reintentos del
+// mismo origen sin almacenar el dato personal completo de un tercero que no es
+// usuario del sistema (Ley 25.326). fran@example.com -> f***@example.com
+function enmascararEmail(email) {
+  const s  = (email || '').toString();
+  const at = s.indexOf('@');
+  if (at < 1) return '***';
+  return s[0] + '***' + s.slice(at);
+}
+
+// Escribe una fila en Auditoria. Fallo silencioso: si la hoja no existe o el
+// append tira, queda en Logger.log y la operación que llamó sigue normal.
+function registrarAuditoria(usuarioId, accion, entidad, entidadId, detalle) {
+  try {
+    const sheet = getSheet(SHEETS.AUDITORIA);
+    const fila = AUDITORIA_HEADERS.map(col => {
+      switch (col) {
+        case 'fecha':      return new Date().toISOString();
+        case 'usuario_id': return (usuarioId || '').toString();
+        case 'accion':     return (accion || '').toString();
+        case 'entidad':    return (entidad || '').toString();
+        case 'entidad_id': return (entidadId || '').toString();
+        case 'detalle':    return sanitizarDetalleAuditoria(detalle);
+        default:           return '';
+      }
+    });
+    sheet.appendRow(fila);
+  } catch (err) {
+    Logger.log('registrarAuditoria falló (accion=' + accion + '): ' + err.toString());
+  }
+}
+
+// ------------------------------------------------------------
 // SETUP INICIAL — Correr una sola vez para crear las hojas
 // ------------------------------------------------------------
 
 function setupSheets() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = abrirPlanilla();
 
   function ensureSheet(name, headers) {
     let sheet = ss.getSheetByName(name);
@@ -974,11 +1242,21 @@ function setupSheets() {
     ['usuario_id', 'nombre_display', 'email', 'google_sub', 'foto_url']);
   ensureColumn(usuarios, 'avatar_archivo_id');
 
-  ensureSheet(SHEETS.CATEGORIAS, ['categoria_id', 'nombre', 'color_hex']);
-  ensureSheet(SHEETS.PLANES,     ['plan_id', 'titulo', 'categoria_id', 'creado_por',
-                                   'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
-  ensureSheet(SHEETS.ARCHIVOS,   ARCHIVOS_HEADERS);
-  ensureSheet(SHEETS.SESIONES,   SESIONES_HEADERS);
+  // Categorias y Planes: hoja base con el esquema histórico; las columnas de
+  // auditoría (REQ-DATA-002) se agregan al final con ensureColumn, sin tocar
+  // los datos existentes. En una planilla nueva el resultado es idéntico a
+  // crear la hoja con CATEGORIAS_HEADERS / PLANES_HEADERS de una.
+  const categorias = ensureSheet(SHEETS.CATEGORIAS, ['categoria_id', 'nombre', 'color_hex']);
+  CATEGORIAS_HEADERS.forEach(col => ensureColumn(categorias, col));
+
+  const planes = ensureSheet(SHEETS.PLANES,
+    ['plan_id', 'titulo', 'categoria_id', 'creado_por',
+     'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
+  PLANES_HEADERS.forEach(col => ensureColumn(planes, col));
+
+  ensureSheet(SHEETS.ARCHIVOS,  ARCHIVOS_HEADERS);
+  ensureSheet(SHEETS.SESIONES,  SESIONES_HEADERS);
+  ensureSheet(SHEETS.AUDITORIA, AUDITORIA_HEADERS);
 
   Logger.log('Hojas creadas/actualizadas correctamente.');
 }
@@ -1046,6 +1324,39 @@ function migrarAvataresAArchivos() {
 
   const resumen = { creados, yaMigrados, reparados, saltados, sinFoto };
   Logger.log('migrarAvatares: ' + JSON.stringify(resumen));
+  return resumen;
+}
+
+// ------------------------------------------------------------
+// BACKFILL REQ-DATA-002 — Correr una sola vez, después de setupSheets().
+// Deja todas las filas existentes de Categorias con estado='activa' (las que
+// no tienen valor: son anteriores a la auditoría). No inventa creado_por ni
+// fecha_creacion (no hay dato de origen) y NO toca Planes.estado (ya viene
+// poblado). Idempotente: segunda corrida -> actualizados=0.
+// ------------------------------------------------------------
+
+function backfillAuditoriaCategoriasPlanes() {
+  const sheet = getSheet(SHEETS.CATEGORIAS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('categoria_id');
+  const iEst  = h.indexOf('estado');
+
+  if (iEst === -1) {
+    throw new Error('Falta la columna estado en Categorias. Corré setupSheets() primero.');
+  }
+
+  let actualizados = 0, yaTenian = 0, vacias = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][iId]) { vacias++; continue; }
+    if ((data[i][iEst] || '').toString() !== '') { yaTenian++; continue; }
+    sheet.getRange(i + 1, iEst + 1).setValue('activa');
+    actualizados++;
+  }
+
+  const resumen = { actualizados, yaTenian, vacias };
+  Logger.log('backfillAuditoriaCategoriasPlanes: ' + JSON.stringify(resumen));
   return resumen;
 }
 
