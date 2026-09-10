@@ -1910,6 +1910,11 @@
 
     async function initApp() {
       loginScreen.style.display = 'none';
+      // #app-screen se muestra/oculta SOLO con la clase .visible. Limpiamos
+      // cualquier display inline que haya quedado de un forceLogout anterior en
+      // esta misma carga de página: el inline le gana a la clase y dejaría la
+      // app cargada pero invisible (pantalla negra post-login).
+      appScreen.style.display = '';
       appScreen.classList.add('visible');
       showAppLoading('Cargando…');
       updateHeaderUser();
@@ -1996,8 +2001,10 @@
 
       if (!yaEnLogin) {
         appLoading.hidden = true;
+        // Ocultar la app quitando la clase: la regla base #app-screen ya es
+        // display:none. NO seteamos display inline acá — un inline sobrevive al
+        // classList.add('visible') del próximo initApp() y rompe el re-login.
         appScreen.classList.remove('visible');
-        appScreen.style.display = 'none';
         loginScreen.style.display = 'flex';
         document.getElementById('login-status').textContent = '';
         gsiShell.classList.remove('is-loading');

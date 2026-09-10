@@ -640,3 +640,88 @@ Test runner: doGet gateado por Script Property TEST_RUNNER_KEY en el proyecto de
 test. Deployment de test @exec:
 AKfycbxIA3ZgM6DfzUrtlkwJeWgL7jFTItn1wYUq_2T3At_D-WqrLhkTck3b2I5LvWJnS171Xg
 ========================================================
+
+========================================================
+2026-09-10 21:00 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: reintento de REQ-DATA-002 -> diagnostico real de la pantalla negra
+         (BUG-LOGIN-001) -> fix de Bug A aprobado por Duck.
+--------------------------------------------------------
+Contexto: se retomo el plan de la sesion anterior (reintentar deploy de v14 de
+REQ-DATA-002 tras "cooldown" de Apps Script).
+
+Que se hizo:
+- Deploy v14 a prod (clasp redeploy @14). Smoke de login: pantalla negra en
+  corridas limpias (5/5 en una de las pruebas). Rollback a prod @12.
+- Se descarto que la causa fuera REQ-DATA-002 / la escritura de auditoria:
+  * Con v14 en prod, los 3 responses del login (loginGoogle, getCategorias,
+    getPlanes) volvian 200 con JSON correcto.
+  * index.html es identico entre v12 y v14 (REQ-DATA-002 nunca lo toco).
+  * El bug se reproduce tambien en v12 (prod actual) -> NO es regresion de
+    REQ-DATA-002; es deuda vieja del frontend que v13/v14 solo hacen mas
+    frecuente (hojas anchas = ejecuciones mas lentas en frio).
+
+Diagnostico (BUG-LOGIN-001):
+- Dump de consola en la pantalla negra: state.session='set', planes/categorias
+  cargados, #app-loading hidden=true (initApp() TERMINO OK), pero
+  #app-screen computed display = 'none'. Las dos pantallas ocultas -> fondo del
+  <body> = negro.
+- Causa (Bug A, frontend): forceLogout() ocultaba #app-screen con estilo INLINE
+  (appScreen.style.display='none'), initApp() lo mostraba solo con CLASE
+  (classList.add('visible') -> #app-screen.visible { display:flex }). El inline
+  le gana a la clase. Una vez que forceLogout() corria en esa carga de pagina,
+  todo login posterior quedaba invisible. F5 lo tapaba (DOM nuevo, sin inline).
+- Disparador (Bug B, sesion/backend): un 401 espurio post-login que hace correr
+  forceLogout(). Viene de getCategorias/getPlanes pegandole a validarSesion
+  ANTES de ver la fila que crearSesion acaba de escribir en Sesiones (carrera
+  que el flush() de crearSesion deberia cerrar y en frio no siempre cierra).
+
+Fix entregado (Jay) - working tree, SIN commitear:
+- index.html initApp(): agrega `appScreen.style.display = '';` antes de
+  classList.add('visible') -> limpia cualquier inline veneno de un forceLogout
+  previo en la misma carga.
+- index.html forceLogout(): quita `appScreen.style.display = 'none';` -> ocultar
+  la app pasa a ser solo classList.remove('visible') (la regla base #app-screen
+  ya es display:none). Las dos operaciones ahora hablan el mismo idioma.
+
+Pruebas (Duck) - contra Apps Script REAL (prod @12), server estatico local +
+navegador, login manual con cuenta de prueba (se agrego http://localhost:5173 a
+los origenes JS autorizados del cliente OAuth 223985831716-...):
+- A/B aislado en el DOM: codigo viejo -> 2do initApp deja #app-screen en 'none'
+  (negro); codigo nuevo -> 'flex' (visible); nuevo recupera aun con inline
+  veneno simulado.
+- 1er login real: OK, 0 errores JS, 3x 200.
+- forceLogout() real -> 2do login (el caso que quedaba negro): OK x2 ciclos.
+  #app-screen flex, inline vacio, loadingHidden true.
+- Boton logout real -> login: OK x2.
+- F5 / restaurar sesion desde localStorage: OK (regresion).
+- VEREDICTO Duck: Bug A APROBADO. Cumple los 5 criterios de aceptacion de Paul.
+
+Estado:
+- BUG-LOGIN-001 / Bug A: CERRADO (Jay entrego, Duck aprobo, Paul verifico
+  criterios). Falta deployar = entra en el commit de cierre (index.html ->
+  GitHub Pages). Rollback = git revert.
+- BUG-LOGIN-001 / Bug B (401 espurio): ABIERTO, para Julia. No reprodujo hoy
+  (Apps Script templado). Con el fix de Jay el peor caso pasa de "negro
+  permanente" a "parpadeo a login + re-login manual". Prioridad media.
+- REQ-DATA-002: sigue en HOLD. Ahora sabemos que la pantalla negra no era suya.
+  Al retomar: medir si las hojas anchas (sin auditoria) disparan el 401 de
+  Bug B mas seguido. Depende del fix de Julia.
+- PROD: prod @12 (estable). El deployment de test quedo redeployado a v14 en
+  algun momento? -> NO se toco test en esta sesion.
+
+Nota menor (pre-existente, no de esta sesion): forceLogout() sin mensaje hace
+errorEl.classList.remove('visible') pero no limpia errorEl.textContent -> queda
+el texto viejo en el DOM, oculto. Cosmetico. Para Jay cuando toque login.
+
+Backlog:
+1. [Julia] BUG-LOGIN-001 Bug B: 401 espurio post-login por carrera con Sesiones
+   en frio. Evaluar fix en backend (garantizar visibilidad de la fila) vs
+   frontend (reintentar 1 vez el primer 401 post-login).
+2. [Jay] Limpiar errorEl.textContent en forceLogout() sin mensaje.
+3. [Paul/Bob] REQ-DATA-002: retomar analisis con la pantalla negra ya descartada.
+4. (del backlog anterior, sin cambios) REQ-ADMIN-001, REQ-MEDIA-001, pasada de
+   UI de Jay, mover tests al proyecto versionado, seam de test para
+   verifyGoogleAccessToken.
+========================================================
