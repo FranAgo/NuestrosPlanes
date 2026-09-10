@@ -1,7 +1,8 @@
 # REQ-SEC-001 — Token de sesión con expiración y revocable
 
-> **Estado:** IMPLEMENTADO — `Code.gs` + `index.html`. Harness de node 44/44.
-> Pendiente: QA en deployment de test (Duck) y deploy a producción por el owner.
+> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Harness de node
+> 44/44 + función de test en Apps Script real 28/28 + e2e con las dos cuentas.
+> Ver [Cierre](#cierre).
 > **Dueño técnico:** Bob · **AppSec:** Julia · **Front:** Jay · **QA:** Duck · **Infra:** Roy · **PM:** Paul
 > **Depende de:** nada aguas arriba. Sube de prioridad porque REQ-ADMIN-001
 > (config por web) no debería construirse sobre un token permanente.
@@ -255,6 +256,42 @@ cambiado de pantalla.
 Verificado en el navegador: carga OK oculta el overlay, error muestra Reintentar,
 401 en el medio → login sin overlay encima.
 
+### Segundo bug post-deploy (2026-09-10) — el overlay tapaba la app
+
+El login entraba y cargaba los datos (`state.planes`/`categorias` poblados) pero
+la pantalla quedaba negra / colgada en "Cargando…". Causa: `#app-loading` tiene
+`display: flex` en el CSS, que le gana al `display: none` de UA del atributo
+`hidden`, así que `appLoading.hidden = true` no lo ocultaba y el overlay
+(fondo `var(--bg)`, casi negro) quedaba encima.
+
+- `index.html`: `[hidden] { display: none !important; }` en el reset. Único
+  elemento con atributo `hidden` en toda la página es `#app-loading`.
+
 ## Cierre
 
-_pendiente — QA en producción tras el hotfix + smoke_
+**2026-09-10 — CERRADO.** Desplegado a producción vía `clasp` (Web App
+redeployado a versión 12, mismo URL). Los dos hotfixes post-deploy corregidos
+(flush + overlay `hidden`).
+
+### Verificado
+
+- Harness node: 44/44 (mockeado).
+- Función de test `probarSesiones()` en el proyecto de Apps Script de test, con
+  `LockService` / HMAC / hoja `Sesiones` reales: 28/28.
+- e2e en producción con las dos cuentas:
+  - Login con selector de cuenta → entra, crea 1 fila `activa` en `Sesiones`,
+    `fecha_expiracion` = creación + 15 días, `token_hash` de 64 hex.
+  - Sin pantalla negra: carga con spinner y entra directo.
+  - Cuenta no whitelisteada → "Cuenta no autorizada", vuelve al botón.
+  - Logout → la fila pasa a `revocada` (con `revocada_por` + `fecha_revocacion`).
+  - La sesión de la otra persona sigue viva tras el logout.
+  - Endpoint verificado: `loginGoogle` sin token → 400, sin sesión → 401
+    "Sesión requerida.", token roto → 401 "Sesión inválida o expirada.".
+
+Bob entregó, Julia dio APTO, Duck aprobó.
+
+### Deuda / notas
+
+- Trigger time-driven semanal `purgarSesiones` creado en producción.
+- El nombre del archivo del editor de prod se cambió de "Código" a "Code"
+  para el flujo con `clasp`. Sin efecto funcional.

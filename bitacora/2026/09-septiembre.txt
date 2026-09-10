@@ -455,12 +455,43 @@ Deploy del hotfix (flush + overlay):
   expirada.". Backend nuevo OK.
 - index.html (overlay) ya estaba en Pages desde el commit a718feb.
 
-PENDIENTE:
-- Login real de los dos -> confirmar que entra sin pantalla negra (con el
-  spinner "Cargando...").
-- QA e2e que quedo de la entrada anterior: selector de cuenta, cuenta ajena,
-  logout deja la fila revocada, XSS con dato real en Categorias. Con eso Duck
-  firma REQ-SEC-001 / SEC-002 / AUTH-002.
-- Corregir la nota del README sobre republicado (backlog Roy #6): ahora ademas
-  documentar el flujo con clasp.
+Bug encontrado en el login real y corregido (commit 96a497e, solo index.html):
+- Sintoma: se entraba pero quedaba pantalla negra / colgado en "Cargando...".
+- Causa: #app-loading tiene display:flex, que le gana al atributo `hidden`
+  (el display:none de UA tiene menos prioridad). El overlay quedaba encima
+  con fondo casi negro despues de que initApp terminaba de cargar los datos
+  (que cargaban bien: state.planes/categorias poblados).
+- Fix: [hidden] { display: none !important; } en el reset del <style>.
+- Verificado en vivo: login entra directo, con el spinner un momento, sin
+  pantalla negra. El unico elemento con atributo `hidden` es #app-loading.
+
+QA e2e en produccion (2026-09-10) — PASO:
+- Login con selector de cuenta: el popup deja elegir cuenta aunque haya una
+  sola sesion. Entra, crea 1 fila activa en Sesiones (exp +15 dias, token_hash
+  de 64 hex). Sin pantalla negra.
+- Cuenta no whitelisteada -> "Cuenta no autorizada", vuelve al boton.
+- Logout -> la fila pasa a revocada. La sesion de la otra persona sigue viva.
+- Noelia entra desde su cuenta, le carga bien.
+- XSS (probado por Claude contra el frontend desplegado, inyectando payloads en
+  state y corriendo renderPlanes/renderCategorias): 0 ejecuciones, nombre/titulo
+  como texto literal, color_hex al default, foto_url javascript: rechazada, sin
+  handlers on* inyectados, onclick con IDs saneados.
+
+REQ-SEC-001: CERRADO. REQ-SEC-002: CERRADO. REQ-AUTH-002: CERRADO.
+Bob entrego, Julia APTO, Duck aprobo. Ver los 3 docs en docs/requerimientos/.
+
+Backlog (actualizado):
+1. [Bob] REQ-DATA-002 — borrado logico en Categorias/Planes + columnas de
+   auditoria + hoja Auditoria + timestamps de sistema a ISO UTC.
+2. [Roy] Compartir la carpeta raiz de Drive con Noelia como Viewer (D1).
+3. [Bob] REQ-ADMIN-001 — rol admin + hoja Config + setDriveRootFolder + panel.
+4. [Bob] REQ-MEDIA-001 — getArchivo, revocar ANYONE_WITH_LINK, fotos de planes,
+   backfill de mime_type/tamano_bytes en las 2 filas migradas.
+5. [Jay] Pasada de UI (glifos hearts/star -> SVG, confirm() -> modal propio,
+   nav-tab/filter-chip como <button>, skeletons, layout del header, delegacion
+   de eventos en vez de onclick inline — cierra la deuda de SEC-002).
+6. [Roy] Actualizar el README: republicado con "editar implementacion -> version
+   nueva", y documentar el flujo de deploy con clasp (push + version + redeploy).
+7. [Roy] Crear .clasp-test.json + manejar probarSesiones para poder deployar a
+   test con clasp tambien (hoy probarSesiones vive solo en el proyecto de test).
 ========================================================

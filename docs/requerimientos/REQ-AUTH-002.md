@@ -1,8 +1,8 @@
 # REQ-AUTH-002 — Selección de cuenta en el login de Google
 
-> **Estado:** IMPLEMENTADO — `Code.gs` + `index.html`. Harness node 9/9 (login
-> e2e: 53/53 en total). Smoke de frontend en el navegador OK. Pendiente:
-> revisión de Julia, QA (Duck) en Web App de test y deploy.
+> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Harness node 9/9
+> (login e2e: 53/53 en total), smoke de frontend + e2e con Google real.
+> Ver [Cierre](#cierre).
 > **Dueño técnico:** Jay (front) + Bob (verificación) · **AppSec:** Julia · **QA:** Duck
 > **Depende de:** nada. Se deploya junto con REQ-SEC-001 y REQ-SEC-002 (los tres
 > tocan auth → un solo re-login).
@@ -131,12 +131,31 @@ prueba cargados.
 - Nota: en el snapshot `data:` la librería real `google.accounts.oauth2`
   cargó y `initTokenClient` no tiró — buena señal para el deploy real.
 
-### Pendiente (necesita Web App de test)
+### e2e en producción con Google real (2026-09-10)
 
-Criterios 1–4 con Google real: que el popup **siempre** muestre el selector,
-elegir cuenta whitelisteada / ajena, cerrar el popup. Se prueba junto con el
-e2e de REQ-SEC-001.
+- El popup de Google **muestra el selector de cuenta** aunque haya una sola
+  sesión activa (criterio 1).
+- Elegir la cuenta whitelisteada → entra, se crea la sesión (criterio 2).
+- Cuenta no whitelisteada → "Cuenta no autorizada para esta aplicación.",
+  vuelve al botón sin quedar "cargando" (criterio 3).
+- Backend en vivo: `loginGoogle` con el campo viejo `idToken` → 400 "Token de
+  Google requerido." (confirma que lee `accessToken`).
+- Sin `#g_id_signin` en el DOM; el botón es un `<button>` (criterio 7).
+- Los errores `Cross-Origin-Opener-Policy would block the window.closed call`
+  en consola son ruido de la librería GSI (el popup de accounts.google.com
+  corta la relación con el opener). No bloquean la entrega del token.
+
+### Revisión de seguridad (Julia)
+
+APTO. `aud`/`azp === OAUTH_CLIENT_ID` corta confused-deputy; `email_verified`
++ `exp` + `scope` chequeados antes de la whitelist; el access token no se
+loguea ni se guarda. Postura igual a la del ID token, con una mejora: un
+access token `openid email` filtrado no deja entrar a la app. Dead code
+inofensivo: el re-chequeo de `email_verified` en `handleLoginGoogle` (403)
+quedó inalcanzable (lo corta antes `verifyGoogleAccessToken` con 401).
 
 ## Cierre
 
-_pendiente — revisión de Julia + QA con Google real_
+**2026-09-10 — CERRADO.** Desplegado a producción junto con REQ-SEC-001 /
+SEC-002. Jay entregó, Julia dio APTO, Duck aprobó los criterios 1–3 y 7 con
+Google real; 4–6, 9 por harness (9/9). Sin cambios en Google Cloud.

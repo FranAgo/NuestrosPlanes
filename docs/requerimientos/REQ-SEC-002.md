@@ -1,7 +1,10 @@
 # REQ-SEC-002 — XSS almacenado en el render del frontend
 
-> **Estado:** IMPLEMENTADO — `index.html`. Tests de node 17/17 + smoke en el
-> navegador (payloads no ejecutan). Pendiente: QA (Duck) y deploy a GitHub Pages.
+> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Tests de node
+> 17/17 + smoke contra el frontend en `franago.github.io` con payloads reales
+> en `state` (0 ejecuciones, nombre/título como texto literal, color_hex al
+> default, foto_url `javascript:` rechazada, sin handlers `on*` inyectados,
+> `onclick` con IDs saneados). Ver [Cierre](#cierre).
 > **Dueño técnico:** Jay · **AppSec:** Julia · **QA:** Duck
 > **Depende de:** nada. Backlog #2 tras REQ-DATA-001.
 
@@ -84,4 +87,23 @@ Tres helpers nuevos en `index.html`, al lado de `escapeHtml`:
 
 ## Cierre
 
-_pendiente — QA + deploy_
+**2026-09-10 — CERRADO.** Desplegado a producción (commit del deploy conjunto
+con REQ-SEC-001 / AUTH-002). Verificado contra `franago.github.io` inyectando
+en `state` una categoría con `nombre` = `<img src=x onerror=alert(1)>` y
+`color_hex` = `#fff" onmouseover="…`, un plan con `titulo` malicioso, y un
+usuario con `foto_url` = `javascript:…` / breakout de atributo, y corriendo
+`renderPlanes()` + `renderCategorias()` reales:
+
+| Criterio | Resultado |
+|---|---|
+| 1 — `nombre` malicioso → texto literal en badge / lista / `<option>` | ✅ |
+| 2 — `color_hex` con breakout → color por defecto, sin `onmouseover` | ✅ |
+| 3 — `color_hex` válido se sigue viendo | ✅ (`#e8a0a0` default; presets OK en el smoke previo) |
+| 4 — `foto_url` `javascript:` / breakout → sin `<img>`, muestra inicial | ✅ |
+| 6 — botones Completar/Editar/Eliminar siguen andando (IDs por `safeId`) | ✅ |
+| 7 — ningún elemento con `on*` fuera de los `onclick` propios | ✅ |
+| 9 — ningún `Logger.log` con el `accessToken` | n/a (frontend) |
+
+Duck: aprobado. Queda como deuda (backlog #5, pasada de UI): reemplazar los
+`onclick` inline por delegación de eventos con `data-*` — es el fix de raíz de
+esa familia; `safeId` cierra el riesgo actual.
