@@ -257,3 +257,114 @@ Backlog (prioridad sugerida):
 Housekeeping (sigue pendiente de sesiones anteriores):
 - Remote de git apuntando a FranAgo/Peroncitos. Actualizar a FranAgo/NuestrosPlanes.
 ========================================================
+
+========================================================
+2026-09-09 22:39 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Bob / Julia / Jay / Duck — REQ-SEC-001, REQ-SEC-002, REQ-AUTH-002
+--------------------------------------------------------
+Tres REQs de auth que se deployan juntos (un solo re-login). El backend se
+probo con harness de node (53/53) y con una funcion de test corrida en un
+proyecto de Apps Script de test contra una copia de la planilla (28/28, con
+LockService / HMAC / Sheets reales). El frontend se probo en el navegador.
+
+REQ-SEC-001 — Token de sesion con expiracion y revocable
+- docs/requerimientos/REQ-SEC-001.md — nuevo. Diseno, criterios, plan de pruebas.
+- Code.gs
+  - Hoja nueva Sesiones (9 columnas): session_id, usuario_id, token_hash
+    (HMAC-SHA256 del secreto, nunca el secreto crudo), fecha_creacion,
+    fecha_expiracion, fecha_ultimo_uso, estado (activa|revocada), revocada_por,
+    fecha_revocacion. Constante SESIONES_HEADERS.
+  - Token opaco <session_id>.<secreto de 64 hex>. Expiracion absoluta 15 dias
+    (SESION_TTL_MS). fecha_ultimo_uso se reescribe como mucho 1x/hora.
+  - Helpers: crearSesion (con LockService), validarSesion (devuelve {userId} o
+    {error} generico), getSesionRow, tocarSesion, revocarSesion, hmacHex,
+    comparacionConstante (tiempo constante), generarSecretoSesion, purgarSesiones.
+  - doPost: la identidad del request sale de la sesion, no de body.userId.
+    getUser es la excepcion (ahi body.userId es el usuario objetivo). Esto
+    ademas arregla un bug latente: getUser del otro usuario daba 401 silencioso.
+  - Endpoint logout nuevo (revoca la sesion actual; idempotente; no pasa por el
+    gate de sesion). Se eliminan generateSessionToken, validateSession y
+    hashString (primitiva vieja).
+  - setupSheets(): crea la hoja Sesiones (idempotente).
+  - purgarSesiones(): para trigger time-driven semanal. Borra revocadas y
+    vencidas hace mas de 7 dias.
+- index.html
+  - api(): handler global de 401 -> forceLogout() (limpia sesion, vuelve al
+    login con "Tu sesion expiro"). Reentrante. SILENT_401 para loginGoogle y
+    logout.
+  - Boton de logout: llama al endpoint logout antes de limpiar local
+    (best-effort).
+  - saveSession / loadSession / clearSession envueltos en try/catch (localStorage
+    puede tirar en modo privado).
+
+REQ-SEC-002 — XSS almacenado en el render del frontend
+- docs/requerimientos/REQ-SEC-002.md — nuevo.
+- index.html
+  - Helpers nuevos: safeColor (allowlist hex, si no cae a PRESET_COLORS[0]),
+    safeImageUrl (solo http(s) y data:image; bloquea javascript:), safeId (deja
+    solo [A-Za-z0-9_-]).
+  - renderPlanes: safeColor en el badge, escapeHtml(cat.nombre), safeImageUrl en
+    el avatar, escapeHtml en alt y en la inicial, safeId en los 3 onclick.
+  - renderCategorias: safeColor(cat.colorHex), safeId en los onclick.
+  - setAvatarEl: safeImageUrl + escapeHtml en alt.
+  - Select de categorias: safeId + escapeHtml(nombre).
+  - Fuera de alcance (queda para la pasada de UI): pasar los onclick inline a
+    delegacion con data-*.
+
+REQ-AUTH-002 — Seleccion de cuenta en el login de Google
+- docs/requerimientos/REQ-AUTH-002.md — nuevo.
+- Motivo: google.accounts.id agarraba la cuenta por defecto sin dejar elegir; si
+  no estaba en la whitelist, el usuario nunca llegaba a elegir la correcta.
+- index.html
+  - Se pasa a google.accounts.oauth2.initTokenClient con prompt:'select_account'
+    (scope 'openid email'). El popup SIEMPRE muestra el selector.
+  - El boton "Continuar con Google" pasa a ser un <button> real. Se elimina todo
+    el overlay (#g_id_signin invisible con iframe { transform: scale(2.4) }) y su
+    CSS. Estetica del boton intacta.
+  - initGoogleSignIn -> initGoogleAuth. handleGoogleCredential -> handleGoogleToken
+    (recibe { access_token }, maneja cancelacion sin error rojo).
+- Code.gs
+  - handleLoginGoogle lee body.accessToken.
+  - verifyGoogleIdToken -> verifyGoogleAccessToken: tokeninfo?access_token=,
+    valida aud/azp === OAUTH_CLIENT_ID, scope con email, email_verified, exp.
+    El resto (whitelist por email, crearSesion) no cambia.
+- Google Cloud: sin cambios (mismo OAuth client "Web application", mismo origen).
+
+Revision de seguridad (Julia): APTO para los tres. HMAC + comparacion constante,
+identidad desde la sesion, aud/azp check corta confused-deputy, logs sin
+secretos ni tokens (verificado). Riesgo residual del token en localStorage sin
+cambios; la expiracion lo mejora.
+
+Acciones sobre produccion en esta sesion (hechas por el usuario, paso 1 del
+checklist de deploy):
+- Code.gs nuevo pegado y guardado en el Apps Script de produccion (sin
+  republicar todavia).
+- setupSheets() corrido -> hoja Sesiones creada.
+- Trigger time-driven semanal creado para purgarSesiones.
+
+PENDIENTE de esta sesion:
+- Republicar el Web App de produccion (version nueva, mismo URL) -> paso 4.
+- Re-login de los dos + verificacion e2e (selector de cuenta, cuenta ajena,
+  logout, XSS con dato real) -> paso 5. Con eso Duck firma los tres REQs.
+
+Backlog (actualizado):
+1. [Bob] REQ-DATA-002 — borrado logico en Categorias/Planes + columnas de
+   auditoria + hoja Auditoria + estandarizar timestamps a ISO UTC. La hoja
+   Auditoria es donde van los eventos 'login'.
+2. [Roy] Compartir la carpeta raiz de Drive con Noelia como Viewer (D1).
+3. [Bob] REQ-ADMIN-001 — rol admin + hoja Config + setDriveRootFolder + panel.
+   Depende de SEC-001.
+4. [Bob] REQ-MEDIA-001 — getArchivo, revocar ANYONE_WITH_LINK, fotos de planes,
+   backfill de mime_type/tamano_bytes en las 2 filas migradas.
+5. [Jay] Pasada de UI (glifos hearts/star -> SVG, confirm() -> modal propio,
+   nav-tab/filter-chip como <button>, skeletons, layout del header, delegacion
+   de eventos en vez de onclick inline).
+6. [Roy] Corregir la nota del README: para mantener la misma URL se hace
+   "editar implementacion -> version nueva", no "nueva implementacion".
+
+Housekeeping:
+- Remote de git ya apunta a FranAgo/NuestrosPlanes (el item viejo estaba
+  desactualizado, ya estaba hecho).
+========================================================

@@ -252,8 +252,8 @@
 
     /* ====================================================
        BOTÓN DE GOOGLE (login)
-       El botón real de Google se renderiza invisible encima
-       de #gsi-custom, que es el que ve el usuario.
+       Botón real que dispara google.accounts.oauth2 (con
+       selector de cuenta). Ver REQ-AUTH-002.
     ==================================================== */
     .gsi-shell {
       position: relative;
@@ -267,10 +267,13 @@
     #gsi-custom {
       position: absolute;
       inset: 0;
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.7rem;
+      -webkit-appearance: none;
+      appearance: none;
       border: 0.5px solid var(--copper-dim);
       border-radius: var(--radius-lg);
       background: linear-gradient(180deg, #1C1712 0%, #141110 100%);
@@ -280,6 +283,7 @@
       font-weight: 500;
       letter-spacing: 0.01em;
       overflow: hidden;
+      cursor: pointer;
       transition: var(--transition);
     }
 
@@ -329,20 +333,6 @@
     .gsi-shell:hover .gsi-g { border-color: var(--copper-dim); }
     .gsi-g svg { width: 14px; height: 14px; display: block; }
     .gsi-label { position: relative; }
-
-    /* botón real de Google: encima, transparente, capta el clic */
-    #g_id_signin {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.001;            /* invisible pero clickeable */
-      overflow: hidden;
-    }
-
-    #g_id_signin iframe { transform: scale(2.4); }  /* agranda el área de clic si GSI usa iframe */
 
     /* estado de carga: mientras se verifica */
     .gsi-shell.is-loading { pointer-events: none; }
@@ -1352,7 +1342,7 @@
       </div>
 
       <div class="gsi-shell" id="gsi-shell">
-        <div id="gsi-custom">
+        <button type="button" id="gsi-custom">
           <span class="gsi-g">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -1362,8 +1352,7 @@
             </svg>
           </span>
           <span class="gsi-label">Continuar con Google</span>
-        </div>
-        <div id="g_id_signin"></div>
+        </button>
       </div>
 
       <div class="login-status" id="login-status"></div>
@@ -1714,6 +1703,10 @@
     // ====================================================
     // API CALLS
     // ====================================================
+    // Acciones donde un 401 no debe disparar el cartel de "sesión expirada":
+    // el login todavía no tiene sesión y el logout justamente la está cerrando.
+    const SILENT_401 = ['loginGoogle', 'logout'];
+
     async function api(action, params = {}) {
       const body = {
         action,
@@ -1722,7 +1715,12 @@
         ...params,
       };
       const res  = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
-      return res.json();
+      const data = await res.json();
+
+      if (data && data.status === 401 && !SILENT_401.includes(action)) {
+        forceLogout('Tu sesión expiró. Entrá de nuevo.');
+      }
+      return data;
     }
 
     // ====================================================
@@ -1731,48 +1729,67 @@
     const loginScreen = document.getElementById('login-screen');
     const appScreen   = document.getElementById('app-screen');
 
-    // Inicializa Google Sign-In cuando la librería GSI está disponible.
+    const gsiShell  = document.getElementById('gsi-shell');
+    const gsiButton = document.getElementById('gsi-custom');
+
+    // Cliente OAuth de Google. Con prompt:'select_account' el popup SIEMPRE
+    // deja elegir la cuenta, aunque haya una sola sesión activa. Ver REQ-AUTH-002.
     let gsiReady = false;
-    function initGoogleSignIn() {
+    let tokenClient = null;
+    function initGoogleAuth() {
       if (gsiReady) return;
-      if (!window.google || !google.accounts || !google.accounts.id) return;
+      if (!window.google || !google.accounts || !google.accounts.oauth2) return;
       gsiReady = true;
-      google.accounts.id.initialize({
+      tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        callback:  handleGoogleCredential,
-        auto_select: false,
+        scope: 'openid email',
+        prompt: 'select_account',
+        callback: handleGoogleToken,
+        error_callback: () => { gsiShell.classList.remove('is-loading'); },
       });
-      // El botón real se renderiza invisible (ver CSS): solo capta el clic.
-      google.accounts.id.renderButton(
-        document.getElementById('g_id_signin'),
-        { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 280 }
-      );
     }
-    // La librería llama a este hook al terminar de cargar; si ya cargó, el boot() lo intenta igual.
-    window.onGoogleLibraryLoad = initGoogleSignIn;
+    // La librería llama a este hook al terminar de cargar; si ya cargó, boot() lo intenta igual.
+    window.onGoogleLibraryLoad = initGoogleAuth;
 
-    // Estado de "cargando" del botón mientras se abre el popup de Google.
-    const gsiShell = document.getElementById('gsi-shell');
-
-    gsiShell.addEventListener('click', () => {
+    gsiButton.addEventListener('click', () => {
+      const errorEl = document.getElementById('login-error');
+      if (!tokenClient) {
+        errorEl.textContent = 'Google todavía está cargando. Probá de nuevo en un momento.';
+        errorEl.classList.add('visible');
+        return;
+      }
+      errorEl.classList.remove('visible');
       gsiShell.classList.add('is-loading');
+      tokenClient.requestAccessToken();   // síncrono: cuenta como gesto de usuario
     });
 
-    // Si el usuario vuelve del popup sin loguearse, se limpia el estado.
+    // Si el usuario cierra el popup sin elegir cuenta, se limpia el estado.
     window.addEventListener('focus', () => {
       setTimeout(() => {
         if (!state.session) gsiShell.classList.remove('is-loading');
       }, 400);
     });
 
-    async function handleGoogleCredential(response) {
+    async function handleGoogleToken(resp) {
       const errorEl  = document.getElementById('login-error');
       const statusEl = document.getElementById('login-status');
+
+      if (!resp || resp.error || !resp.access_token) {
+        gsiShell.classList.remove('is-loading');
+        // Si el usuario canceló no mostramos error rojo.
+        const cancelado = resp && (resp.error === 'access_denied' || resp.error === 'popup_closed');
+        if (resp && resp.error && !cancelado) {
+          errorEl.textContent = 'No se pudo iniciar sesión con Google.';
+          errorEl.classList.add('visible');
+        }
+        return;
+      }
+
       errorEl.classList.remove('visible');
       statusEl.textContent = 'Verificando…';
 
       try {
-        const data = await api('loginGoogle', { idToken: response.credential });
+        const data = await api('loginGoogle', { accessToken: resp.access_token });
 
         if (data.status === 200) {
           state.session = {
@@ -1801,18 +1818,22 @@
     // ====================================================
     // SESIÓN — localStorage
     // ====================================================
+    // localStorage puede tirar (modo privado, storage deshabilitado). Nunca
+    // debe romper el flujo de sesión: si falla, se sigue en memoria.
     function saveSession() {
-      localStorage.setItem('cp_session', JSON.stringify(state.session));
+      try { localStorage.setItem('cp_session', JSON.stringify(state.session)); }
+      catch (e) { /* sin persistencia, la sesión vive solo en memoria */ }
     }
 
     function loadSession() {
-      const raw = localStorage.getItem('cp_session');
-      if (!raw) return null;
-      try { return JSON.parse(raw); } catch { return null; }
+      try {
+        const raw = localStorage.getItem('cp_session');
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
     }
 
     function clearSession() {
-      localStorage.removeItem('cp_session');
+      try { localStorage.removeItem('cp_session'); } catch (e) { /* ignorado */ }
       state.session = null;
     }
 
@@ -1873,8 +1894,9 @@
 
     function setAvatarEl(el, user, large = false) {
       if (!el) return;
-      if (user.fotoUrl) {
-        el.innerHTML = `<img src="${user.fotoUrl}" alt="${user.nombreDisplay}" />`;
+      const src = safeImageUrl(user.fotoUrl);
+      if (src) {
+        el.innerHTML = `<img src="${src}" alt="${escapeHtml(user.nombreDisplay || '')}" />`;
       } else {
         el.textContent = user.nombreDisplay?.[0]?.toUpperCase() || '?';
       }
@@ -1883,18 +1905,41 @@
     // ====================================================
     // LOGOUT
     // ====================================================
-    document.getElementById('btn-logout').addEventListener('click', () => {
-      clearSession();
-      if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.disableAutoSelect();
+    // Vuelve a la pantalla de login y limpia todo el estado local. Se usa tanto
+    // en el logout manual como cuando el backend responde 401 (sesión vencida o
+    // revocada). Reentrante: si varios requests responden 401 a la vez, solo el
+    // primero rehace la pantalla; los demás solo refrescan el mensaje.
+    function forceLogout(mensaje) {
+      const yaEnLogin = loginScreen.style.display === 'flex';
+
+      if (state.session) {
+        clearSession();
+        state.users = {};
       }
-      appScreen.classList.remove('visible');
-      appScreen.style.display = 'none';
-      loginScreen.style.display = 'flex';
-      document.getElementById('login-error').classList.remove('visible');
-      document.getElementById('login-status').textContent = '';
-      gsiShell.classList.remove('is-loading');
-      initStars();
+
+      if (!yaEnLogin) {
+        appScreen.classList.remove('visible');
+        appScreen.style.display = 'none';
+        loginScreen.style.display = 'flex';
+        document.getElementById('login-status').textContent = '';
+        gsiShell.classList.remove('is-loading');
+        initStars();
+      }
+
+      const errorEl = document.getElementById('login-error');
+      if (mensaje) {
+        errorEl.textContent = mensaje;
+        errorEl.classList.add('visible');
+      } else if (!yaEnLogin) {
+        errorEl.classList.remove('visible');
+      }
+    }
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      // Best-effort: avisamos al backend para que revoque la sesión, pero si
+      // falla igual cerramos localmente.
+      try { await api('logout'); } catch (e) { /* ignorado a propósito */ }
+      forceLogout();
     });
 
     // ====================================================
@@ -1975,34 +2020,36 @@
       }
 
       grid.innerHTML = planes.map(plan => {
-        const cat     = getCategoriaById(plan.categoriaId);
-        const vencido = isVencido(plan);
-        const creador = getUserDisplay(plan.creadoPor);
-        const fotoUrl = getUserFoto(plan.creadoPor);
-        const initial = creador?.[0]?.toUpperCase() || '?';
+        const cat       = getCategoriaById(plan.categoriaId);
+        const vencido   = isVencido(plan);
+        const creador   = getUserDisplay(plan.creadoPor);
+        const initial   = creador?.[0]?.toUpperCase() || '?';
+        const pid       = safeId(plan.planId);
+        const avatarSrc = safeImageUrl(getUserFoto(plan.creadoPor));
 
+        const catColor = cat ? safeColor(cat.colorHex) : '';
         const catBadge = cat
-          ? `<span class="categoria-badge" style="background:${cat.colorHex}22;color:${cat.colorHex}">${cat.nombre}</span>`
+          ? `<span class="categoria-badge" style="background:${catColor}22;color:${catColor}">${escapeHtml(cat.nombre)}</span>`
           : '';
 
         const vencBadge = vencido
           ? `<span class="vencido-badge">Vencido</span>`
           : '';
 
-        const avatarContent = fotoUrl
-          ? `<img src="${fotoUrl}" alt="${creador}" />`
-          : initial;
+        const avatarContent = avatarSrc
+          ? `<img src="${avatarSrc}" alt="${escapeHtml(creador)}" />`
+          : escapeHtml(initial);
 
         const actions = plan.estado === 'completado'
           ? `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`
-          : `<button class="btn-completar" onclick="completarPlan('${plan.planId}')">Marcar completado</button>
-             <button class="btn-icon" onclick="editarPlan('${plan.planId}')" title="Editar">
+          : `<button class="btn-completar" onclick="completarPlan('${pid}')">Marcar completado</button>
+             <button class="btn-icon" onclick="editarPlan('${pid}')" title="Editar">
                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                  <path d="M2 10.5L3.5 9 9.5 3l1.5 1.5L5 10.5l-2 .5-.5-.5z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M8.5 3l1.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
                </svg>
              </button>
-             <button class="btn-icon" onclick="eliminarPlan('${plan.planId}')" title="Eliminar">
+             <button class="btn-icon" onclick="eliminarPlan('${pid}')" title="Eliminar">
                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                  <path d="M2.5 4h9M5.5 4V2.5h3V4M5.5 6.5v4M8.5 6.5v4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M3.5 4l.5 7.5h6l.5-7.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2091,7 +2138,7 @@
       const select = document.getElementById('plan-categoria-select');
       select.innerHTML =
         '<option value="">Sin categoría</option>' +
-        state.categorias.map(c => `<option value="${c.categoriaId}">${c.nombre}</option>`).join('');
+        state.categorias.map(c => `<option value="${safeId(c.categoriaId)}">${escapeHtml(c.nombre)}</option>`).join('');
 
       if (planId) {
         const plan = state.planes.find(p => p.planId === planId);
@@ -2203,16 +2250,18 @@
         return;
       }
 
-      list.innerHTML = state.categorias.map(cat => `
+      list.innerHTML = state.categorias.map(cat => {
+        const cid = safeId(cat.categoriaId);
+        return `
         <div class="categoria-row">
-          <div class="categoria-color-dot" style="background:${cat.colorHex}"></div>
+          <div class="categoria-color-dot" style="background:${safeColor(cat.colorHex)}"></div>
           <div class="categoria-nombre">${escapeHtml(cat.nombre)}</div>
           <div class="categoria-actions">
-            <button class="btn btn-secondary btn-sm" onclick="editarCategoria('${cat.categoriaId}')">Editar</button>
-            <button class="btn btn-danger" onclick="eliminarCategoria('${cat.categoriaId}')">Eliminar</button>
+            <button class="btn btn-secondary btn-sm" onclick="editarCategoria('${cid}')">Editar</button>
+            <button class="btn btn-danger" onclick="eliminarCategoria('${cid}')">Eliminar</button>
           </div>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
     }
 
     // ====================================================
@@ -2628,6 +2677,8 @@
     // ====================================================
     // HELPERS
     // ====================================================
+
+    // Escapa texto para interpolarlo en HTML o en atributos con comillas dobles.
     function escapeHtml(str) {
       return String(str)
         .replace(/&/g,  '&amp;')
@@ -2636,16 +2687,40 @@
         .replace(/"/g,  '&quot;');
     }
 
+    // Los datos de categorías, nombres y fotos vienen de la planilla y podrían
+    // contener HTML/JS. Antes de meterlos en el DOM pasan por estos filtros.
+    // (REQ backlog: XSS almacenado en renderPlanes / renderCategorias.)
+
+    // Solo se acepta un color hex válido. Cualquier otra cosa —incluido un
+    // intento de romper el atributo style— cae al color por defecto.
+    function safeColor(value) {
+      const v = String(value == null ? '' : value).trim();
+      return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : PRESET_COLORS[0];
+    }
+
+    // URL para el src de una imagen: solo http(s) y data:image. Bloquea
+    // javascript: y demás; el escape evita romper el atributo. '' => sin imagen.
+    function safeImageUrl(value) {
+      const url = String(value == null ? '' : value).trim();
+      return /^(https?:\/\/|data:image\/)/i.test(url) ? escapeHtml(url) : '';
+    }
+
+    // ID de entidad (plan_..., cat_...): se usa dentro de handlers inline y de
+    // atributos value. Se queda solo con los caracteres que genera el backend.
+    function safeId(value) {
+      return String(value == null ? '' : value).replace(/[^A-Za-z0-9_-]/g, '');
+    }
+
     // ====================================================
     // ARRANQUE
     // ====================================================
     (async function boot() {
       initStars();
-      initGoogleSignIn();
+      initGoogleAuth();
       // Reintento por si la librería GSI todavía no cargó al arrancar.
       let tries = 0;
       const gsiTimer = setInterval(() => {
-        initGoogleSignIn();
+        initGoogleAuth();
         if (gsiReady || ++tries > 40) clearInterval(gsiTimer);
       }, 150);
 

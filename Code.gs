@@ -1,8 +1,9 @@
 // ============================================================
 // COUPLE PLANS — Google Apps Script Backend
 // Modelo de datos: Google Sheets
-// Hojas requeridas: Usuarios, Categorias, Planes, Archivos
+// Hojas requeridas: Usuarios, Categorias, Planes, Archivos, Sesiones
 // Diseño del modelo: docs/modelo-datos.md
+// Sesiones: docs/requerimientos/REQ-SEC-001.md
 // ============================================================
 
 // ------------------------------------------------------------
@@ -27,7 +28,26 @@ const SHEETS = {
   CATEGORIAS:  'Categorias',
   PLANES:      'Planes',
   ARCHIVOS:    'Archivos',
+  SESIONES:    'Sesiones',
 };
+
+// Esquema de la hoja Sesiones. Ver docs/requerimientos/REQ-SEC-001.md.
+// Fuente única del orden de columnas: se reutiliza en el setup y en crearSesion().
+const SESIONES_HEADERS = [
+  'session_id', 'usuario_id', 'token_hash',
+  'fecha_creacion', 'fecha_expiracion', 'fecha_ultimo_uso',
+  'estado', 'revocada_por', 'fecha_revocacion',
+];
+
+// Vida de una sesión desde que se crea (expiración absoluta, no sliding).
+const SESION_TTL_MS = 15 * 24 * 60 * 60 * 1000;
+
+// Cada cuánto, como máximo, se reescribe fecha_ultimo_uso (throttle de cuota
+// de escritura: no queremos un write de Sheets en cada request).
+const SESION_TOUCH_MS = 60 * 60 * 1000;
+
+// Gracia antes de que purgarSesiones() borre una sesión vencida.
+const SESION_PURGA_GRACIA_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Esquema de la hoja Archivos. Ver docs/modelo-datos.md sección 4.
 // Se define una sola vez y se reutiliza en el setup y en las inserciones,
@@ -58,9 +78,20 @@ function doPost(e) {
     // Endpoints que NO requieren sesión válida
     const publicActions = ['loginGoogle'];
 
+    // logout no pasa por el gate de sesión: cerrar sesión tiene que funcionar
+    // siempre, incluso si el token ya venció o ya se revocó (idempotente).
+    if (action === 'logout') return handleLogout(body);
+
     if (!publicActions.includes(action)) {
-      const sessionError = validateSession(body.sessionToken, body.userId);
-      if (sessionError) return respond(401, { error: sessionError });
+      const sesion = validarSesion(body.sessionToken);
+      if (sesion.error) return respond(401, { error: sesion.error });
+
+      // La identidad del request sale de la sesión, nunca del body.
+      // getUser es la excepción: ahí body.userId es el usuario objetivo a
+      // consultar (las dos personas se ven entre sí). El resto de los
+      // handlers opera "como el dueño del token".
+      body.authUserId = sesion.userId;
+      if (action !== 'getUser') body.userId = sesion.userId;
     }
 
     switch (action) {
@@ -98,15 +129,15 @@ function doPost(e) {
 // AUTENTICACIÓN
 // ------------------------------------------------------------
 
-// Login con Google Sign-In.
-// El frontend obtiene un ID token de Google y lo manda acá.
-// Verificamos el token contra Google, y solo dejamos entrar a los emails
-// que estén cargados en la hoja Usuarios (lista blanca).
-// No se almacena ni se compara ninguna contraseña.
+// Login con Google.
+// El frontend usa google.accounts.oauth2.initTokenClient (con selector de
+// cuenta) y manda el access token acá. Lo verificamos contra Google y solo
+// dejamos entrar a los emails cargados en la hoja Usuarios (lista blanca).
+// No se almacena ni se compara ninguna contraseña. Ver REQ-AUTH-002.
 function handleLoginGoogle(body) {
-  const { idToken } = body;
+  const { accessToken } = body;
 
-  if (!idToken) {
+  if (!accessToken) {
     return respond(400, { error: 'Token de Google requerido.' });
   }
   if (!OAUTH_CLIENT_ID || !SESSION_SECRET) {
@@ -114,7 +145,7 @@ function handleLoginGoogle(body) {
     return respond(500, { error: 'Autenticación no configurada en el servidor.' });
   }
 
-  const payload = verifyGoogleIdToken(idToken);
+  const payload = verifyGoogleAccessToken(accessToken);
   if (!payload) {
     return respond(401, { error: 'Token de Google inválido o vencido.' });
   }
@@ -141,7 +172,7 @@ function handleLoginGoogle(body) {
       }
 
       const userId = row[0];
-      const sessionToken = generateSessionToken(userId);
+      const sessionToken = crearSesion(userId);
 
       return respond(200, {
         sessionToken,
@@ -157,23 +188,28 @@ function handleLoginGoogle(body) {
   return respond(403, { error: 'Cuenta no autorizada para esta aplicación.' });
 }
 
-// Verifica el ID token contra el endpoint oficial de Google.
-// Google valida la firma; nosotros validamos que el token sea para NUESTRA app.
-function verifyGoogleIdToken(idToken) {
+// Verifica el access token contra el endpoint oficial de Google (tokeninfo).
+// Nos importan tres cosas: que el token sea para NUESTRA app, que el email esté
+// verificado y que no esté vencido. Devuelve el payload o null.
+function verifyGoogleAccessToken(accessToken) {
   try {
-    const url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken);
+    const url = 'https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(accessToken);
     const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
     if (res.getResponseCode() !== 200) return null;
 
     const payload = JSON.parse(res.getContentText());
 
     // El token tiene que haber sido emitido para nuestro Client ID.
-    if (payload.aud !== OAUTH_CLIENT_ID) return null;
-
-    // Emisor esperado.
-    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+    // En un access token de un cliente web, aud y azp son el client_id.
+    if (payload.aud !== OAUTH_CLIENT_ID && payload.azp !== OAUTH_CLIENT_ID) {
       return null;
     }
+
+    // El scope tiene que incluir el permiso de email, si no no habría email.
+    if (!payload.scope || payload.scope.indexOf('email') === -1) return null;
+
+    // Email verificado (tokeninfo devuelve strings).
+    if (payload.email_verified !== 'true' && payload.email_verified !== true) return null;
 
     // No vencido (con 5 min de tolerancia de reloj).
     if (payload.exp && (Number(payload.exp) * 1000) < (Date.now() - 5 * 60 * 1000)) {
@@ -182,27 +218,209 @@ function verifyGoogleIdToken(idToken) {
 
     return payload;
   } catch (err) {
-    Logger.log('verifyGoogleIdToken error: ' + err.toString());
+    Logger.log('verifyGoogleAccessToken error: ' + err.toString());
     return null;
   }
 }
 
 // ------------------------------------------------------------
-// VALIDACIÓN DE SESIÓN
-// Valida que el token corresponde al userId declarado.
-// El token es SHA-256(userId + SESSION_SECRET).
-// Es stateless: no requiere almacenar sesiones en Sheets.
+// SESIONES  (REQ-SEC-001)
+// Sesiones con estado en la hoja Sesiones. Token opaco:
+//   <session_id>.<secreto>
+// La hoja guarda HMAC-SHA256(secreto, SESSION_SECRET), nunca el secreto crudo.
+// Expiración absoluta (SESION_TTL_MS). Revocable de a una (endpoint logout).
 // ------------------------------------------------------------
 
-function generateSessionToken(userId) {
-  return hashString(userId + SESSION_SECRET);
+// Crea una sesión nueva y devuelve el token para el cliente.
+function crearSesion(userId) {
+  const sessionId = newId('ses');
+  const secreto   = generarSecretoSesion();
+  const ahora     = new Date();
+  const exp       = new Date(ahora.getTime() + SESION_TTL_MS);
+  const ahoraIso  = ahora.toISOString();
+
+  const fila = SESIONES_HEADERS.map(col => {
+    switch (col) {
+      case 'session_id':       return sessionId;
+      case 'usuario_id':       return userId;
+      case 'token_hash':       return hmacHex(secreto);
+      case 'fecha_creacion':   return ahoraIso;
+      case 'fecha_expiracion': return exp.toISOString();
+      case 'fecha_ultimo_uso': return ahoraIso;
+      case 'estado':           return 'activa';
+      case 'revocada_por':     return '';
+      case 'fecha_revocacion': return '';
+      default:                 return '';
+    }
+  });
+
+  const sheet = getSheet(SHEETS.SESIONES);
+  const lock  = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    sheet.appendRow(fila);
+  } finally {
+    lock.releaseLock();
+  }
+
+  return sessionId + '.' + secreto;
 }
 
-function validateSession(sessionToken, userId) {
-  if (!sessionToken || !userId) return 'Sesión requerida.';
-  const expected = generateSessionToken(userId);
-  if (sessionToken !== expected) return 'Sesión inválida.';
-  return null; // sin error
+// Valida el token de un request. Devuelve { userId } si es válida, o
+// { error } con un mensaje genérico si no. El detalle real va solo al log.
+function validarSesion(sessionToken) {
+  if (!sessionToken || typeof sessionToken !== 'string') {
+    return { error: 'Sesión requerida.' };
+  }
+
+  const punto = sessionToken.indexOf('.');
+  if (punto < 1 || punto === sessionToken.length - 1) {
+    return { error: 'Sesión inválida o expirada.' };
+  }
+  const sessionId = sessionToken.slice(0, punto);
+  const secreto   = sessionToken.slice(punto + 1);
+
+  const fila = getSesionRow(sessionId);
+  if (!fila) {
+    Logger.log('validarSesion: session_id inexistente (' + sessionId + ').');
+    return { error: 'Sesión inválida o expirada.' };
+  }
+  if (fila.estado !== 'activa') {
+    Logger.log('validarSesion: sesión no activa (' + sessionId + ').');
+    return { error: 'Sesión inválida o expirada.' };
+  }
+
+  const ahora = Date.now();
+  if (new Date(fila.fecha_expiracion).getTime() < ahora) {
+    Logger.log('validarSesion: sesión vencida (' + sessionId + ').');
+    return { error: 'Sesión inválida o expirada.' };
+  }
+
+  if (!comparacionConstante(hmacHex(secreto), String(fila.token_hash))) {
+    Logger.log('validarSesion: hash no coincide (' + sessionId + ').');
+    return { error: 'Sesión inválida o expirada.' };
+  }
+
+  // fecha_ultimo_uso: se reescribe como mucho 1×/hora. No extiende la
+  // expiración (es absoluta), solo sirve de rastro de uso.
+  const ultimoUso = new Date(fila.fecha_ultimo_uso).getTime();
+  if (isNaN(ultimoUso) || ahora - ultimoUso > SESION_TOUCH_MS) {
+    tocarSesion(fila._rowIndex);
+  }
+
+  return { userId: fila.usuario_id };
+}
+
+// Endpoint: cierra la sesión del token del request. Siempre responde 200,
+// incluso si la sesión ya no existía o ya estaba revocada (idempotente).
+// No exige sesión válida a propósito: cerrar sesión no puede fallar.
+function handleLogout(body) {
+  const token     = (body.sessionToken || '').toString();
+  const punto     = token.indexOf('.');
+  const sessionId = punto > 0 ? token.slice(0, punto) : '';
+  if (sessionId) revocarSesion(sessionId);
+  return respond(200, { success: true });
+}
+
+// Marca una sesión como revocada. No borra la fila (purgarSesiones lo hace
+// después). Idempotente: si ya estaba revocada o no existe, no hace nada.
+// revocada_por = el propio dueño de la sesión (self-service logout).
+function revocarSesion(sessionId) {
+  const sheet = getSheet(SHEETS.SESIONES);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('session_id');
+  const iUsr  = h.indexOf('usuario_id');
+  const iEst  = h.indexOf('estado');
+  const iPor  = h.indexOf('revocada_por');
+  const iFec  = h.indexOf('fecha_revocacion');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] === sessionId && data[i][iEst] === 'activa') {
+      sheet.getRange(i + 1, iEst + 1).setValue('revocada');
+      sheet.getRange(i + 1, iPor + 1).setValue(data[i][iUsr] || '');
+      sheet.getRange(i + 1, iFec + 1).setValue(new Date().toISOString());
+      return true;
+    }
+  }
+  return false;
+}
+
+// Devuelve la fila de Sesiones como objeto { header: valor, _rowIndex }, o null.
+function getSesionRow(sessionId) {
+  const sheet = getSheet(SHEETS.SESIONES);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('session_id');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] === sessionId) {
+      const obj = { _rowIndex: i + 1 };
+      h.forEach((col, j) => { obj[col] = data[i][j]; });
+      return obj;
+    }
+  }
+  return null;
+}
+
+// Actualiza fecha_ultimo_uso de una fila ya localizada. Lee el header real
+// (igual que getSesionRow) para no depender del orden físico de columnas.
+function tocarSesion(rowIndex) {
+  const sheet   = getSheet(SHEETS.SESIONES);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const iUso    = headers.indexOf('fecha_ultimo_uso');
+  if (iUso === -1) return;
+  sheet.getRange(rowIndex, iUso + 1).setValue(new Date().toISOString());
+}
+
+// Secreto de sesión: dos UUID v4 (respaldados por SecureRandom) sin guiones.
+// 64 hex, ~244 bits reales de entropía.
+function generarSecretoSesion() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+}
+
+// HMAC-SHA256(mensaje, SESSION_SECRET) en hex.
+function hmacHex(mensaje) {
+  const raw = Utilities.computeHmacSha256Signature(mensaje, SESSION_SECRET);
+  return raw.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+}
+
+// Comparación de strings de tiempo constante (no corta en la primera
+// diferencia). Evita filtrar información por timing en el match del hash.
+function comparacionConstante(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// Trigger time-driven (semanal). Borra sesiones revocadas y las vencidas
+// hace más de SESION_PURGA_GRACIA_MS. Deja las activas y las recién vencidas.
+function purgarSesiones() {
+  const sheet = getSheet(SHEETS.SESIONES);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iEst  = h.indexOf('estado');
+  const iExp  = h.indexOf('fecha_expiracion');
+  const ahora = Date.now();
+  let borradas = 0;
+
+  // De abajo hacia arriba: deleteRow no corre los índices de las filas de arriba.
+  for (let i = data.length - 1; i >= 1; i--) {
+    const revocada = data[i][iEst] === 'revocada';
+    const exp      = new Date(data[i][iExp]).getTime();
+    const vencidaHaceRato = !isNaN(exp) && (exp + SESION_PURGA_GRACIA_MS < ahora);
+    if (revocada || vencidaHaceRato) {
+      sheet.deleteRow(i + 1);
+      borradas++;
+    }
+  }
+
+  Logger.log('purgarSesiones: ' + borradas + ' fila(s) borrada(s).');
+  return borradas;
 }
 
 // ------------------------------------------------------------
@@ -560,15 +778,6 @@ function respond(statusCode, data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function hashString(input) {
-  const rawHash = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    input,
-    Utilities.Charset.UTF_8
-  );
-  return rawHash.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-}
-
 function formatDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString().split('T')[0];
@@ -764,6 +973,7 @@ function setupSheets() {
   ensureSheet(SHEETS.PLANES,     ['plan_id', 'titulo', 'categoria_id', 'creado_por',
                                    'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
   ensureSheet(SHEETS.ARCHIVOS,   ARCHIVOS_HEADERS);
+  ensureSheet(SHEETS.SESIONES,   SESIONES_HEADERS);
 
   Logger.log('Hojas creadas/actualizadas correctamente.');
 }
