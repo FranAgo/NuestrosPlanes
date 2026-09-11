@@ -1032,3 +1032,60 @@ Backlog:
 7. REQ-MEDIA-001, REQ-ADMIN-001, pasada de UI de Jay, mover tests al
    proyecto versionado, compartir carpeta Drive con Noelia (Roy).
 ========================================================
+2026-09-11 18:11 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- Code.gs — fix del hallazgo de revocarSesion() en ventana fria (Julia/Bob):
+  si revocarSesion() no encuentra la fila activa (crearSesion() todavia no
+  visible en la hoja), deja un veto en CacheService
+  (SESION_REVOCACION_PENDIENTE_SEC, 6h); validarSesion() lo consulta antes de
+  confiar en una fila 'activa' y se autocorrige llamando a revocarSesion() de
+  nuevo. Antes la sesion podia "revivir" activa tras un logout en esa ventana.
+- Code.gs — IDs de categoria/plan sin sufijo anti-colision (Gary/Bob):
+  handleCreateCategoria/handleCreatePlan usaban 'cat_'+Date.now() /
+  'plan_'+Date.now(); ahora usan newId('cat')/newId('plan'), mismo helper
+  con sufijo aleatorio que ya usan sesiones y archivos.
+- Code.gs — listarTriggers(): diagnostico de solo lectura (ScriptApp.
+  getProjectTriggers) para verificar por clasp run que purgarSesiones()
+  sigue programado, sin entrar al editor. Usado para confirmar el trigger
+  semanal instalado en prod (Gary).
+- Code.gs — compartirCarpetaComoViewer(email): comparte la carpeta raiz de
+  Drive (DRIVE_FOLDER_ID) como Viewer. Corrida una vez contra prod para dar
+  acceso de lectura a noelialopezb99@gmail.com sobre couple-plans-avatars
+  (Roy) — decision de diseno ya prevista en REQ-DATA-001/modelo-datos.md.
+- appsscript.json — agregado el oauthScope script.scriptapp (lo necesita
+  listarTriggers()).
+- Tests.gs — grpB_logoutColdWindow endurecido: antes aceptaba ambos
+  resultados y solo dejaba una nota del hallazgo; ahora exige que la sesion
+  quede cortada y que la fila termine 'revocada' tras el veto retroactivo.
+  Harness BUG-LOGIN-001-B completo: 38/38 OK contra Apps Script real (test).
+  Harness REQ-DATA-002 (IDs anti-colision incluido): 70/70 OK.
+- index.html — errorEl.textContent ahora se limpia en forceLogout() sin
+  mensaje (quedaba texto viejo pisado y oculto en el DOM).
+- index.html — pasada de UI pedida por Franco, apoyada en el skill
+  identidad-visual (Jay): corazones de glyph Unicode a SVG (login y header);
+  confirm() nativo del navegador reemplazado por modal propio
+  (#modal-confirm + confirmarModal(), usado en eliminarPlan/
+  eliminarCategoria); nav-tab y filter-chip pasan de <div> a <button> real
+  (foco por teclado, semantica); skeleton con shimmer en showAppLoading() en
+  vez de spinner generico; cursor personalizado (dot+halo) gateado a
+  matchMedia('(hover: hover) and (pointer: fine)') — en touch quedaba un
+  aro flotando fijo en pantalla, confirmado y corregido probando con
+  emulacion de mobile real.
+- docs/requerimientos/REQ-MEDIA-001.md — nuevo. Definido por Paul: endpoint
+  getArchivo gateado por sesion, revocar ANYONE_WITH_LINK de los avatares,
+  backfill de mime_type/tamano_bytes, rework del frontend para dejar de usar
+  URLs publicas de Drive. Sin implementar, queda para otra sesion. Un punto
+  (fotos de planes) marcado como posible REQ aparte, a confirmar con Franco.
+- .claude/launch.json — nuevo. Launcher local (http-server) para previsualizar
+  index.html sin depender de GitHub Pages.
+- Deploy a prod: clasp push + clasp version (v17) + clasp redeploy sobre el
+  deployment AKfycbyKWCtppz...LxD0d (el Web App real que usa el frontend).
+  Queda sirviendo el fix de revocarSesion() + IDs anti-colision + las
+  utilidades de diagnostico. Tests.gs no se despliega a prod (como siempre).
+- Backlog actualizado: enmascararEmail se deja como esta (decision de diseno
+  valida, no bloqueante). REQ-ADMIN-001 y REQ-MEDIA-001 (implementacion)
+  quedan para otra sesion.
+========================================================

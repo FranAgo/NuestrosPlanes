@@ -706,22 +706,20 @@ function grpB_logoutColdWindow(R) {
   const v = validarSesion(token);
   R.check('C4-borde · validarSesion -> error dentro de la ventana (sheet null + cache vacía)', !!v.error);
 
-  // La hoja "se pone al día": la fila reaparece. La revocación se perdió porque
-  // revocarSesion() no la vio.
+  // La hoja "se pone al día": la fila reaparece. Antes del veto de cache
+  // (SESION_REVOCACION_PENDIENTE_SEC / marcarRevocacionPendiente), acá la
+  // revocación se perdía: revocarSesion() no vio la fila a tiempo y la sesión
+  // "revivía" activa. Ahora validarSesion() consulta el veto y la corta igual.
   b_reinsertarFilaSesion(valores);
   const v2 = validarSesion(token);
-  if (v2.error) {
-    R.check('C4-borde · sesión sigue cortada tras ponerse al día la hoja', true);
-  } else {
-    R.check('C4-borde · el fix corta la sesión dentro de la ventana (cache.remove)', true);
-    R.nota('HALLAZGO C4-borde (para Bob/Paul): si el logout ocurre mientras el login ' +
-           'todavía no es visible en la hoja, revocarSesion() no encuentra la fila y NO ' +
-           'escribe estado=revocada. El cache.remove corta la sesión durante ' +
-           'SESION_CACHE_BRIDGE_SEC, pero al ponerse al día la hoja la fila sigue ' +
-           'estado=activa y validarSesion() la vuelve a dar por válida. PRE-EXISTENTE ' +
-           '(revocarSesion ya tenía esta carrera antes de Bug B), este fix no lo introduce, ' +
-           'pero es el eslabón débil del criterio 4.');
-  }
+  R.check('C4-borde · sesión sigue cortada tras ponerse al día la hoja (veto de revocación pendiente)',
+          !!v2.error);
+
+  // El veto también se autocorrige: validarSesion() debe haber revocado la
+  // fila recién visible en vez de dejarla 'activa' para siempre.
+  const filaTrasVeto = getSesionRow(sid);
+  R.check('C4-borde · la fila queda revocada tras aplicar el veto retroactivo',
+          !filaTrasVeto || filaTrasVeto.estado === 'revocada');
 }
 
 // Criterio 5 — expiración también se respeta en el path de cache. Y todos los

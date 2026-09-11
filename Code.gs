@@ -60,6 +60,15 @@ const SESION_PURGA_GRACIA_MS = 7 * 24 * 60 * 60 * 1000;
 // hoja. TTL corto a propósito: solo tiene que cubrir los segundos post-login.
 const SESION_CACHE_BRIDGE_SEC = 120;
 
+// Veto anti-carrera para el logout: mismo problema que el puente de login,
+// pero al revés. Si revocarSesion() corre antes de que la fila de crearSesion()
+// sea visible en la hoja, no encuentra qué marcar 'revocada' — y esa fila
+// "revive" activa apenas la hoja se pone al día. El veto en cache cubre ese
+// hueco. TTL largo a propósito (el máximo de CacheService): a diferencia del
+// puente de login, acá no sabemos cuánto puede tardar la fila en aparecer, y
+// un veto de más no cuesta nada (solo se consulta cuando la fila dice 'activa').
+const SESION_REVOCACION_PENDIENTE_SEC = 21600;
+
 // Esquema de la hoja Archivos. Ver docs/modelo-datos.md sección 4.
 // Se define una sola vez y se reutiliza en el setup y en las inserciones,
 // así el orden de columnas nunca queda desincronizado.
@@ -396,6 +405,17 @@ function validarSesion(sessionToken) {
     Logger.log('validarSesion: session_id inexistente (' + sessionId + ').');
     return { error: 'Sesión inválida o expirada.' };
   }
+  // La fila ya es visible, pero puede seguir diciendo 'activa' si el logout
+  // que la revocó corrió en la misma ventana fría en que crearSesion() todavía
+  // no era visible (revocarSesion() no encontró qué fila tocar). El veto de
+  // cache cubre ese hueco, y de paso corregimos la fila llamando a
+  // revocarSesion() de nuevo ahora que sí la encuentra.
+  if (fila.estado === 'activa' && hayRevocacionPendiente(sessionId)) {
+    revocarSesion(sessionId);
+    Logger.log('validarSesion: revocación pendiente aplicada retroactivamente (' + sessionId + ').');
+    return { error: 'Sesión inválida o expirada.' };
+  }
+
   if (fila.estado !== 'activa') {
     Logger.log('validarSesion: sesión no activa (' + sessionId + ').');
     return { error: 'Sesión inválida o expirada.' };
@@ -513,7 +533,34 @@ function revocarSesion(sessionId) {
       return (data[i][iUsr] || '').toString();
     }
   }
+  // No hay fila activa para marcar: puede ser que ya estaba revocada, que no
+  // exista, o que crearSesion() todavía no sea visible en esta lectura
+  // (ventana fría post-login). Dejamos el veto para ese último caso —
+  // validarSesion() lo va a consultar si la fila aparece diciendo 'activa'.
+  marcarRevocacionPendiente(sessionId);
   return null;
+}
+
+// Deja/consulta un veto de revocación en CacheService para sessionId. Ver
+// SESION_REVOCACION_PENDIENTE_SEC. Fallo de cache no rompe el flujo normal:
+// marcar es best-effort, y si la lectura falla se trata como "sin veto" (la
+// hoja sigue siendo la autoridad normal).
+function marcarRevocacionPendiente(sessionId) {
+  try {
+    CacheService.getScriptCache().put(
+      'revocada-pendiente:' + sessionId, '1', SESION_REVOCACION_PENDIENTE_SEC
+    );
+  } catch (err) {
+    Logger.log('marcarRevocacionPendiente: cache no disponible (' + sessionId + '): ' + err.toString());
+  }
+}
+
+function hayRevocacionPendiente(sessionId) {
+  try {
+    return !!CacheService.getScriptCache().get('revocada-pendiente:' + sessionId);
+  } catch (err) {
+    return false;
+  }
 }
 
 // Devuelve la fila de Sesiones como objeto { header: valor, _rowIndex }, o null.
@@ -591,6 +638,32 @@ function purgarSesiones() {
 
   Logger.log('purgarSesiones: ' + borradas + ' fila(s) borrada(s).');
   return borradas;
+}
+
+// Diagnóstico de solo lectura: lista los triggers instalados en el proyecto.
+// Pensada para invocar vía `clasp run` y verificar desde afuera (sin abrir el
+// editor) que purgarSesiones sigue programado como time-driven semanal.
+function listarTriggers() {
+  return ScriptApp.getProjectTriggers().map(function (t) {
+    return {
+      funcion: t.getHandlerFunction(),
+      tipoEvento: String(t.getEventType()),
+      origen: String(t.getTriggerSource()),
+    };
+  });
+}
+
+// Comparte la carpeta raíz de Drive (DRIVE_FOLDER_ID) como Viewer con el
+// email dado. Idempotente: agregar un viewer que ya lo es no hace nada.
+// Pensada para invocar vía `clasp run` — nunca desde el frontend.
+function compartirCarpetaComoViewer(email) {
+  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  folder.addViewer(email);
+  return {
+    folderId: folder.getId(),
+    folderName: folder.getName(),
+    viewers: folder.getViewers().map(function (u) { return u.getEmail(); }),
+  };
 }
 
 // ------------------------------------------------------------
@@ -764,7 +837,7 @@ function handleCreateCategoria(body) {
     }
   }
 
-  const categoriaId = 'cat_' + Date.now();
+  const categoriaId = newId('cat');
   const ahora       = new Date().toISOString();
 
   const fila = CATEGORIAS_HEADERS.map(col => {
@@ -937,7 +1010,7 @@ function handleCreatePlan(body) {
     return respond(404, { error: 'Usuario no encontrado.' });
   }
 
-  const planId = 'plan_' + Date.now();
+  const planId = newId('plan');
   const ahora  = new Date().toISOString();  // timestamp de sistema en ISO 8601 UTC
 
   const sheet = getSheet(SHEETS.PLANES);

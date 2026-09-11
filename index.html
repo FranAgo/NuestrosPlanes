@@ -205,11 +205,11 @@
     }
 
     .heart-icon {
-      font-size: 2rem;
+      width: 2rem;
+      height: 2rem;
       color: var(--copper);
       display: block;
       animation: heartbeat 3.2s ease-in-out infinite;
-      line-height: 1;
     }
 
     .login-emblem::after {
@@ -527,6 +527,12 @@
       display: block;
     }
 
+    .modal-confirm-msg {
+      font-size: 0.92rem;
+      color: var(--text-soft);
+      line-height: 1.5;
+    }
+
     .error-msg {
       background: var(--red-venc-bg);
       color: var(--red-venc);
@@ -591,10 +597,12 @@
     }
 
     .logo-heart {
+      width: 1em;
+      height: 1em;
       color: var(--copper);
-      font-style: normal;
       animation: heartbeat 3.2s ease-in-out infinite;
       display: inline-block;
+      flex-shrink: 0;
     }
 
     .header-actions {
@@ -657,10 +665,13 @@
 
     .nav-tab {
       padding: 0.85rem 1.1rem;
+      font-family: inherit;
       font-size: 0.74rem;
       font-weight: 400;
       color: var(--text-muted);
       cursor: none;
+      background: none;
+      border: none;
       border-bottom: 1.5px solid transparent;
       transition: var(--transition);
       text-transform: uppercase;
@@ -720,6 +731,7 @@
     .filter-chip {
       padding: 0.3rem 0.85rem;
       border-radius: var(--radius-sm);
+      font-family: inherit;
       font-size: 0.7rem;
       font-weight: 400;
       letter-spacing: 0.1em;
@@ -1205,6 +1217,31 @@
 
     #app-loading .retry-btn:hover { border-color: var(--copper); }
 
+    /* Skeleton de carga inicial: mimetiza el layout de plans-grid mientras
+       initApp() trae los datos, en vez de un spinner genérico. */
+    .skeleton-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      width: 100%;
+      max-width: 480px;
+      padding: 0 1.5rem;
+    }
+
+    .skeleton-card {
+      height: 84px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border);
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--border-soft) 37%, var(--bg-card) 63%);
+      background-size: 400% 100%;
+      animation: skeletonShimmer 1.4s ease infinite;
+    }
+
+    @keyframes skeletonShimmer {
+      0%   { background-position: 100% 50%; }
+      100% { background-position: 0%   50%; }
+    }
+
     /* ====================================================
        ANIMACIONES
     ==================================================== */
@@ -1374,7 +1411,7 @@
     <canvas id="stars-canvas"></canvas>
     <div class="login-card">
       <div class="login-emblem">
-        <span class="heart-icon">♡</span>
+        <svg class="heart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
       </div>
       <h1>Nuestros Planes</h1>
       <p class="subtitle">el espacio de <em>los dos</em></p>
@@ -1422,7 +1459,7 @@
     </div>
 
     <header class="app-header">
-      <div class="logo"><span class="logo-heart">♡</span> Nuestros Planes</div>
+      <div class="logo"><svg class="logo-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg> Nuestros Planes</div>
       <div class="header-actions">
         <div class="user-chip" id="btn-perfil-header">
           <div class="avatar" id="header-avatar"></div>
@@ -1435,9 +1472,9 @@
     </header>
 
     <nav class="app-nav">
-      <div class="nav-tab active" data-tab="planes">Planes</div>
-      <div class="nav-tab" data-tab="categorias">Categorías</div>
-      <div class="nav-tab" data-tab="perfil">Mi Perfil</div>
+      <button type="button" class="nav-tab active" data-tab="planes">Planes</button>
+      <button type="button" class="nav-tab" data-tab="categorias">Categorías</button>
+      <button type="button" class="nav-tab" data-tab="perfil">Mi Perfil</button>
     </nav>
 
     <main class="app-content">
@@ -1456,10 +1493,10 @@
         </div>
 
         <div class="filters-bar" id="filters-bar">
-          <div class="filter-chip active" data-filter="todos">Todos</div>
-          <div class="filter-chip" data-filter="pendientes">Pendientes</div>
-          <div class="filter-chip" data-filter="completados">Completados</div>
-          <div class="filter-chip" data-filter="vencidos">Vencidos</div>
+          <button type="button" class="filter-chip active" data-filter="todos">Todos</button>
+          <button type="button" class="filter-chip" data-filter="pendientes">Pendientes</button>
+          <button type="button" class="filter-chip" data-filter="completados">Completados</button>
+          <button type="button" class="filter-chip" data-filter="vencidos">Vencidos</button>
         </div>
 
         <div class="plans-grid" id="plans-grid"></div>
@@ -1612,6 +1649,27 @@
   </div>
 
   <!-- ================================================
+       MODAL: CONFIRMACIÓN GENÉRICA
+  ================================================ -->
+  <div class="modal-overlay" id="modal-confirm">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-confirm-title">Confirmar</h3>
+        <button class="btn-icon" id="btn-close-modal-confirm" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <p class="modal-confirm-msg" id="modal-confirm-msg"></p>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btn-cancel-confirm">Cancelar</button>
+        <button class="btn btn-primary" id="btn-accept-confirm">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================
        JAVASCRIPT
   ================================================ -->
   <script>
@@ -1656,23 +1714,34 @@
       '.btn, .btn-icon, .nav-tab, .filter-chip, .plan-card, .categoria-row, ' +
       '.user-chip, .color-option, .perfil-avatar-wrapper, #gsi-shell, [role="button"]';
 
-    document.addEventListener('mousemove', e => {
-      dotX = e.clientX;
-      dotY = e.clientY;
-      cursorDot.style.left = dotX + 'px';
-      cursorDot.style.top  = dotY + 'px';
+    // El cursor personalizado solo tiene sentido con mouse real. En un
+    // dispositivo táctil nunca llega un mousemove que lo posicione, y sin este
+    // chequeo el dot/halo quedaban plantados como un adorno fijo en pantalla
+    // (top-left) en cualquier teléfono.
+    const tieneMouseReal = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-      const overClickable = e.target instanceof Element && e.target.closest(CLICKABLE_SEL);
-      cursorHalo.classList.toggle('is-hovering', !!overClickable);
-    });
+    if (tieneMouseReal) {
+      document.addEventListener('mousemove', e => {
+        dotX = e.clientX;
+        dotY = e.clientY;
+        cursorDot.style.left = dotX + 'px';
+        cursorDot.style.top  = dotY + 'px';
 
-    (function animateHalo() {
-      haloX += (dotX - haloX) * 0.12;
-      haloY += (dotY - haloY) * 0.12;
-      cursorHalo.style.left = haloX + 'px';
-      cursorHalo.style.top  = haloY + 'px';
-      requestAnimationFrame(animateHalo);
-    })();
+        const overClickable = e.target instanceof Element && e.target.closest(CLICKABLE_SEL);
+        cursorHalo.classList.toggle('is-hovering', !!overClickable);
+      });
+
+      (function animateHalo() {
+        haloX += (dotX - haloX) * 0.12;
+        haloY += (dotY - haloY) * 0.12;
+        cursorHalo.style.left = haloX + 'px';
+        cursorHalo.style.top  = haloY + 'px';
+        requestAnimationFrame(animateHalo);
+      })();
+    } else {
+      cursorDot.style.display  = 'none';
+      cursorHalo.style.display = 'none';
+    }
 
     const SPARK_COLORS = ['#B8783A', '#D4A060', '#EDE0CC', '#C9603A', '#F0C88A'];
 
@@ -1894,7 +1963,10 @@
 
     function showAppLoading(texto) {
       appLoading.innerHTML =
-        '<span class="spinner"></span><p>' + escapeHtml(texto || 'Cargando…') + '</p>';
+        '<div class="skeleton-shell">' +
+          '<div class="skeleton-card"></div>'.repeat(3) +
+        '</div>' +
+        '<p>' + escapeHtml(texto || 'Cargando…') + '</p>';
       appLoading.hidden = false;
     }
 
@@ -2017,6 +2089,7 @@
         errorEl.classList.add('visible');
       } else if (!yaEnLogin) {
         errorEl.classList.remove('visible');
+        errorEl.textContent = '';
       }
     }
 
@@ -2310,7 +2383,7 @@
     }
 
     async function eliminarPlan(planId) {
-      if (!confirm('¿Eliminar este plan?')) return;
+      if (!(await confirmarModal('¿Eliminar este plan?'))) return;
       const data = await api('deletePlan', { planId });
       if (data.status === 200) { await refreshPlanes(); renderPlanes(); }
     }
@@ -2446,7 +2519,7 @@
     function editarCategoria(catId) { openModalCat(catId); }
 
     async function eliminarCategoria(catId) {
-      if (!confirm('¿Eliminar esta categoría?')) return;
+      if (!(await confirmarModal('¿Eliminar esta categoría?'))) return;
       const data = await api('deleteCategoria', { categoriaId: catId });
       if (data.status === 200) {
         await loadCategorias();
@@ -2661,6 +2734,36 @@
     // Cerrar modal al hacer click en el overlay (fuera del modal)
     modalFotoPerfil.addEventListener('click', (e) => {
       if (e.target === modalFotoPerfil) closeModalFoto();
+    });
+
+    // ====================================================
+    // MODAL DE CONFIRMACIÓN GENÉRICA (reemplaza confirm() nativo)
+    // ====================================================
+    const modalConfirm = document.getElementById('modal-confirm');
+    let _confirmResolve = null;
+
+    // Muestra el modal con `mensaje` y devuelve una Promise<boolean>:
+    // true si el usuario aceptó, false si canceló o cerró de cualquier forma.
+    function confirmarModal(mensaje, textoAceptar = 'Eliminar') {
+      document.getElementById('modal-confirm-msg').textContent = mensaje;
+      document.getElementById('btn-accept-confirm').textContent = textoAceptar;
+      modalConfirm.classList.add('visible');
+      return new Promise(resolve => { _confirmResolve = resolve; });
+    }
+
+    function closeModalConfirm(resultado) {
+      modalConfirm.classList.remove('visible');
+      if (_confirmResolve) {
+        _confirmResolve(resultado);
+        _confirmResolve = null;
+      }
+    }
+
+    document.getElementById('btn-close-modal-confirm').addEventListener('click', () => closeModalConfirm(false));
+    document.getElementById('btn-cancel-confirm').addEventListener('click', () => closeModalConfirm(false));
+    document.getElementById('btn-accept-confirm').addEventListener('click', () => closeModalConfirm(true));
+    modalConfirm.addEventListener('click', (e) => {
+      if (e.target === modalConfirm) closeModalConfirm(false);
     });
 
     // Navegar al perfil desde el header
