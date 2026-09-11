@@ -936,3 +936,99 @@ Backlog:
 9. REQ-MEDIA-001, REQ-ADMIN-001, pasada de UI de Jay, mover tests al
    proyecto versionado, compartir carpeta Drive con Noelia (Roy).
 ========================================================
+2026-09-11 17:23 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-DATA-002.md — estado actualizado de ABIERTO a
+  CERRADO (2026-09-11); agregada la seccion "## Cierre" con el resumen de
+  la revision de Julia (AppSec, APTO sin bloqueantes), Gary (DBA, APTO,
+  confirmo que el riesgo de indices hardcodeados que el mismo habia
+  anotado en el REQ ya estaba resuelto en el codigo), Paul (16/16
+  criterios verificados) y el resultado del deploy real.
+- docs/modelo-datos.md — estado actualizado de "borrador — pendiente de
+  aprobacion del owner" a "aprobado", con nota de que REQ-DATA-001 y
+  REQ-DATA-002 (las dos piezas implementadas hasta ahora) ya estan
+  cerradas, y que REQ-ADMIN-001 / REQ-MEDIA-001 siguen sin implementar.
+- .clasp.json (no versionado) — agregado "projectId": "nuestrosplanes-507721".
+- appsscript.json — pusheado a prod (por Franco, desde su propia terminal;
+  el Bash de esta sesion bloquea "clasp push" contra prod por el
+  clasificador de permisos aunque el usuario confirme por chat). Sin
+  cambios de contenido respecto al que ya tenia local (declara
+  executionApi + oauthScopes, agregados en la sesion anterior para test).
+
+Cierre de REQ-DATA-002 (flujo Julia -> Gary -> Paul -> Roy):
+- Julia revizo Auditoria.detalle/registrarAuditoria/sanitizarDetalleAuditoria:
+  APTO sin bloqueantes. Notas no bloqueantes para backlog: enmascararEmail
+  conserva el dominio completo (decision de diseno valida); el truncado a
+  500 chars reemplaza el objeto entero en vez de recortarlo (cosmetico, ya
+  senalado por Bob).
+- Gary reconfirmo el esquema (columnas nuevas en Categorias/Planes, hoja
+  Auditoria, backfill idempotente, ensureColumn solo al final): APTO sin
+  bloqueantes.
+- Paul verifico los 16 criterios de aceptacion originales uno por uno:
+  APTO PARA DEPLOY.
+- Roy encontro, antes de deployar, que el codigo de REQ-DATA-002 YA vivia
+  en prod: el "clasp push" del deploy de BUG-LOGIN-001 (v15, sesion
+  anterior) empujo el arbol de archivos completo, y "main" ya tenia los
+  commits de REQ-DATA-002 (9544d23 + 755936d) por debajo de los de
+  BUG-LOGIN-001 en la misma rama. Confirmado bajando el Code.gs real de
+  prod con "clasp pull" (a una carpeta aparte, sin tocar el repo) y
+  comparandolo byte a byte contra el local: identicos.
+- Lo que si faltaba: correr setupSheets() y backfillAuditoriaCategoriasPlanes()
+  contra la planilla real de prod (el codigo ya sabia manejar las columnas
+  nuevas, pero la planilla todavia no las tenia). Se corrieron esta sesion
+  via "clasp run":
+  - setupSheets(): sin error. Agrego las columnas nuevas a Categorias/Planes
+    y creo la hoja Auditoria.
+  - backfillAuditoriaCategoriasPlanes(): {vacias:0, actualizados:0,
+    yaTenian:1} — solo hay 1 categoria en la planilla de prod ("Estudio"),
+    y ya tenia estado poblado porque se creo despues del deploy de v15,
+    cuando el codigo nuevo ya estaba corriendo.
+
+"clasp run" armado tambien para PROD (mismo patron que para test):
+- Franco cambio el proyecto GCP del script de prod de "Predeterminado" a
+  nuestrosplanes-507721 (numero 223985831716, el mismo de test) desde
+  Configuracion del proyecto -> GCP. Cambio irreversible (revoca
+  autorizaciones del proyecto anterior); corrio sin problemas.
+- Franco creo una implementacion nueva tipo "Aplicacion ejecutable de API"
+  (acceso "Solo yo"): version 16, deployment
+  AKfycby0ZA5qTh0GZVo_Z14g-e_AbDSjvl_M9n0xF7fqzA75Db7udjAUU4zMnbOMSko2HAMR
+  (sirve Web App + API Executable en el mismo deployment). El frontend
+  real sigue apuntando al deployment viejo (...9-LxD0d), no cambio.
+- Desde la sesion, "clasp run setupSheets --user duck" y
+  "clasp run backfillAuditoriaCategoriasPlanes --user duck" corrieron
+  limpio contra la planilla real de prod (ver arriba).
+
+Smoke test en prod real (hecho por Claude via Claude in Chrome, sin
+necesitar que Franco se loguee — ya tenia una sesion guardada en el
+navegador): navego a https://franago.github.io/NuestrosPlanes/, la sesion
+se restauro sola, los dos POST a /exec (getCategorias/getPlanes)
+devolvieron 200, cero errores de consola, se ven el plan "bailar" y la
+categoria "Estudio" reales. Equivalente al criterio "F5 restaura sesion"
+de BUG-LOGIN-001.
+
+Estado:
+- PROD: codigo de BUG-LOGIN-001 + REQ-DATA-002 deployado y verificado
+  (v15 del Web App; v16 = deployment nuevo solo para API Executable,
+  no afecta al Web App en uso). Planilla real con columnas nuevas +
+  hoja Auditoria + backfill corridos.
+- REQ-DATA-002: CERRADO. Ver docs/requerimientos/REQ-DATA-002.md seccion
+  Cierre.
+- "clasp run" operativo de forma permanente tanto para test como para
+  prod.
+
+Backlog:
+1. [Julia] Masking de dominio en enmascararEmail — mejora futura, no
+   bloqueante.
+2. [Julia] Hallazgo de revocarSesion() en ventana fria. Prioridad baja.
+3. [Gary] IDs de categoria/plan sin sufijo anti-colision de newId() —
+   deuda pre-existente, fuera de alcance de REQ-DATA-002.
+4. [Jay] Limpiar errorEl.textContent en forceLogout() sin mensaje.
+5. [Gary] Verificar trigger semanal purgarSesiones() en prod.
+6. Purga/retencion del log de Auditoria — fuera de alcance, REQ futuro
+   bajo Ley 25.326.
+7. REQ-MEDIA-001, REQ-ADMIN-001, pasada de UI de Jay, mover tests al
+   proyecto versionado, compartir carpeta Drive con Noelia (Roy).
+========================================================

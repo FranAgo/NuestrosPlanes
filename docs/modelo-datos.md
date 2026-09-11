@@ -1,12 +1,14 @@
 # Modelo de datos — Nuestros Planes
 
 > Documento de diseño. Fuente de verdad del modelo de datos y las convenciones.
-> **Estado:** borrador — pendiente de aprobación del owner.
+> **Estado:** aprobado — REQ-DATA-001 y REQ-DATA-002 (las dos únicas piezas
+> implementadas hasta ahora) están CERRADOS y desplegados a producción: hoja
+> `Archivos` + `newId()` + migración de avatares (DATA-001), borrado lógico +
+> hoja `Auditoria` + timestamps ISO UTC (DATA-002). Lo que queda de este
+> documento sin implementar: rol `admin` + hoja `Config` + `setDriveRootFolder`
+> (REQ-ADMIN-001) y el proxy `getArchivo` para fotos de planes (REQ-MEDIA-001).
 > D1 (servido de imágenes) cerrada por Julia (AppSec) el 2026-09-07.
 > Redactado por Gary (DBA) y Paul (PM), sesión 2026-09-07.
-
-Nada de lo que está acá está implementado todavía. `Code.gs` no se toca hasta que
-este documento esté aprobado.
 
 ---
 

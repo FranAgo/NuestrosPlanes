@@ -1,6 +1,7 @@
 # REQ-DATA-002 — Borrado lógico + auditoría + timestamps ISO UTC
 
-> **Estado:** ABIERTO (2026-09-10) — definición de Paul, pendiente de implementación de Bob.
+> **Estado:** CERRADO (2026-09-11) — desplegado a producción. Automatizado
+> 70/70 + 16/16 criterios verificados + smoke en prod real. Ver [Cierre](#cierre).
 > **Dueño técnico:** Bob · **QA:** Duck · **PM:** Paul · **Revisa datos:** Gary (DBA), Julia (AppSec)
 > **Depende de:** nada aguas arriba. Comparte terreno con REQ-DATA-001 (ya cerrado).
 > Ver diseño en [../modelo-datos.md](../modelo-datos.md) secciones 2 (problemas 2, 3, 4), 3 (fechas), 8 (Auditoria).
@@ -224,3 +225,67 @@ sin fallo silencioso): los 5 dan `RECHAZADO`.
 11. **Smoke crítico:** login real → la app carga (getCategorias/getPlanes responden, no se cuelgan 30 s → 404). Este es el bug que rompió el primer deploy de v13.
 11. Revisión de código: logs y `detalle` sin secretos (criterio 15).
 12. Recorrer la app completa (criterio 16).
+
+---
+
+## Cierre
+
+**2026-09-11 — CERRADO.** Desplegado a producción. El código ya vivía en prod
+desde el deploy de BUG-LOGIN-001 (v15) — el `clasp push` de esa sesión empujó
+el árbol completo de archivos, y `main` ya tenía los commits de este REQ
+(`9544d23`, `755936d`) por debajo en la misma rama. Confirmado bajando el
+`Code.gs` real de prod con `clasp pull` (a una carpeta aparte, sin tocar el
+repo) y comparándolo contra el local: idénticos. Lo que faltaba —
+`setupSheets()` y `backfillAuditoriaCategoriasPlanes()` sobre la planilla real
+de prod— se corrió en esta sesión.
+
+### Verificado
+
+- Bob revisó el código commiteado contra los 16 criterios: cumple todos.
+- `probarDATA002()` contra Sheets real (proyecto de test), vía `clasp run`:
+  **70/70 OK**.
+- Smoke manual de Duck en test: login OK, F5 restaura sesión OK, logout + 2do
+  login OK x2, crear+eliminar categoría desde la UI real confirma el borrado
+  lógico end-to-end. Cero errores de consola.
+- **Julia (AppSec):** APTO — allowlist de claves en `detalle`, forzado a
+  primitivo, JSON siempre entre llaves (anti formula-injection), sin
+  tokens/secretos por diseño estructural (no solo por revisión puntual).
+- **Gary (DBA):** APTO — esquema revisado dos veces (antes y después de la
+  implementación). Confirmó por lectura de código que el riesgo de índices
+  hardcodeados que él mismo había anotado en el REQ ya estaba resuelto
+  (`handleCompletePlan`/`handleUpdatePlan`/`handleDeletePlan` usan lookup por
+  header, no número de columna).
+- **Paul (PM):** 16/16 criterios verificados contra la definición original.
+- **`setupSheets()` en prod real:** sin error. Agregó las columnas nuevas a
+  `Categorias`/`Planes` y creó la hoja `Auditoria`.
+- **`backfillAuditoriaCategoriasPlanes()` en prod real:**
+  `{vacias:0, actualizados:0, yaTenian:1}` — solo hay 1 categoría en la
+  planilla de prod, y ya tenía `estado` poblado (se creó después del deploy
+  de v15, cuando el código nuevo ya estaba corriendo).
+- **Smoke en prod real** (Claude in Chrome, sesión ya guardada de Franco):
+  `https://franago.github.io/NuestrosPlanes/` restauró sesión sola, los dos
+  `POST` a `/exec` (`getCategorias`/`getPlanes`) devolvieron `200`, cero
+  errores de consola, se ven el plan y la categoría reales.
+
+### Deuda / notas
+
+- Masking de dominio en `enmascararEmail`: conserva el dominio completo del
+  email denegado, no solo el primer carácter. Decisión de diseño válida
+  (detectar reintentos del mismo origen); si se quiere anonimizar más es
+  tuning futuro, no bloqueante (Julia).
+- `sanitizarDetalleAuditoria` reemplaza el `detalle` completo por
+  `{"_truncado":true}` en vez de cortarlo a 500 chars — cosmético, nunca se
+  dispara en la práctica.
+- IDs de categoría/plan (`'cat_' + Date.now()`, `'plan_' + Date.now()`) siguen
+  sin el sufijo anti-colisión de `newId()` (sección 3 de
+  [../modelo-datos.md](../modelo-datos.md)). Deuda pre-existente, fuera de
+  alcance de este REQ (Gary).
+- Purga/retención del log de `Auditoria`: sigue fuera de alcance (ver
+  "Alcance — NO entra"), pendiente para un REQ futuro bajo Ley 25.326.
+- **Infra (Roy):** `clasp run` quedó armado también para el script de prod
+  (mismo patrón que para test — proyecto GCP `nuestrosplanes-507721`,
+  implementación nueva tipo "Aplicación ejecutable de API", `projectId` en
+  `.clasp.json` no versionado). Deployment nuevo:
+  `AKfycby0ZA5qTh0GZVo_Z14g-e_AbDSjvl_M9n0xF7fqzA75Db7udjAUU4zMnbOMSko2HAMR`
+  (sirve Web App + API Executable; el frontend real sigue apuntando al
+  deployment viejo, no cambió).
