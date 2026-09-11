@@ -817,3 +817,122 @@ Backlog:
 6. Verificar que el trigger semanal de purgarSesiones() este instalado en
    prod (lo señalo Gary, chequeo barato, no se hizo en esta sesion).
 ========================================================
+2026-09-11 01:33 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- Deploy a produccion (clasp) de BUG-LOGIN-001 Bug A + Bug B, ya cerrados y
+  pusheados a GitHub en sesiones anteriores (commits 0ecda49 y eabcf8c) pero
+  pendientes de deployar. Prod paso de v12 a v15.
+  - clasp push -f: subio Code.gs + appsscript.json.
+  - clasp version "BUG-LOGIN-001: fix pantalla negra post-login + fix 401
+    espurio post-login" -> version 15.
+  - clasp redeploy sobre el deploymentId del Web App
+    (...9-LxD0d), de @12 a @15. La URL del Web App no cambio.
+  - Franco probo el login en prod post-deploy y confirmo que anda bien (sin
+    pantalla negra, sin 401 espurio).
+
+Estado:
+- PROD: v15. BUG-LOGIN-001 (Bug A y Bug B) deployado y verificado en prod.
+- Orden de prioridad definido por Paul para el resto del backlog: 1) este
+  deploy (hecho), 2) retomar REQ-DATA-002 (evaluar split 002a borrado
+  logico / 002b hoja Auditoria), 3) REQ-MEDIA-001, 4) REQ-ADMIN-001,
+  5) housekeeping (Drive viewer para Noelia, pasada de UI de Jay, tests
+  versionados, verificar trigger purgarSesiones() en prod).
+
+Backlog:
+1. [Paul/Bob] REQ-DATA-002: retomar analisis y decidir el split 002a/002b.
+2. [Bob] REQ-MEDIA-001 (getArchivo, revocar ANYONE_WITH_LINK) — depende de
+   REQ-DATA-001, ya cerrado.
+3. [Bob] REQ-ADMIN-001 (rol admin) — depende de REQ-SEC-001, ya cerrado.
+4. [Jay] Pasada de UI (glifos a SVG, confirm() a modal, nav-tab/filter-chip
+   a <button>).
+5. [Roy] Compartir carpeta Drive con Noelia como Viewer.
+6. [Gary] Verificar que el trigger semanal purgarSesiones() este instalado
+   en prod.
+7. Mover tests al proyecto versionado.
+8. [Julia] Hallazgo de revocarSesion() en ventana fria. Prioridad baja.
+========================================================
+2026-09-11 12:32 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- appsscript.json — agregado bloque "executionApi": {"access":"MYSELF"} y
+  "oauthScopes" explicito (spreadsheets, drive, script.external_request) para
+  que "clasp run" funcione contra el proyecto de test. Se pushea tambien a
+  prod en el proximo deploy (mismo manifiesto compartido); no cambia el
+  comportamiento del Web App, solo formaliza los scopes que la app ya usaba.
+- .gitignore — agregado client_secret*.json y .clasprc.json (credenciales
+  OAuth propias del setup de clasp run, nunca se suben a GitHub).
+- .clasp-test.json (no versionado) — agregado "projectId": "nuestrosplanes-507721".
+- Code.gs / Tests.gs — sin cambios netos (se usaron funciones temporales
+  para diagnostico y limpieza durante la sesion, todas removidas antes de
+  cerrar; confirmado sin diff).
+
+Gestion: se armo "clasp run" de forma permanente para el proyecto de test
+(estaba roto de raiz, no por falla transitoria de Google — ver hallazgo mas
+abajo), se corrio la suite automatizada de REQ-DATA-002 y se hizo el smoke
+manual de login en test.
+
+"clasp run" — diagnostico y fix (Roy):
+Fallaba con "NOT_FOUND reading from storage" en toda sesion previa. Causa
+real: al proyecto de test le faltaban las 4 cosas que pide la Apps Script
+Execution API (no es un servicio caido de Google):
+  1. GCP project ESTANDAR vinculado al script (no el default autogenerado).
+  2. "projectId" en .clasp-test.json.
+  3. Bloque "executionApi" + "oauthScopes" explicitos en appsscript.json.
+  4. Deployment de tipo API Executable (ademas del Web App ya existente).
+  5. Login de clasp con credenciales OAuth propias
+     (clasp login --use-project-scopes --creds client_secret.json).
+Franco creo el proyecto GCP "nuestrosplanes-507721" (numero 223985831716),
+lo vinculo al script de test (Configuracion del proyecto -> GCP Project),
+creo credenciales OAuth tipo Desktop App, y habilito la Apps Script API +
+Google Drive API en ese proyecto (esta ultima fue necesaria para que el
+cleanup de la planilla scratch de probarDATA002 funcione). Con eso,
+"clasp run" quedo operativo de forma permanente para test. No se toco nada
+de esto en prod.
+
+REQ-DATA-002 — retomado (Paul descarto el split 002a/002b: la pantalla
+negra que motivaba el split ya se sabe que no la causaba REQ-DATA-002, fue
+BUG-LOGIN-001 Bug A, ya fixeado):
+- Bob reviso el codigo ya commiteado (9544d23 + 755936d) contra los 16
+  criterios de aceptacion: cumple todos. Dos notas cosmeticas, ninguna
+  bloqueante (comentario de flush() atribuye el fix a un bug que en realidad
+  fue Bug A; sanitizarDetalleAuditoria reemplaza el detalle completo por
+  {"_truncado":true} en vez de cortarlo a 500 chars — nunca se dispara en la
+  practica).
+- Duck corrio probarDATA002() contra Sheets real (proyecto de test), una vez
+  que "clasp run" quedo andando: 70/70 OK, veredicto APTO.
+- Duck hizo smoke manual de login real contra el Web App de test (deployment
+  v5, con index.html apuntado localmente a esa URL, servido en
+  localhost:5173 — origen ya autorizado en el cliente OAuth de una sesion
+  anterior): login OK, F5 restaura sesion OK, logout + 2do login OK x2,
+  crear+eliminar una categoria desde la UI real confirma el borrado logico
+  end-to-end. Cero errores de consola, todos los POST al backend en 200.
+  No se probo la subida de avatar (requiere archivo real); sin regresion
+  esperada, REQ-DATA-002 no toca handleUploadPhoto.
+
+Estado:
+- PROD: v15 (BUG-LOGIN-001 deployado y verificado, sesion anterior). Sin
+  cambios nuevos a prod en esta sesion.
+- REQ-DATA-002: automatizado 70/70 + smoke manual limpio. Falta para cerrar:
+  Julia revisa Auditoria.detalle, Gary reconfirma el esquema, Paul verifica
+  contra los 16 criterios originales y recien ahi se deploya a prod.
+- "clasp run" queda operativo de forma permanente para el proyecto de test
+  (ya no hace falta correr las pruebas a mano desde el editor de Apps Script).
+
+Backlog:
+1. [Julia] Revisar Auditoria.detalle de REQ-DATA-002 (ya revisado en el
+   diseño original; falta la revision final antes del cierre).
+2. [Gary] Reconfirmar el esquema de REQ-DATA-002 (columnas nuevas + Auditoria).
+3. [Paul] Cerrar REQ-DATA-002 contra los 16 criterios originales.
+4. [Roy] Deployar REQ-DATA-002 a prod una vez cerrado.
+5. Probar subida de avatar en test (opcional, sin regresion esperada).
+6. [Julia] Hallazgo de revocarSesion() en ventana fria. Prioridad baja.
+7. [Jay] Limpiar errorEl.textContent en forceLogout() sin mensaje.
+8. [Gary] Verificar trigger semanal purgarSesiones() en prod.
+9. REQ-MEDIA-001, REQ-ADMIN-001, pasada de UI de Jay, mover tests al
+   proyecto versionado, compartir carpeta Drive con Noelia (Roy).
+========================================================

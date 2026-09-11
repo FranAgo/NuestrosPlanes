@@ -3,3 +3,5 @@ config-local-NO-SUBIR.md
 .clasp.json
 .clasp-test.json
 .clasp-prod.json
+client_secret*.json
+.clasprc.json
