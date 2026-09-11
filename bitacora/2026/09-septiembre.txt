@@ -725,3 +725,95 @@ Backlog:
    UI de Jay, mover tests al proyecto versionado, seam de test para
    verifyGoogleAccessToken.
 ========================================================
+
+========================================================
+2026-09-11 04:19 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Contexto: se retomo el plan de la sesion anterior. BUG-LOGIN-001 Bug A ya
+estaba cerrado y pusheado (commit 0ecda49). Esta sesion encaro Bug B: el 401
+espurio post-login por carrera con la hoja Sesiones.
+
+Flujo: Paul organizo alcance/criterios de aceptacion -> Julia fijo la
+estrategia y los limites de seguridad -> Gary valido el modelo de datos
+(Sheets + CacheService) -> Bob implemento -> Duck probo y aprobo.
+
+Cambios:
+- Code.gs — fix de BUG-LOGIN-001 Bug B (401 espurio post-login):
+  * Constante SESION_CACHE_BRIDGE_SEC (120s): puente anti-carrera, no
+    lifetime de sesion.
+  * crearSesion(): ademas de escribir la fila en Sesiones (como ya hacia),
+    deja una entrada en CacheService.getScriptCache() con { h: token_hash,
+    u: userId, exp } — nunca el secreto crudo ni el token completo.
+  * validarSesion(): si la hoja Sesiones todavia no ve la fila (carrera
+    post-login), cae a validarDesdePuente() antes de rechazar. Si la lectura
+    de la hoja tira excepcion, NO consulta la cache (propaga el error como
+    antes) — la cache es researcheo solo cuando la hoja respondio "no esta",
+    nunca cuando fallo.
+  * validarDesdePuente() (nueva): valida HMAC constante-time + expiracion
+    contra la entrada de cache. Nunca escribe a Sheets, nunca extiende
+    confianza mas alla de lo que ya probaba la hoja.
+  * handleLogout(): borra la clave de cache de forma incondicional (aunque
+    revocarSesion() no encuentre la fila), para que un logout en la ventana
+    fria no deje la sesion "viva" via cache.
+- Tests.gs (no se despliega a prod):
+  * probarBUGLOGIN001B() — suite server-side nueva (9 grupos, 37 checks)
+    contra Apps Script real: happy path, contenido de la cache (criterio 8),
+    fallback cuando la hoja no ve la fila (criterios 1/2), rechazos del path
+    de cache (criterio 3), logout borra cache + caso borde de ventana fria
+    (criterio 4), expiracion en cache (criterio 5), la hoja tirando
+    excepcion NO consulta cache, regresion del path normal.
+  * setupEntornoTest_paso1_crearPlanillaYConfig() / setupSheets (ya existia)
+    / setupEntornoTest_paso2_agregarUsuario() — helpers para levantar un
+    entorno de test propio (planilla + Script Properties + usuario de
+    prueba), separado de prod, para poder hacer login real por navegador.
+
+Pruebas:
+- Harness local en Node (carga el Code.gs real en un sandbox con Apps
+  Script mockeado): 37/37.
+- probarBUGLOGIN001B() corrida dos veces contra Apps Script real (proyecto
+  de test): 37/37 las dos veces, veredicto APTO.
+- Smoke manual de Franco por navegador contra el Web App de test real
+  (planilla "Peroncitos TEST" nueva, Script Properties propias): 7 ciclos
+  de login/logout limpios (0 pantallas de login espurias) + F5 con sesion
+  activa restaura sin pedir login de nuevo.
+
+Hallazgo (Duck, no bloquea el cierre — backlog para Julia): si el logout
+ocurre mientras el login todavia no es visible en la hoja, revocarSesion()
+no encuentra la fila y no marca "revocada". El cache.remove corta la sesion
+durante los 120s del puente, pero si la hoja se pone al dia despues, la fila
+sigue "activa" y la sesion revive con su TTL normal (15 dias). Es
+PRE-EXISTENTE (revocarSesion ya tenia esta carrera antes de este fix); este
+fix no lo empeora y de hecho acota el peor caso a esos 120s.
+
+Estado:
+- BUG-LOGIN-001 Bug B: CERRADO. Aprobado por Duck (automatizado x2 +
+  manual). Verificado por Paul contra los 8 criterios de aceptacion
+  originales.
+- PROD: sigue en v12, sin tocar. Este fix esta en Code.gs (working tree) y
+  se sube a GitHub en este commit, pero el deploy a prod (clasp
+  redeploy) queda pendiente de confirmacion aparte de Franco.
+- Proyecto de TEST: ahora tiene su propia planilla ("Peroncitos TEST") y
+  Script Properties completas (SPREADSHEET_ID, OAUTH_CLIENT_ID,
+  SESSION_SECRET), separadas de prod. Antes de esta sesion el proyecto de
+  test no tenia esa config cargada (las pruebas de login real de sesiones
+  anteriores se habian hecho contra prod).
+
+Nota tecnica: clasp run (Execution API de Google) estuvo caido toda la
+sesion ("NOT_FOUND reading from storage"), afectando tambien a
+probarDATA002. Se sorteo corriendo las funciones desde el editor de Apps
+Script. Sin impacto en el resultado, solo en el metodo.
+
+Backlog:
+1. [Julia] Diseñar el fix del hallazgo de revocarSesion() en ventana fria
+   (ver arriba). Prioridad baja.
+2. [Julia] BUG-LOGIN-001 Bug B ya no esta en este item — cerrado.
+3. [Jay] Limpiar errorEl.textContent en forceLogout() sin mensaje.
+4. [Paul/Bob] REQ-DATA-002: retomar analisis, la pantalla negra ya no es un
+   factor.
+5. (sin cambios) REQ-ADMIN-001, REQ-MEDIA-001, pasada de UI de Jay, mover
+   tests al proyecto versionado, seam de test para verifyGoogleAccessToken.
+6. Verificar que el trigger semanal de purgarSesiones() este instalado en
+   prod (lo señalo Gary, chequeo barato, no se hizo en esta sesion).
+========================================================

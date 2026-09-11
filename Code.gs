@@ -50,6 +50,16 @@ const SESION_TOUCH_MS = 60 * 60 * 1000;
 // Gracia antes de que purgarSesiones() borre una sesión vencida.
 const SESION_PURGA_GRACIA_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Puente anti-carrera para la ventana post-login. crearSesion() escribe la fila
+// en Sesiones y el frontend dispara getCategorias/getPlanes de inmediato (otra
+// invocación del Web App, posible otra instancia). Esa fila puede no ser visible
+// todavía y validarSesion() daría un 401 espurio. crearSesion() deja una entrada
+// en CacheService (compartido entre instancias, propagación rápida) que
+// validarSesion() usa SOLO como fallback cuando la hoja aún no tiene la fila.
+// NO es el lifetime de la sesión: la vida real sigue siendo SESION_TTL_MS en la
+// hoja. TTL corto a propósito: solo tiene que cubrir los segundos post-login.
+const SESION_CACHE_BRIDGE_SEC = 120;
+
 // Esquema de la hoja Archivos. Ver docs/modelo-datos.md sección 4.
 // Se define una sola vez y se reutiliza en el setup y en las inserciones,
 // así el orden de columnas nunca queda desincronizado.
@@ -306,6 +316,7 @@ function verifyGoogleAccessToken(accessToken) {
 function crearSesion(userId) {
   const sessionId = newId('ses');
   const secreto   = generarSecretoSesion();
+  const tokenHash = hmacHex(secreto);   // mismo valor a la hoja y al puente de cache
   const ahora     = new Date();
   const exp       = new Date(ahora.getTime() + SESION_TTL_MS);
   const ahoraIso  = ahora.toISOString();
@@ -314,7 +325,7 @@ function crearSesion(userId) {
     switch (col) {
       case 'session_id':       return sessionId;
       case 'usuario_id':       return userId;
-      case 'token_hash':       return hmacHex(secreto);
+      case 'token_hash':       return tokenHash;
       case 'fecha_creacion':   return ahoraIso;
       case 'fecha_expiracion': return exp.toISOString();
       case 'fecha_ultimo_uso': return ahoraIso;
@@ -338,6 +349,22 @@ function crearSesion(userId) {
     lock.releaseLock();
   }
 
+  // Puente anti-carrera: dejamos constancia de la sesión recién creada en un
+  // almacén compartido entre instancias del Web App, para que los requests que
+  // el frontend dispara de inmediato no den un 401 espurio si todavía no ven la
+  // fila. Best-effort: si falla, la sesión ya está en la hoja igual. Guardamos
+  // solo el hash del token (el mismo que va a la hoja), el usuario y la
+  // expiración. Nunca el secreto crudo ni el token completo.
+  try {
+    CacheService.getScriptCache().put(
+      'sesion:' + sessionId,
+      JSON.stringify({ h: tokenHash, u: userId, exp: exp.toISOString() }),
+      SESION_CACHE_BRIDGE_SEC
+    );
+  } catch (err) {
+    Logger.log('crearSesion: no se pudo escribir el puente de cache (' + sessionId + '): ' + err.toString());
+  }
+
   return sessionId + '.' + secreto;
 }
 
@@ -355,8 +382,17 @@ function validarSesion(sessionToken) {
   const sessionId = sessionToken.slice(0, punto);
   const secreto   = sessionToken.slice(punto + 1);
 
+  // La lectura de la hoja va fuera de try/catch a propósito: si getSesionRow()
+  // tira (falla transitoria de Sheets), el error propaga como siempre y NO se
+  // consulta el puente de cache. La cache solo entra cuando la hoja respondió
+  // bien pero todavía no tiene la fila (carrera post-login, ver Bug B).
   const fila = getSesionRow(sessionId);
   if (!fila) {
+    const desdePuente = validarDesdePuente(sessionId, secreto);
+    if (desdePuente) {
+      Logger.log('validarSesion: servida desde cache-puente (' + sessionId + ').');
+      return desdePuente;
+    }
     Logger.log('validarSesion: session_id inexistente (' + sessionId + ').');
     return { error: 'Sesión inválida o expirada.' };
   }
@@ -386,6 +422,47 @@ function validarSesion(sessionToken) {
   return { userId: fila.usuario_id };
 }
 
+// Fallback de validarSesion() para la ventana post-login: la fila de la sesión
+// todavía no es visible en la hoja, pero crearSesion() dejó una entrada en el
+// puente de cache. Devuelve { userId } si el token es auténtico y no expiró, o
+// null para que validarSesion() siga con el rechazo normal.
+//
+// La cache NUNCA es autoridad de revocación ni expiración: solo prueba que la
+// sesión existió y que el token coincide. La hoja sigue siendo la verdad
+// (validarSesion() la consulta primero) y el logout borra esta entrada.
+// Cualquier fallo o ausencia de cache devuelve null: nunca "válida" por error.
+function validarDesdePuente(sessionId, secreto) {
+  let crudo;
+  try {
+    crudo = CacheService.getScriptCache().get('sesion:' + sessionId);
+  } catch (err) {
+    Logger.log('validarDesdePuente: cache no disponible (' + sessionId + '): ' + err.toString());
+    return null;
+  }
+  if (!crudo) return null;
+
+  let entry;
+  try {
+    entry = JSON.parse(crudo);
+  } catch (err) {
+    Logger.log('validarDesdePuente: entrada de cache ilegible (' + sessionId + ').');
+    return null;
+  }
+  if (!entry || !entry.h || !entry.exp || !entry.u) return null;
+
+  if (new Date(entry.exp).getTime() < Date.now()) {
+    Logger.log('validarDesdePuente: entrada de cache vencida (' + sessionId + ').');
+    return null;
+  }
+
+  if (!comparacionConstante(hmacHex(secreto), String(entry.h))) {
+    Logger.log('validarDesdePuente: hash no coincide (' + sessionId + ').');
+    return null;
+  }
+
+  return { userId: entry.u };
+}
+
 // Endpoint: cierra la sesión del token del request. Siempre responde 200,
 // incluso si la sesión ya no existía o ya estaba revocada (idempotente).
 // No exige sesión válida a propósito: cerrar sesión no puede fallar.
@@ -394,6 +471,16 @@ function handleLogout(body) {
   const punto     = token.indexOf('.');
   const sessionId = punto > 0 ? token.slice(0, punto) : '';
   if (sessionId) {
+    // El borrado del puente de cache va SIEMPRE, aun si revocarSesion() no
+    // encuentra la fila (puede pasar si el login todavía no es visible en la
+    // hoja). Si no, la sesión seguiría validándose por cache hasta
+    // SESION_CACHE_BRIDGE_SEC después del logout.
+    try {
+      CacheService.getScriptCache().remove('sesion:' + sessionId);
+    } catch (err) {
+      Logger.log('handleLogout: no se pudo borrar el puente de cache (' + sessionId + '): ' + err.toString());
+    }
+
     const usuarioId = revocarSesion(sessionId);
     if (usuarioId !== null) {
       registrarAuditoria(usuarioId, 'logout', 'Sesiones', sessionId, {});

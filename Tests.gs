@@ -421,3 +421,377 @@ function filaPorId(nombreHoja, id) {
 function parseResp(textOutput) {
   return JSON.parse(textOutput.getContent());
 }
+
+
+// ============================================================
+// probarBUGLOGIN001B() — BUG-LOGIN-001 / Bug B: 401 espurio post-login por la
+// carrera con la hoja Sesiones. Verifica el puente de CacheService que agrega
+// crearSesion() y consulta validarSesion() cuando la fila todavía no es visible.
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarBUGLOGIN001B -P .clasp-test.json
+//
+// Crea su propia planilla scratch y la borra al terminar. No toca prod ni test.
+// Limpia del CacheService todas las claves 'sesion:*' que crea, entrando y
+// saliendo (el CacheService es del proyecto, no de la planilla scratch).
+//
+// Qué NO cubre (requiere navegador + popup OAuth de Google, lo hace Franco):
+//   - Criterios 1 y 2 end-to-end: 10 logins reales con cold start del Web App.
+//   - Criterio 6: F5 / restaurar sesión desde localStorage.
+// Acá los criterios 1/2 se cubren a nivel unidad (la hoja no ve la fila ->
+// validarSesion la sirve desde el puente).
+// ============================================================
+
+var B_CLAVES_CACHE = [];
+
+// ============================================================
+// Setup del ENTORNO DE TEST (Script Properties + planilla de test + usuario de
+// prueba), para poder hacer el smoke de login real por navegador contra el
+// Web App de test. Vive acá a propósito: Tests.gs nunca se despliega a prod
+// (.claspignore lo excluye), así que esto no puede terminar corriendo ahí.
+// Se corre UNA sola vez, a mano, desde el editor, en este orden:
+//   1. setupEntornoTest_paso1_crearPlanillaYConfig()
+//   2. setupSheets()                                  (ya existe, Code.gs)
+//   3. setupEntornoTest_paso2_agregarUsuario()         (editar el email antes)
+// ============================================================
+
+// Paso 1 — crea una planilla de test nueva (separada de la de prod) y carga
+// Script Properties. OAUTH_CLIENT_ID es el mismo cliente OAuth que ya usa el
+// frontend (no es secreto, está a la vista en index.html). SESSION_SECRET se
+// genera acá mismo, random, para no tener que inventarlo ni pegarlo a mano.
+//
+// Ojo: SPREADSHEET_ID es un const que se lee UNA vez al arrancar cada
+// ejecución (línea ~21). Por eso el paso 2 (setupSheets) es una corrida
+// APARTE — recién ahí el script arranca ya viendo la property nueva.
+function setupEntornoTest_paso1_crearPlanillaYConfig() {
+  const ss = SpreadsheetApp.create('Peroncitos TEST');
+  PropertiesService.getScriptProperties().setProperties({
+    SPREADSHEET_ID:  ss.getId(),
+    OAUTH_CLIENT_ID: '223985831716-tjfd9qachr7uqb15mjchotp5fodnedi7.apps.googleusercontent.com',
+    SESSION_SECRET:  Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid(),
+  }, false);
+  Logger.log('Planilla de test creada: ' + ss.getUrl());
+  Logger.log('Listo. Ahora corré, en este orden: setupSheets()  y después  setupEntornoTest_paso2_agregarUsuario() (editando el email primero).');
+}
+
+// Paso 2 — agrega tu usuario de prueba a la hoja Usuarios de la planilla de
+// test. Usá el MISMO email que ya está cargado como "usuario de prueba" en la
+// pantalla de consentimiento OAuth (Google Cloud > OAuth consent screen).
+// Editá EMAIL_DE_PRUEBA / NOMBRE_DE_PRUEBA antes de correr. Corré esto DESPUÉS
+// de setupSheets(), no antes (necesita la hoja Usuarios ya creada).
+function setupEntornoTest_paso2_agregarUsuario() {
+  const EMAIL_DE_PRUEBA  = 'REEMPLAZAR@gmail.com';
+  const NOMBRE_DE_PRUEBA = 'REEMPLAZAR';
+
+  if (EMAIL_DE_PRUEBA.indexOf('REEMPLAZAR') !== -1) {
+    Logger.log('Editá EMAIL_DE_PRUEBA y NOMBRE_DE_PRUEBA arriba antes de correr esta función.');
+    return;
+  }
+
+  const sheet = getSheet(SHEETS.USUARIOS);
+  // Orden de columnas de Usuarios: usuario_id, nombre_display, email,
+  // google_sub, foto_url, avatar_archivo_id (setupSheets() las crea así).
+  sheet.appendRow([newId('usr'), NOMBRE_DE_PRUEBA, EMAIL_DE_PRUEBA.toLowerCase(), '', '', '']);
+  SpreadsheetApp.flush();
+  Logger.log('Usuario de prueba agregado: ' + EMAIL_DE_PRUEBA + '. Ya podés loguearte desde el navegador.');
+}
+
+// Wrapper para correr desde el editor de Apps Script: loguea el reporte completo
+// (el editor no muestra el valor de retorno de la función que se ejecuta).
+function probarBUGLOGIN001B_log() {
+  Logger.log(JSON.stringify(probarBUGLOGIN001B(), null, 2));
+}
+
+function probarBUGLOGIN001B() {
+  const R = nuevoReporte('BUG-LOGIN-001-B');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarBUGLOGIN001B ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+
+    setupSheets();
+    const mias = ['Usuarios', 'Categorias', 'Planes', 'Archivos', 'Sesiones', 'Auditoria'];
+    ss.getSheets().forEach(sh => {
+      if (mias.indexOf(sh.getName()) === -1) ss.deleteSheet(sh);
+    });
+    SpreadsheetApp.flush();
+
+    b_limpiarCache();
+
+    grpB_puenteHappyPath(R);
+    grpB_sinSecretoEnCache(R);
+    grpB_fallbackCuandoLaHojaNoVeLaFila(R);
+    grpB_rechazosEnPathDeCache(R);
+    grpB_logoutBorraLaCache(R);
+    grpB_logoutColdWindow(R);
+    grpB_expiracionEnCache(R);
+    grpB_hojaQueTiraNoConsultaCache(R);
+    grpB_regresionSesion(R);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    b_limpiarCache();
+    if (scratchId) {
+      try {
+        DriveApp.getFileById(scratchId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e);
+      }
+    }
+  }
+
+  return R.finalizar();
+}
+
+// ------------------------------------------------------------
+// Helpers Bug B
+// ------------------------------------------------------------
+
+// crearSesion() real, trackeando la clave de cache para limpiarla después.
+function b_crearSesion(userId) {
+  const token = crearSesion(userId);
+  b_track('sesion:' + token.split('.')[0]);
+  return token;
+}
+
+function b_track(clave) {
+  if (B_CLAVES_CACHE.indexOf(clave) === -1) B_CLAVES_CACHE.push(clave);
+}
+
+function b_cachePut(sessionId, obj, ttl) {
+  const k = 'sesion:' + sessionId;
+  CacheService.getScriptCache().put(k, JSON.stringify(obj), ttl || SESION_CACHE_BRIDGE_SEC);
+  b_track(k);
+}
+
+function b_cacheGetRaw(sessionId) {
+  return CacheService.getScriptCache().get('sesion:' + sessionId);
+}
+
+function b_limpiarCache() {
+  if (B_CLAVES_CACHE.length) {
+    try { CacheService.getScriptCache().removeAll(B_CLAVES_CACHE); } catch (e) { /* ignorado */ }
+  }
+  B_CLAVES_CACHE = [];
+}
+
+// Saca la fila de una sesión de la hoja y devuelve sus valores (en orden de
+// columna) para poder re-insertarla y simular "la hoja se puso al día".
+function b_quitarFilaSesion(sessionId) {
+  const sheet = getSheet(SHEETS.SESIONES);
+  const data  = sheet.getDataRange().getValues();
+  const iId   = data[0].indexOf('session_id');
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][iId] === sessionId) {
+      const valores = data[i].slice();
+      sheet.deleteRow(i + 1);
+      SpreadsheetApp.flush();
+      return valores;
+    }
+  }
+  return null;
+}
+
+function b_reinsertarFilaSesion(valores) {
+  getSheet(SHEETS.SESIONES).appendRow(valores);
+  SpreadsheetApp.flush();
+}
+
+// ------------------------------------------------------------
+// Grupos de verificación (Bug B)
+// ------------------------------------------------------------
+
+// Happy path: con la fila en la hoja, validarSesion resuelve por la HOJA.
+function grpB_puenteHappyPath(R) {
+  const token = b_crearSesion('usr_fran');
+  const sid   = token.split('.')[0];
+
+  const v = validarSesion(token);
+  R.eq('HP · validarSesion con la fila presente -> userId', v.userId, 'usr_fran');
+  R.check('HP · sin error', !v.error);
+  R.check('HP · getSesionRow encuentra la fila', !!getSesionRow(sid));
+}
+
+// Criterio 8 — la entrada de cache NO tiene el secreto crudo ni el token entero.
+function grpB_sinSecretoEnCache(R) {
+  const token = b_crearSesion('usr_fran');
+  const partes  = token.split('.');
+  const sid     = partes[0];
+  const secreto = partes[1];
+
+  const crudo = b_cacheGetRaw(sid);
+  R.check('C8 · crearSesion dejó entrada en el puente de cache', !!crudo);
+  if (!crudo) return;
+
+  const entry = JSON.parse(crudo);
+  R.eq('C8 · claves de la entrada = exp,h,u',
+       Object.keys(entry).sort().join(','), 'exp,h,u');
+  R.check('C8 · la entrada NO contiene el secreto crudo', crudo.indexOf(secreto) === -1);
+  R.check('C8 · la entrada NO contiene el token completo', crudo.indexOf(token) === -1);
+  R.eq('C8 · h == hmacHex(secreto) (mismo hash que la hoja)', entry.h, hmacHex(secreto));
+  R.eq('C8 · u == userId', entry.u, 'usr_fran');
+  R.check('C8 · exp es ISO 8601 UTC', ISO_UTC.test(String(entry.exp)));
+
+  const fila = getSesionRow(sid);
+  R.eq('C8 · token_hash de la hoja == h de la cache', String(fila.token_hash), entry.h);
+}
+
+// Criterios 1 y 2 (nivel unidad) — la hoja todavía no ve la fila -> validarSesion
+// la sirve desde el puente, sin caer a 401.
+function grpB_fallbackCuandoLaHojaNoVeLaFila(R) {
+  const token = b_crearSesion('usr_fran');
+  const sid   = token.split('.')[0];
+
+  const valores = b_quitarFilaSesion(sid);
+  R.check('C1 · precondición: getSesionRow devuelve null limpio', getSesionRow(sid) === null);
+
+  const v = validarSesion(token);
+  R.eq('C1/C2 · validarSesion sirve la sesión desde el puente -> userId', v.userId, 'usr_fran');
+  R.check('C1/C2 · sin error (no hay 401 espurio)', !v.error);
+
+  b_reinsertarFilaSesion(valores);
+}
+
+// Criterio 3 — en el path de cache un token no auténtico igual da rechazo.
+function grpB_rechazosEnPathDeCache(R) {
+  const token = b_crearSesion('usr_fran');
+  const partes  = token.split('.');
+  const sid     = partes[0];
+  const secreto = partes[1];
+  const valores = b_quitarFilaSesion(sid);
+
+  const ultima    = secreto.slice(-1);
+  const tokenMalo = sid + '.' + secreto.slice(0, -1) + (ultima === 'a' ? 'b' : 'a');
+  const v1 = validarSesion(tokenMalo);
+  R.check('C3 · secreto corrupto con sessionId real -> error (HMAC no coincide en cache)', !!v1.error);
+  R.check('C3 · no devuelve userId', !v1.userId);
+
+  const v2 = validarSesion('ses_noexiste_zzz.deadbeefdeadbeef');
+  R.check('C3 · sessionId inexistente -> error', !!v2.error);
+
+  b_reinsertarFilaSesion(valores);
+}
+
+// Condición A de Gary + criterio 4 — handleLogout borra la clave de cache SIEMPRE.
+function grpB_logoutBorraLaCache(R) {
+  const token = b_crearSesion('usr_fran');
+  const sid   = token.split('.')[0];
+
+  R.check('C4 · precondición: la clave de cache existe tras el login', !!b_cacheGetRaw(sid));
+
+  handleLogout({ sessionToken: token });
+  R.check('CondA/C4 · handleLogout borró la clave de cache', b_cacheGetRaw(sid) === null);
+
+  const fila = getSesionRow(sid);
+  R.eq('C4 · la fila quedó estado=revocada', fila && fila.estado, 'revocada');
+  R.check('C4 · validarSesion tras logout -> error', !!validarSesion(token).error);
+}
+
+// Criterio 4, caso borde — logout mientras el login todavía no es visible en la
+// hoja. El cache.remove incondicional tiene que cortar igual DENTRO de la ventana.
+function grpB_logoutColdWindow(R) {
+  const token = b_crearSesion('usr_fran');
+  const sid   = token.split('.')[0];
+  const valores = b_quitarFilaSesion(sid);
+
+  handleLogout({ sessionToken: token });
+  R.check('C4-borde · cache borrada aunque revocarSesion no vio la fila', b_cacheGetRaw(sid) === null);
+
+  const v = validarSesion(token);
+  R.check('C4-borde · validarSesion -> error dentro de la ventana (sheet null + cache vacía)', !!v.error);
+
+  // La hoja "se pone al día": la fila reaparece. La revocación se perdió porque
+  // revocarSesion() no la vio.
+  b_reinsertarFilaSesion(valores);
+  const v2 = validarSesion(token);
+  if (v2.error) {
+    R.check('C4-borde · sesión sigue cortada tras ponerse al día la hoja', true);
+  } else {
+    R.check('C4-borde · el fix corta la sesión dentro de la ventana (cache.remove)', true);
+    R.nota('HALLAZGO C4-borde (para Bob/Paul): si el logout ocurre mientras el login ' +
+           'todavía no es visible en la hoja, revocarSesion() no encuentra la fila y NO ' +
+           'escribe estado=revocada. El cache.remove corta la sesión durante ' +
+           'SESION_CACHE_BRIDGE_SEC, pero al ponerse al día la hoja la fila sigue ' +
+           'estado=activa y validarSesion() la vuelve a dar por válida. PRE-EXISTENTE ' +
+           '(revocarSesion ya tenía esta carrera antes de Bug B), este fix no lo introduce, ' +
+           'pero es el eslabón débil del criterio 4.');
+  }
+}
+
+// Criterio 5 — expiración también se respeta en el path de cache. Y todos los
+// rechazos de validarDesdePuente devuelven null (nunca "válida" por error).
+function grpB_expiracionEnCache(R) {
+  const secreto = 'secreto_de_prueba_para_el_puente';
+  const h = hmacHex(secreto);
+  const futuro = new Date(Date.now() + 3600 * 1000).toISOString();
+
+  b_cachePut('ses_exp_vencida', { h: h, u: 'usr_fran', exp: '2020-01-01T00:00:00.000Z' });
+  R.check('C5 · validarDesdePuente con exp pasada -> null',
+          validarDesdePuente('ses_exp_vencida', secreto) === null);
+
+  b_cachePut('ses_ok', { h: h, u: 'usr_fran', exp: futuro });
+  const v = validarDesdePuente('ses_ok', secreto);
+  R.eq('C5 · validarDesdePuente con exp futura + hash ok -> userId', v && v.userId, 'usr_fran');
+
+  R.check('C5 · validarDesdePuente con hash que no coincide -> null',
+          validarDesdePuente('ses_ok', 'otro_secreto') === null);
+
+  CacheService.getScriptCache().put('sesion:ses_basura', 'no-es-json', 120);
+  b_track('sesion:ses_basura');
+  R.check('C5 · validarDesdePuente con entry ilegible -> null',
+          validarDesdePuente('ses_basura', secreto) === null);
+
+  b_cachePut('ses_sin_h', { u: 'usr_fran', exp: futuro });
+  R.check('C5 · validarDesdePuente sin h -> null', validarDesdePuente('ses_sin_h', secreto) === null);
+
+  b_cachePut('ses_sin_exp', { h: h, u: 'usr_fran' });
+  R.check('C5 · validarDesdePuente sin exp -> null', validarDesdePuente('ses_sin_exp', secreto) === null);
+
+  R.check('C5 · validarDesdePuente sin entrada -> null',
+          validarDesdePuente('ses_no_hay_nada', secreto) === null);
+}
+
+// Condición B de Gary — si la lectura de la hoja TIRA, validarSesion NO consulta
+// la cache: propaga el error, no devuelve una sesión "válida".
+function grpB_hojaQueTiraNoConsultaCache(R) {
+  const token = b_crearSesion('usr_fran');
+  const sid   = token.split('.')[0];
+  R.check('CondB · precondición: entry de cache presente', !!b_cacheGetRaw(sid));
+
+  const hoja = abrirPlanilla().getSheetByName('Sesiones');
+  hoja.setName('Sesiones_OFF');
+  SpreadsheetApp.flush();
+
+  let tiro = false;
+  let resultado = null;
+  try {
+    resultado = validarSesion(token);
+  } catch (e) {
+    tiro = true;
+  } finally {
+    hoja.setName('Sesiones');
+    SpreadsheetApp.flush();
+  }
+
+  R.check('CondB · validarSesion propaga la excepción de la hoja (no la traga)', tiro);
+  R.check('CondB · NO devolvió una sesión válida desde la cache', !(resultado && resultado.userId));
+}
+
+// Regresión — el path normal (fila presente) sigue igual.
+function grpB_regresionSesion(R) {
+  const token = b_crearSesion('usr_fran');
+
+  const v1 = validarSesion(token);
+  const v2 = validarSesion(token);
+  R.eq('REG · validarSesion 2x seguidas -> userId (1)', v1.userId, 'usr_fran');
+  R.eq('REG · validarSesion 2x seguidas -> userId (2)', v2.userId, 'usr_fran');
+
+  handleLogout({ sessionToken: token });
+  R.check('REG · tras logout normal -> error', !!validarSesion(token).error);
+}
