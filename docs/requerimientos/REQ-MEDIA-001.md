@@ -1,6 +1,11 @@
 # REQ-MEDIA-001 — Servido de archivos gateado por sesión
 
-> **Estado:** DEFINIDO (2026-09-11) — sin implementar. Ver [Alcance](#alcance--entra).
+> **Estado:** IMPLEMENTADO (2026-09-14) — verificado contra el proyecto de
+> test (20/20 + sin regresión en DATA-002/BUG-LOGIN-001B). Sin desplegar a
+> producción. Pendiente: smoke manual en navegador con login real (Franco),
+> deploy, y correr `backfillMetadataArchivos()` +
+> `revocarSharingPublicoArchivos()` contra prod en ese orden. Ver bitácora
+> [2026-09-14](../../bitacora/2026/09-septiembre.txt).
 > **Dueño técnico:** Bob (back) + Jay (front) · **AppSec:** Julia · **DBA:** Gary · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-DATA-001](REQ-DATA-001.md) (hoja `Archivos`, ya cerrado).
 > Ver contexto en [../modelo-datos.md](../modelo-datos.md) sección "Compartir la carpeta raíz" y decisión D1 de Julia.
@@ -74,7 +79,7 @@ ajenos (los otros usuarios ven el avatar de quien creó cada plan/categoría).
 | 1 | `getArchivo` sin sesión válida → 401, igual que el resto de los endpoints. |
 | 2 | `getArchivo` con sesión válida y `archivoId` existente/activo → devuelve `base64` + `mimeType` correctos (comparar contra el archivo real de Drive). |
 | 3 | `getArchivo` con `archivoId` inexistente o `estado != 'activo'` → 404. |
-| 4 | `getArchivo` con `archivoId` de un archivo ajeno (otro usuario) → decisión explícita a confirmar: ¿cualquier usuario logueado puede ver cualquier avatar (como hoy, público-pero-logueado), o solo el dueño? Marcar la respuesta acá antes de implementar. |
+| 4 | `getArchivo` con `archivoId` de un archivo ajeno (otro usuario) → **200, se devuelve igual** (ver [Criterio 4 — ratificado](#criterio-4--ratificado)). |
 | 5 | Tras el REQ, los 2 archivos migrados por REQ-DATA-001 **no** tienen permiso `ANYONE_WITH_LINK` en Drive (verificable con `file.getSharingAccess()`). |
 | 6 | Subir un avatar nuevo: la fila de Drive nace **sin** `ANYONE_WITH_LINK`. |
 | 7 | Las 2 filas migradas de `Archivos` tienen `mime_type` y `tamano_bytes` poblados tras el backfill. |
@@ -82,7 +87,29 @@ ajenos (los otros usuarios ven el avatar de quien creó cada plan/categoría).
 | 9 | Ningún `Logger.log` incluye contenido de imagen (base64 ni bytes) — mismo criterio que REQ-DATA-001. |
 | 10 | Sin regresión funcional: login, planes, categorías, subida de avatar, todo el resto de la app igual que antes. |
 
-*(Falta cerrar el criterio 4 con Franco/Julia antes de que Bob empiece.)*
+### Criterio 4 — ratificado
+
+**Ratificado (Julia + Paul, 2026-09-14): cualquier sesión válida puede leer
+cualquier `archivoId` activo, sin chequeo de dueño.** No es una decisión
+nueva — ya estaba cerrada por Julia en
+[D1](../modelo-datos.md#d1--servido-de-imágenes-al-frontend)
+(`modelo-datos.md`, 2026-09-07, punto 3: *"Ambos usuarios ven todo el
+espacio compartido; no hay chequeo por-usuario"*), y es la misma línea que
+ya usa `handleGetUser` para mostrar avatares ajenos (quien creó un plan o
+categoría) y la que confirmó Franco para REQ-MEDIA-002 (fotos de tareas
+visibles para ambos, no solo para quien las subió). Al implementar,
+`getArchivo` quedó alineado con eso — este REQ solo formaliza por escrito
+lo que faltaba marcar antes de que Bob empezara.
+
+Justificación (Julia, AppSec): el modelo de amenaza de la app son 2 cuentas
+nominales sobre una whitelist fija (Fran, Noelia) que comparten todo el
+contenido (planes, categorías, fotos) por diseño — no hay noción de
+"privado entre usuarios" en ningún otro dato de la app. Agregar un chequeo
+por-dueño solo para archivos rompería esa simetría sin reducir superficie
+de ataque real: quien tiene sesión válida ya ve nombres, categorías y
+planes de la otra persona. Riesgo residual: si la whitelist alguna vez
+crece más allá de 2 cuentas de confianza mutua total, este criterio hay que
+revisitarlo (marcarlo en REQ-ADMIN-001 si ese REQ agrega altas de usuarios).
 
 ## Datos sensibles
 
@@ -101,8 +128,8 @@ nuevo.
 
 ## Plan de pruebas (Duck)
 
-1. `getArchivo` sin sesión / sesión vencida / sesión de otro usuario (según
-   se resuelva el criterio 4) → criterios 1, 3, 4.
+1. `getArchivo` sin sesión / sesión vencida / sesión de otro usuario (debe
+   devolver el archivo igual, por el criterio 4 ratificado) → criterios 1, 3, 4.
 2. `getArchivo` con sesión válida sobre un archivo real → comparar el binario
    devuelto contra el original en Drive → criterio 2.
 3. Backfill → inspeccionar las 2 filas migradas → criterio 7.

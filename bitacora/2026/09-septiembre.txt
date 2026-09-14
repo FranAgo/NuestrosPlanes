@@ -1219,3 +1219,39 @@ Pendiente antes de dar por CERRADO REQ-MEDIA-001 (no bloquea este commit):
 4. Recien despues de todo lo anterior: arranca REQ-MEDIA-002 (Bob + Jay),
    que depende de que este REQ este cerrado y desplegado.
 ========================================================
+
+========================================================
+2026-09-14 16:43 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Julia (AppSec) + Paul (PM)
+--------------------------------------------------------
+Ratificacion del criterio 4 de REQ-MEDIA-001 (pendiente #1 de la entrada
+anterior). No fue una decision nueva: ya estaba cerrada por Julia en la
+decision D1 de modelo-datos.md (2026-09-07, punto 3 -- "ambos usuarios ven
+todo el espacio compartido; no hay chequeo por-usuario"). El REQ nunca
+cruzo esa referencia al escribir el criterio 4 y lo dejo marcado "a
+confirmar" a pesar de que Bob ya lo habia implementado siguiendo esa misma
+linea (consistente con handleGetUser para avatares ajenos y con lo que
+confirmo Franco para REQ-MEDIA-002). Este cambio solo formaliza por
+escrito lo que ya estaba decidido.
+
+Cambios:
+- docs/requerimientos/REQ-MEDIA-001.md:
+  * Estado actualizado de "DEFINIDO -- sin implementar" a "IMPLEMENTADO --
+    verificado en test, sin desplegar" (estaba desactualizado desde el
+    commit d62eac9).
+  * Criterio 4 de la tabla: reemplazado "a confirmar" por la respuesta
+    ratificada (200, se devuelve igual, sin chequeo de dueno).
+  * Seccion nueva "Criterio 4 -- ratificado": cita la decision D1 de
+    Julia, la consistencia con handleGetUser y REQ-MEDIA-002, y deja
+    marcado el riesgo residual (revisitar si la whitelist de usuarios deja
+    de ser de confianza mutua total -- anotarlo en REQ-ADMIN-001 si ese REQ
+    agrega altas de usuarios).
+  * Limpiada la referencia residual al criterio 4 "sin resolver" en el
+    plan de pruebas.
+
+Quedan pendientes (sin cambios respecto de la entrada anterior, 14/09
+16:27): smoke manual en navegador con login real (Franco), deploy a prod,
+y recien despues arrancar REQ-MEDIA-002.
+========================================================
