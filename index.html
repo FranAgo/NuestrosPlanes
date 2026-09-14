@@ -1912,10 +1912,11 @@
 
         if (data.status === 200) {
           state.session = {
-            userId:        data.user.userId,
-            sessionToken:  data.sessionToken,
-            nombreDisplay: data.user.nombreDisplay,
-            fotoUrl:       data.user.fotoUrl,
+            userId:          data.user.userId,
+            sessionToken:    data.sessionToken,
+            nombreDisplay:   data.user.nombreDisplay,
+            fotoUrl:         data.user.fotoUrl,
+            avatarArchivoId: data.user.avatarArchivoId || null,
           };
           saveSession();
           statusEl.textContent = '';
@@ -1996,6 +1997,9 @@
         // Si un 401 en el medio disparó forceLogout, ya estamos en el login.
         if (!state.session) return;
         await loadOtherUsers();
+        // loadOtherUsers ya resolvió el cache de avatares (prefetchAvatares) —
+        // repintamos el header, que se dibujó antes con el cache todavía vacío.
+        updateHeaderUser();
         renderPlanes();
         renderCategorias();
         appLoading.hidden = true;
@@ -2009,8 +2013,9 @@
     async function loadOtherUsers() {
       // Siempre registrar al usuario actual en el mapa
       state.users[state.session.userId] = {
-        nombreDisplay: state.session.nombreDisplay,
-        fotoUrl:       state.session.fotoUrl,
+        nombreDisplay:   state.session.nombreDisplay,
+        fotoUrl:         state.session.fotoUrl,
+        avatarArchivoId: state.session.avatarArchivoId || null,
       };
 
       // Detectar IDs de otros usuarios que aparecen en los planes
@@ -2026,17 +2031,24 @@
           const data = await api('getUser', { userId: id });
           if (data.status === 200) {
             state.users[id] = {
-              nombreDisplay: data.nombreDisplay,
-              fotoUrl:       data.fotoUrl || null,
+              nombreDisplay:   data.nombreDisplay,
+              fotoUrl:         data.fotoUrl || null,
+              avatarArchivoId: data.avatarArchivoId || null,
             };
           } else {
             // Si el backend no lo encuentra, usar el ID como fallback
-            state.users[id] = { nombreDisplay: id, fotoUrl: null };
+            state.users[id] = { nombreDisplay: id, fotoUrl: null, avatarArchivoId: null };
           }
         } catch {
-          state.users[id] = { nombreDisplay: id, fotoUrl: null };
+          state.users[id] = { nombreDisplay: id, fotoUrl: null, avatarArchivoId: null };
         }
       }));
+
+      // REQ-MEDIA-001: resolver de antemano los avatares (propio + de todos
+      // los usuarios ya cargados) contra getArchivo, para que el render
+      // (setAvatarEl, renderPlanes) los lea del cache de forma sincrónica,
+      // sin promesas ni parpadeo de "sin foto -> foto".
+      await prefetchAvatares();
     }
 
     function updateHeaderUser() {
@@ -2046,9 +2058,48 @@
       document.getElementById('perfil-nombre').textContent = state.session.nombreDisplay;
     }
 
+    // ====================================================
+    // AVATARES — REQ-MEDIA-001
+    // Ya no se sirven por URL pública de Drive: se piden por sesión (acción
+    // getArchivo) y se cachean en memoria como data URL, indexados por
+    // archivoId. Cache simple (Map), sin expiración: a esta escala (2
+    // usuarios, avatar cambia poco) alcanza — si se resube un avatar nace un
+    // archivoId nuevo, así que no hace falta invalidar el viejo.
+    const avatarCache = new Map(); // archivoId -> dataUrl | null
+
+    // Lectura sincrónica del cache. Devuelve null si todavía no se resolvió
+    // (o no hay archivoId) — el llamador cae al inicial como hoy.
+    function avatarDataUrl(archivoId) {
+      return archivoId ? (avatarCache.get(archivoId) || null) : null;
+    }
+
+    async function fetchAvatarDataUrl(archivoId) {
+      if (!archivoId || avatarCache.has(archivoId)) return;
+      try {
+        const data = await api('getArchivo', { archivoId });
+        const url  = data.status === 200
+          ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
+          : '';
+        avatarCache.set(archivoId, url || null);
+      } catch {
+        avatarCache.set(archivoId, null);
+      }
+    }
+
+    // Resuelve de antemano todos los avatares que hacen falta para el render
+    // actual (sesión propia + usuarios ya cargados en state.users).
+    async function prefetchAvatares() {
+      const ids = new Set();
+      if (state.session?.avatarArchivoId) ids.add(state.session.avatarArchivoId);
+      Object.values(state.users).forEach(u => {
+        if (u.avatarArchivoId) ids.add(u.avatarArchivoId);
+      });
+      await Promise.all([...ids].map(fetchAvatarDataUrl));
+    }
+
     function setAvatarEl(el, user, large = false) {
       if (!el) return;
-      const src = safeImageUrl(user.fotoUrl);
+      const src = avatarDataUrl(user.avatarArchivoId);
       if (src) {
         el.innerHTML = `<img src="${src}" alt="${escapeHtml(user.nombreDisplay || '')}" />`;
       } else {
@@ -2159,9 +2210,9 @@
       return state.users[userId]?.nombreDisplay || userId;
     }
 
-    function getUserFoto(userId) {
-      if (userId === state.session.userId) return state.session.fotoUrl;
-      return state.users[userId]?.fotoUrl || null;
+    function getUserAvatarArchivoId(userId) {
+      if (userId === state.session.userId) return state.session.avatarArchivoId || null;
+      return state.users[userId]?.avatarArchivoId || null;
     }
 
     function renderPlanes() {
@@ -2183,7 +2234,7 @@
         const creador   = getUserDisplay(plan.creadoPor);
         const initial   = creador?.[0]?.toUpperCase() || '?';
         const pid       = safeId(plan.planId);
-        const avatarSrc = safeImageUrl(getUserFoto(plan.creadoPor));
+        const avatarSrc = avatarDataUrl(getUserAvatarArchivoId(plan.creadoPor));
 
         const catColor = cat ? safeColor(cat.colorHex) : '';
         const catBadge = cat
@@ -2559,11 +2610,13 @@
     function openModalFoto() {
       fotoModalError.classList.remove('visible');
 
-      // Mostrar la foto actual en el preview
+      // Mostrar la foto actual en el preview. El cache ya se resolvió en
+      // prefetchAvatares() al cargar la app, así que esto es sincrónico.
       fotoPrevAvatar.innerHTML = '';
-      if (state.session?.fotoUrl) {
+      const avatarSrc = avatarDataUrl(state.session?.avatarArchivoId);
+      if (avatarSrc) {
         const img = document.createElement('img');
-        img.src = state.session.fotoUrl;
+        img.src = avatarSrc;
         img.alt = state.session.nombreDisplay;
         fotoPrevAvatar.appendChild(img);
       } else {
@@ -2844,6 +2897,11 @@
         const data = await api('uploadPhoto', { fileBase64: base64, mimeType });
 
         if (data.status === 200) {
+          // Ya tenemos el data URL recortado acá mismo (es lo que subimos) —
+          // lo cacheamos directo para el archivoId nuevo, sin pedirlo de
+          // vuelta por getArchivo.
+          avatarCache.set(data.archivoId, safeImageUrl(dataUrl) || null);
+          state.session.avatarArchivoId = data.archivoId;
           state.session.fotoUrl = data.fotoUrl;
           saveSession();
           updateHeaderUser();

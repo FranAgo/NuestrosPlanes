@@ -496,6 +496,24 @@ function setupEntornoTest_paso2_agregarUsuario() {
   Logger.log('Usuario de prueba agregado: ' + EMAIL_DE_PRUEBA + '. Ya podés loguearte desde el navegador.');
 }
 
+// Paso 3 — crea la carpeta de Drive para avatares del entorno de TEST y la
+// carga como DRIVE_FOLDER_ID en Script Properties. Ningún REQ anterior tocaba
+// Drive (REQ-DATA-002/BUG-LOGIN-001 lo dejaban fuera de alcance a propósito),
+// así que esta property nunca se configuró para test hasta REQ-MEDIA-001, que
+// sí necesita subir/leer binarios reales. Idempotente: si ya existe, no crea
+// una segunda carpeta.
+function setupEntornoTest_paso3_crearCarpetaDriveFotos() {
+  const existente = PROPS.getProperty('DRIVE_FOLDER_ID');
+  if (existente) {
+    Logger.log('DRIVE_FOLDER_ID ya está configurado (' + existente + '). No se crea otra carpeta.');
+    return;
+  }
+
+  const carpeta = DriveApp.createFolder('Peroncitos TEST — fotos');
+  PropertiesService.getScriptProperties().setProperty('DRIVE_FOLDER_ID', carpeta.getId());
+  Logger.log('Carpeta de Drive creada para test: ' + carpeta.getUrl());
+}
+
 // Wrapper para correr desde el editor de Apps Script: loguea el reporte completo
 // (el editor no muestra el valor de retorno de la función que se ejecuta).
 function probarBUGLOGIN001B_log() {
@@ -792,4 +810,217 @@ function grpB_regresionSesion(R) {
 
   handleLogout({ sessionToken: token });
   R.check('REG · tras logout normal -> error', !!validarSesion(token).error);
+}
+
+// ============================================================
+// probarMEDIA001() — REQ-MEDIA-001: servido de archivos gateado por sesión.
+// Verifica getArchivo, el backfill de metadata y la revocación de sharing
+// contra Google Sheets Y Drive REALES (usa el DRIVE_FOLDER_ID configurado en
+// las Script Properties del proyecto donde corra esto — en test, el mismo
+// que usa el smoke manual de login). Sube una imagen mínima real (1x1 PNG,
+// 68 bytes) y la borra (trash) al terminar, pase lo que pase.
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarMEDIA001 -P .clasp-test.json
+//
+// Fuera de alcance de este runner (se cubren aparte):
+//   - Criterio 1 (401 sin sesión): getArchivo pasa por el MISMO gate
+//     (validarSesion en doPost) que el resto de las acciones — no está en
+//     publicActions (verificado leyendo Code.gs). El mecanismo genérico ya
+//     está cubierto por los tests de REQ-SEC-001 (grpB_* / grupoAuditoria);
+//     no hace falta duplicarlo acá porque no hay lógica nueva en el gate.
+//   - Criterio 4 (visibilidad: cualquier sesión ve cualquier archivo, sin
+//     chequeo de dueño): es el comportamiento IMPLEMENTADO, verificado más
+//     abajo, pero la decisión de diseño está marcada "a confirmar" en el
+//     REQ — pendiente de que Julia/Paul la ratifiquen. No es un fail de
+//     este test, es una nota.
+//   - Criterio 8 (frontend: sin <img> a URL pública): requiere Network del
+//     navegador — smoke manual, no server-side.
+//   - Criterio 9 (Logger sin base64 en el resto de la app) y criterio 10
+//     (regresión general de login/planes/categorías): ya cubiertos por
+//     probarDATA002 / probarBUGLOGIN001B; acá solo se verifica que ESTE REQ
+//     en particular no vuelque el base64 al log.
+// ============================================================
+
+const MEDIA001_PIXEL_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+function probarMEDIA001() {
+  const R = nuevoReporte('REQ-MEDIA-001');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  let scratchId = null;
+  const driveFileIdsCreados = []; // se trashean en el finally, pase lo que pase
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA001 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+
+    sembrarEstadoMedia001(ss);
+
+    grupoGetArchivoNoEncontrado(R);
+    const archivoIdSubido = grupoUploadYGetArchivo(R, driveFileIdsCreados);
+    if (archivoIdSubido) {
+      grupoBackfillMetadata(R, archivoIdSubido);
+      grupoRevocacionSharing(R, archivoIdSubido);
+    } else {
+      R.fail('MEDIA-001 · no se pudo subir la imagen de prueba — se saltan backfill y revocación');
+    }
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    driveFileIdsCreados.forEach(fileId => {
+      try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar de Drive el archivo de prueba ' + fileId + ' — borralo a mano: ' + e);
+      }
+    });
+    if (scratchId) {
+      try {
+        DriveApp.getFileById(scratchId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e);
+      }
+    }
+  }
+
+  return R.finalizar();
+}
+
+// ------------------------------------------------------------
+// Fixture: Usuarios con avatar_archivo_id vacío, como estarían recién
+// después de setupSheets() en una planilla nueva.
+// ------------------------------------------------------------
+
+function sembrarEstadoMedia001(ss) {
+  setupSheets(); // crea Usuarios/Categorias/Planes/Archivos/Sesiones/Auditoria con headers correctos
+
+  const usuarios = ss.getSheetByName('Usuarios');
+  usuarios.appendRow(['usr_fran', 'Fran', 'fran@test.local', 'sub-fran', '', '']);
+  usuarios.appendRow(['usr_noe',  'Noe',  'noe@test.local',  'sub-noe',  '', '']);
+
+  // Sacar la hoja default que crea SpreadsheetApp.create().
+  const nombresMios = ['Usuarios', 'Categorias', 'Planes', 'Archivos', 'Sesiones', 'Auditoria'];
+  ss.getSheets().forEach(sh => {
+    if (nombresMios.indexOf(sh.getName()) === -1) ss.deleteSheet(sh);
+  });
+  SpreadsheetApp.flush();
+}
+
+// ------------------------------------------------------------
+// Grupos de verificación
+// ------------------------------------------------------------
+
+// Criterio 3 — archivoId inexistente o con estado != 'activo' -> 404. Estos
+// casos NO tocan Drive (el filtro por fila corta antes), así que no
+// necesitan la imagen real.
+function grupoGetArchivoNoEncontrado(R) {
+  const sinId = parseResp(handleGetArchivo({}));
+  R.eq('MEDIA-001 · getArchivo sin archivoId -> 400', sinId.status, 400);
+
+  const noExiste = parseResp(handleGetArchivo({ archivoId: 'arc_no_existe_zzz' }));
+  R.eq('C3 · getArchivo con archivoId inexistente -> 404', noExiste.status, 404);
+
+  const archivoArchivado = insertArchivo({
+    ownerTipo: 'usuario', ownerId: 'usr_fran', proposito: 'avatar',
+    driveFileId: 'fake-drive-id-no-se-lee', mimeType: 'image/jpeg', tamanoBytes: 10,
+    subidoPor: 'usr_fran', estado: 'archivado',
+  });
+  const inactivo = parseResp(handleGetArchivo({ archivoId: archivoArchivado }));
+  R.eq('C3 · getArchivo con estado != activo -> 404 (no revienta contra Drive)', inactivo.status, 404);
+}
+
+// Criterios 2 y 6 — sube una imagen real, verifica que nace privada y que
+// getArchivo devuelve el binario correcto. Devuelve el archivo_id subido (o
+// null si la subida falló) para que los grupos siguientes lo reutilicen.
+function grupoUploadYGetArchivo(R, driveFileIdsCreados) {
+  const subida = parseResp(handleUploadPhoto({
+    userId: 'usr_fran', fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png',
+  }));
+  R.check('setup · uploadPhoto responde 200 con la imagen de prueba', subida.status === 200);
+  if (subida.status !== 200) {
+    R.nota('uploadPhoto de prueba falló: status=' + subida.status + ' error=' + subida.error +
+           ' | Logger: ' + Logger.getLog());
+    return null;
+  }
+
+  const fila = getArchivoRow(subida.archivoId);
+  R.check('setup · insertArchivo dejó la fila esperada', !!fila);
+  if (!fila) return null;
+
+  driveFileIdsCreados.push(fila.drive_file_id);
+
+  // C6 — nace sin ANYONE_WITH_LINK
+  const file = DriveApp.getFileById(fila.drive_file_id);
+  R.check('C6 · avatar nuevo nace SIN ANYONE_WITH_LINK',
+          file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK);
+
+  // C2 — getArchivo devuelve el binario real, comparado contra lo subido
+  const leido = parseResp(handleGetArchivo({ archivoId: subida.archivoId }));
+  R.eq('C2 · getArchivo responde 200', leido.status, 200);
+  R.eq('C2 · getArchivo devuelve el mimeType correcto', leido.mimeType, 'image/png');
+  R.eq('C2 · getArchivo devuelve el mismo base64 que se subió', leido.base64, MEDIA001_PIXEL_PNG_BASE64);
+
+  // C4 (documentado, no ratificado formalmente) — cualquier sesión ve
+  // cualquier archivo activo: handleGetArchivo no lee ni recibe authUserId,
+  // así que un archivo de usr_fran se sirve igual sin importar quién pida.
+  const leidoOtroUsuario = parseResp(handleGetArchivo({ archivoId: subida.archivoId, authUserId: 'usr_noe' }));
+  R.eq('C4 (pendiente ratificar) · getArchivo no filtra por dueño', leidoOtroUsuario.status, 200);
+
+  // C9 (parcial) — el Logger no debe tener el base64 de ESTA imagen.
+  R.check('C9 · Logger.log no contiene el base64 de la imagen subida en este REQ',
+          Logger.getLog().indexOf(MEDIA001_PIXEL_PNG_BASE64) === -1);
+
+  return subida.archivoId;
+}
+
+// Criterio 7 — backfill de mime_type/tamano_bytes en filas "migradas"
+// (simuladas: mismo patrón que dejó REQ-DATA-001, sin esos dos campos).
+function grupoBackfillMetadata(R, archivoIdConDriveReal) {
+  const filaBase = getArchivoRow(archivoIdConDriveReal);
+
+  const archivoSinMeta = insertArchivo({
+    ownerTipo: 'usuario', ownerId: 'usr_noe', proposito: 'avatar',
+    driveFileId: filaBase.drive_file_id, subidoPor: 'usr_noe', estado: 'activo',
+    // mimeType/tamanoBytes deliberadamente omitidos -> insertArchivo los deja en ''
+  });
+
+  const antes = getArchivoRow(archivoSinMeta);
+  R.check('setup · la fila migrada simulada arranca sin mime_type/tamano_bytes',
+          !antes.mime_type && antes.tamano_bytes === '');
+
+  const resumen = backfillMetadataArchivos();
+  R.check('C7 · backfillMetadataArchivos completa al menos 1 fila', resumen.completados >= 1);
+
+  const despues = getArchivoRow(archivoSinMeta);
+  R.eq('C7 · mime_type queda poblado tras el backfill', despues.mime_type, 'image/png');
+  R.check('C7 · tamano_bytes queda poblado (> 0) tras el backfill', despues.tamano_bytes > 0);
+
+  const resumen2 = backfillMetadataArchivos();
+  R.check('C7 · backfillMetadataArchivos es idempotente (2da corrida no reprocesa la fila ya completa)',
+          resumen2.yaCompletos >= 1);
+}
+
+// Criterio 5 — revoca ANYONE_WITH_LINK de un archivo que lo tenga (se fuerza
+// el estado "viejo" para simular un avatar migrado por REQ-DATA-001).
+function grupoRevocacionSharing(R, archivoIdConDriveReal) {
+  const fila = getArchivoRow(archivoIdConDriveReal);
+  const file = DriveApp.getFileById(fila.drive_file_id);
+
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  R.check('setup · archivo forzado a ANYONE_WITH_LINK antes de revocar',
+          file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK);
+
+  const resumen = revocarSharingPublicoArchivos();
+  R.check('C5 · revocarSharingPublicoArchivos revoca al menos 1 archivo', resumen.revocados >= 1);
+  R.check('C5 · el archivo ya NO tiene ANYONE_WITH_LINK tras revocar',
+          file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK);
+
+  const resumen2 = revocarSharingPublicoArchivos();
+  R.check('C5 · revocarSharingPublicoArchivos es idempotente (2da corrida no re-revoca)',
+          resumen2.yaPrivados >= 1);
 }

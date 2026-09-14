@@ -1148,3 +1148,74 @@ PENDIENTE / proxima sesion:
 4. (backlog sin cambios de sesiones anteriores) REQ-ADMIN-001, pasada de UI
    restante, mover tests al proyecto versionado.
 ========================================================
+
+========================================================
+2026-09-14 19:26 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul (PM) -> Bob (back) -> Jay (front) -> Duck (QA)
+--------------------------------------------------------
+Implementacion completa de REQ-MEDIA-001 (servido de archivos gateado por
+sesion), verificada contra el proyecto de test real (Sheets + Drive). Queda
+lista para deploy a prod, pendiente de dos puntos no tecnicos (ver abajo).
+
+Cambios:
+- Code.gs:
+  * Endpoint nuevo `getArchivo` (accion en doPost, requiere sessionToken):
+    recibe archivoId, devuelve {base64, mimeType} del archivo si existe y
+    esta activo, 404 si no. Visibilidad: cualquier sesion valida puede leer
+    cualquier archivo activo, sin chequeo de dueno -- mismo criterio que ya
+    usaba handleGetUser para avatares ajenos y el que confirmo Franco para
+    REQ-MEDIA-002. PENDIENTE: falta que Julia/Paul lo ratifiquen como
+    respuesta formal al criterio 4 del REQ (quedo marcado "a confirmar").
+  * handleUploadPhoto ya no marca los archivos nuevos como ANYONE_WITH_LINK
+    -- nacen privados.
+  * handleGetUser y el objeto "user" de handleLoginGoogle ahora devuelven
+    tambien avatarArchivoId (lo necesita el frontend para pedir el archivo
+    por getArchivo).
+  * Dos funciones one-shot nuevas, NO invocadas automaticamente (se corren a
+    mano desde el editor de Apps Script cuando corresponda):
+    backfillMetadataArchivos() (completa mime_type/tamano_bytes de las 2
+    filas migradas por REQ-DATA-001) y revocarSharingPublicoArchivos()
+    (revoca ANYONE_WITH_LINK -- esta se corre en prod recien DESPUES de
+    confirmar que el frontend nuevo esta desplegado y en uso, nunca antes:
+    revocar temprano rompe el <img src> viejo).
+- index.html:
+  * state.session y state.users ahora cargan avatarArchivoId.
+  * Cache en memoria (avatarCache) + prefetchAvatares(): resuelve todos los
+    avatares necesarios contra getArchivo ANTES de renderizar (header,
+    perfil, tarjetas de plan), asi el render sigue siendo sincronico sin
+    parpadeo.
+  * setAvatarEl, getUserAvatarArchivoId (reemplaza a getUserFoto),
+    openModalFoto y el handler de subida de avatar actualizados para usar
+    getArchivo en vez de <img src> apuntando a la URL publica de Drive.
+  * Subir un avatar nuevo cachea directo el data URL local (el recortado
+    que ya se subio) para el archivoId devuelto, sin pedirlo de vuelta por
+    getArchivo.
+- Tests.gs:
+  * probarMEDIA001() -- suite nueva, corre contra Sheets y Drive REALES de
+    test (sube una imagen real de 1x1px y la borra al terminar). Cubre los
+    criterios 2, 3, 5, 6, 7 y 9 del REQ. Resultado: 20/20 OK.
+  * setupEntornoTest_paso3_crearCarpetaDriveFotos() -- setup one-shot nuevo:
+    el entorno de test nunca tuvo DRIVE_FOLDER_ID configurado (ningun REQ
+    anterior tocaba Drive de verdad). Ya se corrio una vez contra el
+    proyecto de test -- creo la carpeta y seteo la property ahi. Solo test,
+    no toca prod.
+
+Verificacion (Duck): clasp push + clasp run contra .clasp-test.json (usuario
+clasp "duck" -- el perfil "default" no tiene permiso para clasp run, hay que
+usar -u duck). Resultado: probarMEDIA001 20/20, probarDATA002 70/70 (sin
+regresion), probarBUGLOGIN001B 38/38 (sin regresion). Nada de esto toco prod.
+
+Pendiente antes de dar por CERRADO REQ-MEDIA-001 (no bloquea este commit):
+1. Julia/Paul ratifican el criterio 4 (visibilidad sin chequeo de dueno).
+2. Smoke manual en navegador con login real de Google (criterio 8: sin
+   ninguna URL publica de Drive en Network; y los criterios 1/2/6 end to
+   end) -- lo hace Franco, como en BUG-LOGIN-001.
+3. Deploy a prod. Recien despues de confirmar que el frontend nuevo esta en
+   uso ahi: correr backfillMetadataArchivos() y
+   revocarSharingPublicoArchivos() contra prod (en ese orden, nunca antes
+   del deploy del frontend).
+4. Recien despues de todo lo anterior: arranca REQ-MEDIA-002 (Bob + Jay),
+   que depende de que este REQ este cerrado y desplegado.
+========================================================

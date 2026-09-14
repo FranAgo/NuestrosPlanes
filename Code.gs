@@ -154,6 +154,9 @@ function doPost(e) {
       case 'getUser':         return handleGetUser(body);
       case 'uploadPhoto':     return handleUploadPhoto(body);
 
+      // Archivos
+      case 'getArchivo':      return handleGetArchivo(body);
+
       // Categorías
       case 'getCategorias':   return handleGetCategorias(body);
       case 'createCategoria': return handleCreateCategoria(body);
@@ -241,7 +244,11 @@ function handleLoginGoogle(body) {
   const sheet = getSheet(SHEETS.USUARIOS);
   const data = sheet.getDataRange().getValues();
 
-  // Headers: [usuario_id, nombre_display, email, google_sub, foto_url]
+  // Headers base: [usuario_id, nombre_display, email, google_sub, foto_url].
+  // avatar_archivo_id se agregó después con ensureColumn (columna al final,
+  // no necesariamente índice 5) — se busca por nombre, no se hardcodea.
+  const iAvatar = data[0].indexOf('avatar_archivo_id');
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = (row[2] || '').toString().trim().toLowerCase();
@@ -263,9 +270,10 @@ function handleLoginGoogle(body) {
       return respond(200, {
         sessionToken,
         user: {
-          userId:        userId,
-          nombreDisplay: row[1],
-          fotoUrl:       row[4] || null,
+          userId:          userId,
+          nombreDisplay:   row[1],
+          fotoUrl:         row[4] || null,
+          avatarArchivoId: iAvatar !== -1 ? (row[iAvatar] || null) : null,
         }
       });
     }
@@ -673,15 +681,21 @@ function compartirCarpetaComoViewer(email) {
 function handleGetUser(body) {
   const { userId } = body;
   const sheet = getSheet(SHEETS.USUARIOS);
-  const data = sheet.getDataRange().getValues();
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId     = h.indexOf('usuario_id');
+  const iNombre = h.indexOf('nombre_display');
+  const iFoto   = h.indexOf('foto_url');
+  const iAvatar = h.indexOf('avatar_archivo_id');
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (row[0] === userId) {
+    if (row[iId] === userId) {
       return respond(200, {
-        userId:        row[0],
-        nombreDisplay: row[1],
-        fotoUrl:       row[4] || null,
+        userId:          row[iId],
+        nombreDisplay:   row[iNombre],
+        fotoUrl:         row[iFoto] || null,
+        avatarArchivoId: iAvatar !== -1 ? (row[iAvatar] || null) : null,
       });
     }
   }
@@ -723,13 +737,13 @@ function handleUploadPhoto(body) {
       fecha_subida: new Date().toISOString(),
     }));
 
-    // El sharing público se mantiene SOLO hasta REQ-MEDIA-001, que agrega el
-    // endpoint getArchivo y hace que el frontend deje de usar la URL pública.
-    // En ese REQ esta línea se elimina y se revoca el permiso.
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    const fileId    = file.getId();
-    const publicUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+    // REQ-MEDIA-001: el archivo nace privado (sin ANYONE_WITH_LINK). El
+    // frontend deja de usar esta URL como <img src> directo y pasa a pedir
+    // el binario por getArchivo (POST con sesión). Se sigue calculando y
+    // cacheando en Usuarios.foto_url solo como dato histórico (la columna
+    // no se borra en este REQ) — no es utilizable sin sesión.
+    const fileId  = file.getId();
+    const fotoUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
 
     // Modelo nuevo. Orden importante: primero se archiva el avatar anterior,
     // después se inserta el nuevo como activo. Así, si algo falla en el medio,
@@ -750,9 +764,9 @@ function handleUploadPhoto(body) {
     });
 
     // Cache transitorio en Usuarios (avatar_archivo_id + foto_url).
-    setAvatarEnUsuario(userId, archivoId, publicUrl);
+    setAvatarEnUsuario(userId, archivoId, fotoUrl);
 
-    return respond(200, { success: true, fotoUrl: publicUrl, archivoId: archivoId });
+    return respond(200, { success: true, fotoUrl: fotoUrl, archivoId: archivoId });
   } catch (err) {
     // Sin binario en el log.
     Logger.log('Error al subir foto (usuario ' + userId + '): ' + err.toString());
@@ -1196,6 +1210,39 @@ function newId(prefijo) {
 // Las FKs no las hace cumplir Sheets: se validan acá en código.
 // ------------------------------------------------------------
 
+// Endpoint getArchivo (REQ-MEDIA-001). Devuelve el binario de un archivo por
+// sesión en vez de por URL pública de Drive.
+// Visibilidad: cualquier usuario con sesión válida puede pedir cualquier
+// archivo activo, sin chequear dueño — mismo criterio que ya usa hoy
+// handleGetUser para avatares ajenos, y el confirmado explícitamente para
+// fotos de tarea en REQ-MEDIA-002. Pendiente: que Julia/Paul lo ratifiquen
+// como respuesta formal al criterio 4 de REQ-MEDIA-001 (quedó marcado
+// "a confirmar" en el REQ).
+function handleGetArchivo(body) {
+  const { archivoId } = body;
+
+  if (!archivoId) {
+    return respond(400, { error: 'archivoId requerido.' });
+  }
+
+  const archivo = getArchivoRow(archivoId);
+  if (!archivo || archivo.estado !== 'activo') {
+    return respond(404, { error: 'Archivo no encontrado.' });
+  }
+
+  try {
+    const blob     = DriveApp.getFileById(archivo.drive_file_id).getBlob();
+    const base64   = Utilities.base64Encode(blob.getBytes());
+    const mimeType = archivo.mime_type || blob.getContentType();
+
+    return respond(200, { base64: base64, mimeType: mimeType });
+  } catch (err) {
+    // Sin binario en el log.
+    Logger.log('Error al leer archivo ' + archivoId + ': ' + err.toString());
+    return respond(500, { error: 'Error al leer el archivo.' });
+  }
+}
+
 // Inserta una fila en Archivos. Campos en camelCase; el server completa
 // archivo_id (si no viene), fecha_subida y fecha_modificacion.
 // Devuelve el archivo_id.
@@ -1495,6 +1542,96 @@ function migrarAvataresAArchivos() {
 
   const resumen = { creados, yaMigrados, reparados, saltados, sinFoto };
   Logger.log('migrarAvatares: ' + JSON.stringify(resumen));
+  return resumen;
+}
+
+// ------------------------------------------------------------
+// BACKFILL REQ-MEDIA-001 — Correr una sola vez, después de
+// migrarAvataresAArchivos(). Completa mime_type / tamano_bytes en las filas
+// de Archivos que quedaron vacías (esa migración no leía Drive). Idempotente:
+// si una fila ya tiene los dos campos poblados, la saltea. Sin binario en el
+// log — solo tamaño y tipo MIME.
+// ------------------------------------------------------------
+
+function backfillMetadataArchivos() {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iDriveId = h.indexOf('drive_file_id');
+  const iMime    = h.indexOf('mime_type');
+  const iBytes   = h.indexOf('tamano_bytes');
+
+  if (iDriveId === -1 || iMime === -1 || iBytes === -1) {
+    throw new Error('Faltan columnas en Archivos. Corré setupSheets() primero.');
+  }
+
+  let completados = 0, yaCompletos = 0, sinDriveId = 0, errores = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const driveFileId = data[i][iDriveId];
+    if (!driveFileId) { sinDriveId++; continue; }
+
+    const tieneMime  = (data[i][iMime] || '').toString().trim() !== '';
+    const tieneBytes = data[i][iBytes] !== '' && data[i][iBytes] != null;
+    if (tieneMime && tieneBytes) { yaCompletos++; continue; }
+
+    try {
+      const blob = DriveApp.getFileById(driveFileId).getBlob();
+      if (!tieneMime)  sheet.getRange(i + 1, iMime + 1).setValue(blob.getContentType());
+      if (!tieneBytes) sheet.getRange(i + 1, iBytes + 1).setValue(blob.getBytes().length);
+      completados++;
+    } catch (err) {
+      Logger.log('backfillMetadataArchivos: error en fila ' + (i + 1) +
+                 ' (drive_file_id ' + driveFileId + '): ' + err.toString());
+      errores++;
+    }
+  }
+
+  const resumen = { completados, yaCompletos, sinDriveId, errores };
+  Logger.log('backfillMetadataArchivos: ' + JSON.stringify(resumen));
+  return resumen;
+}
+
+// ------------------------------------------------------------
+// REVOCACIÓN REQ-MEDIA-001 — Correr una sola vez, y recién DESPUÉS de que el
+// frontend nuevo (Jay, consumo por getArchivo) esté desplegado y en uso.
+// Revoca ANYONE_WITH_LINK de todo archivo en Archivos que todavía lo tenga
+// (hoy: los avatares migrados por REQ-DATA-001; sirve igual para cualquier
+// archivo viejo que lo conserve). Idempotente: si un archivo ya es privado,
+// lo saltea. NO correr antes del deploy del frontend nuevo — revocar antes
+// de tiempo rompe el <img src> viejo (ver Riesgos en
+// docs/requerimientos/REQ-MEDIA-001.md).
+// ------------------------------------------------------------
+
+function revocarSharingPublicoArchivos() {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iDriveId = h.indexOf('drive_file_id');
+
+  let revocados = 0, yaPrivados = 0, sinDriveId = 0, errores = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const driveFileId = data[i][iDriveId];
+    if (!driveFileId) { sinDriveId++; continue; }
+
+    try {
+      const file = DriveApp.getFileById(driveFileId);
+      if (file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) {
+        file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+        revocados++;
+      } else {
+        yaPrivados++;
+      }
+    } catch (err) {
+      Logger.log('revocarSharingPublicoArchivos: error en fila ' + (i + 1) +
+                 ' (drive_file_id ' + driveFileId + '): ' + err.toString());
+      errores++;
+    }
+  }
+
+  const resumen = { revocados, yaPrivados, sinDriveId, errores };
+  Logger.log('revocarSharingPublicoArchivos: ' + JSON.stringify(resumen));
   return resumen;
 }
 
