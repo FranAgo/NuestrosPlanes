@@ -1,6 +1,15 @@
 # REQ-MEDIA-001 — Servido de archivos gateado por sesión
 
-> **Estado:** DEFINIDO (2026-09-11) — sin implementar. Ver [Alcance](#alcance--entra).
+> **Estado:** CERRADO Y DESPLEGADO A PROD (2026-09-14) — implementado
+> (commit d62eac9), 10/10 criterios verificados (automatizado: `probarMEDIA001`
+> 22/22 · smoke manual: Duck vía navegador real, en test y luego en prod).
+> Reserva no bloqueante en criterio 10 (el smoke no ejercitó Planes/
+> Categorías, solo login+avatar). Deploy a prod hecho por Roy: Web App
+> AKfycbyKWCtppz...LxD0d actualizado a @18, `backfillMetadataArchivos()` (4
+> filas completadas) y `revocarSharingPublicoArchivos()` (4 archivos
+> revocados) corridos contra prod, 0 errores. Verificado post-revocación:
+> avatares siguen sirviéndose bien vía `getArchivo`. Ver
+> [Alcance](#alcance--entra).
 > **Dueño técnico:** Bob (back) + Jay (front) · **AppSec:** Julia · **DBA:** Gary · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-DATA-001](REQ-DATA-001.md) (hoja `Archivos`, ya cerrado).
 > Ver contexto en [../modelo-datos.md](../modelo-datos.md) sección "Compartir la carpeta raíz" y decisión D1 de Julia.
@@ -74,7 +83,7 @@ ajenos (los otros usuarios ven el avatar de quien creó cada plan/categoría).
 | 1 | `getArchivo` sin sesión válida → 401, igual que el resto de los endpoints. |
 | 2 | `getArchivo` con sesión válida y `archivoId` existente/activo → devuelve `base64` + `mimeType` correctos (comparar contra el archivo real de Drive). |
 | 3 | `getArchivo` con `archivoId` inexistente o `estado != 'activo'` → 404. |
-| 4 | `getArchivo` con `archivoId` de un archivo ajeno (otro usuario) → decisión explícita a confirmar: ¿cualquier usuario logueado puede ver cualquier avatar (como hoy, público-pero-logueado), o solo el dueño? Marcar la respuesta acá antes de implementar. |
+| 4 | `getArchivo` con `archivoId` de un archivo ajeno (otro usuario) → **cerrado**: cualquier sesión válida puede leerlo, sin chequeo de dueño (mismo criterio que `handleGetUser` para avatares ajenos). Ratificado por Julia (AppSec, 2026-09-14) y Paul (PM, 2026-09-14): coherente con el resto del sistema, que ya trata a las 2 cuentas como espacio compartido; no hay caso de uso que justifique restringir por dueño, y REQ-MEDIA-002 asume la misma visibilidad compartida. |
 | 5 | Tras el REQ, los 2 archivos migrados por REQ-DATA-001 **no** tienen permiso `ANYONE_WITH_LINK` en Drive (verificable con `file.getSharingAccess()`). |
 | 6 | Subir un avatar nuevo: la fila de Drive nace **sin** `ANYONE_WITH_LINK`. |
 | 7 | Las 2 filas migradas de `Archivos` tienen `mime_type` y `tamano_bytes` poblados tras el backfill. |
@@ -82,7 +91,7 @@ ajenos (los otros usuarios ven el avatar de quien creó cada plan/categoría).
 | 9 | Ningún `Logger.log` incluye contenido de imagen (base64 ni bytes) — mismo criterio que REQ-DATA-001. |
 | 10 | Sin regresión funcional: login, planes, categorías, subida de avatar, todo el resto de la app igual que antes. |
 
-*(Falta cerrar el criterio 4 con Franco/Julia antes de que Bob empiece.)*
+*(Criterio 4 cerrado — ver tabla arriba. Faltan verificar en prod los criterios 1-3, 5, 6, 8: smoke manual de Franco tras el deploy.)*
 
 ## Datos sensibles
 

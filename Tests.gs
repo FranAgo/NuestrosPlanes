@@ -823,17 +823,21 @@ function grpB_regresionSesion(R) {
 // Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
 //              clasp run probarMEDIA001 -P .clasp-test.json
 //
+// Nota sobre el criterio 1 (401 sin sesión): handleGetArchivo() en sí NO
+// recibe ni chequea sessionToken — el gate vive en el router (doPost,
+// Code.gs:130-147). Por eso grupoGetArchivoSinSesion() de acá abajo llama a
+// doPost() de punta a punta (con un event object simulado), no a
+// handleGetArchivo() directo — llamar al handler directo no ejercita el gate
+// y hubiera dado un falso positivo. El mecanismo genérico de validarSesion()
+// (token corrupto/inexistente -> error) ya está cubierto por grpB_* de
+// REQ-SEC-001; lo que agrega este caso es la prueba de que 'getArchivo' en
+// particular no quedó, por error, en la lista publicActions.
+//
 // Fuera de alcance de este runner (se cubren aparte):
-//   - Criterio 1 (401 sin sesión): getArchivo pasa por el MISMO gate
-//     (validarSesion en doPost) que el resto de las acciones — no está en
-//     publicActions (verificado leyendo Code.gs). El mecanismo genérico ya
-//     está cubierto por los tests de REQ-SEC-001 (grpB_* / grupoAuditoria);
-//     no hace falta duplicarlo acá porque no hay lógica nueva en el gate.
 //   - Criterio 4 (visibilidad: cualquier sesión ve cualquier archivo, sin
-//     chequeo de dueño): es el comportamiento IMPLEMENTADO, verificado más
-//     abajo, pero la decisión de diseño está marcada "a confirmar" en el
-//     REQ — pendiente de que Julia/Paul la ratifiquen. No es un fail de
-//     este test, es una nota.
+//     chequeo de dueño): comportamiento IMPLEMENTADO y verificado más abajo.
+//     Decisión de diseño ratificada por Julia (AppSec) y Paul (PM) el
+//     2026-09-14 — ver REQ-MEDIA-001.md criterio 4.
 //   - Criterio 8 (frontend: sin <img> a URL pública): requiere Network del
 //     navegador — smoke manual, no server-side.
 //   - Criterio 9 (Logger sin base64 en el resto de la app) y criterio 10
@@ -859,6 +863,7 @@ function probarMEDIA001() {
 
     sembrarEstadoMedia001(ss);
 
+    grupoGetArchivoSinSesion(R);
     grupoGetArchivoNoEncontrado(R);
     const archivoIdSubido = grupoUploadYGetArchivo(R, driveFileIdsCreados);
     if (archivoIdSubido) {
@@ -914,6 +919,32 @@ function sembrarEstadoMedia001(ss) {
 // ------------------------------------------------------------
 // Grupos de verificación
 // ------------------------------------------------------------
+
+// Criterio 1 — getArchivo sin sesión válida -> 401, igual que el resto de
+// las acciones. Pasa por doPost() completo (no por handleGetArchivo directo)
+// porque el gate vive en el router, no en el handler — ver nota arriba de
+// probarMEDIA001().
+function grupoGetArchivoSinSesion(R) {
+  const evento = {
+    postData: {
+      contents: JSON.stringify({
+        action: 'getArchivo',
+        archivoId: 'arc_no_importa',
+        sessionToken: 'token-invalido-no-existe',
+      }),
+    },
+  };
+  const resp = parseResp(doPost(evento));
+  R.eq('C1 · getArchivo sin sesión válida -> 401', resp.status, 401);
+
+  const eventoSinToken = {
+    postData: {
+      contents: JSON.stringify({ action: 'getArchivo', archivoId: 'arc_no_importa' }),
+    },
+  };
+  const respSinToken = parseResp(doPost(eventoSinToken));
+  R.eq('C1 · getArchivo sin sessionToken -> 401', respSinToken.status, 401);
+}
 
 // Criterio 3 — archivoId inexistente o con estado != 'activo' -> 404. Estos
 // casos NO tocan Drive (el filtro por fila corta antes), así que no

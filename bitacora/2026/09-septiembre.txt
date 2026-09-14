@@ -1219,3 +1219,72 @@ Pendiente antes de dar por CERRADO REQ-MEDIA-001 (no bloquea este commit):
 4. Recien despues de todo lo anterior: arranca REQ-MEDIA-002 (Bob + Jay),
    que depende de que este REQ este cerrado y desplegado.
 ========================================================
+
+========================================================
+2026-09-14 17:54 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Julia (AppSec) + Paul (PM) ratifican criterio 4 -> Duck dictamina
+         APTO CON RESERVA -> Bob cierra el gap de cobertura -> Duck confirma
+         -> Paul cierra el REQ -> Roy deploya a prod.
+--------------------------------------------------------
+Cierre y deploy a produccion de REQ-MEDIA-001 (servido de archivos gateado
+por sesion). Sesion de continuacion de la anterior (implementacion, commit
+d62eac9, sin deployar).
+
+Cambios:
+- docs/requerimientos/REQ-MEDIA-001.md — criterio 4 cerrado (cualquier
+  sesion valida lee cualquier archivo activo, sin chequeo de dueno),
+  ratificado por Julia (AppSec) y Paul (PM): coherente con el resto del
+  sistema (las 2 cuentas ya se ven entre si en toda la app) y con
+  REQ-MEDIA-002 (fotos de tareas visibles para ambos). Estado del doc
+  actualizado a CERRADO Y DESPLEGADO A PROD.
+- Tests.gs — grupoGetArchivoSinSesion() nueva en probarMEDIA001(): cubre el
+  criterio 1 (getArchivo sin sesion -> 401) que habia quedado fuera de la
+  suite original. Importante: el caso llama a doPost() de punta a punta con
+  un event object simulado, NO a handleGetArchivo() directo -- ese handler
+  ni recibe sessionToken, el gate vive en el router (Code.gs:130-147), asi
+  que probarlo contra el handler directo hubiera sido un verde falso.
+  Resultado: probarMEDIA001 22/22 (los 20 anteriores + 2 nuevos), sin
+  regresion en probarDATA002 (70/70) ni probarBUGLOGIN001B.
+
+Smoke manual (Duck, via Claude in Chrome -- Chrome real del usuario, sesion
+de Google ya activa, sin necesidad de tipear credenciales):
+- En test (deployment @6 "MEDIA-001 smoke test", localhost:5173): subida de
+  avatar real (PNG 1x1px) end-to-end, F5 fuerza a repedir todo via
+  getArchivo, 0 requests a drive.google.com en toda la sesion, 0 errores de
+  consola.
+- Veredicto Duck: APTO CON RESERVA -- criterio 1 sin cobertura (ver arriba,
+  ya resuelto) y criterio 10 con reserva no bloqueante (el entorno de test
+  estaba vacio, no se ejercito Planes/Categorias en el smoke -- MEDIA-001 no
+  toca esas rutas, y probarDATA002/probarBUGLOGIN001B las cubren en verde).
+
+Deploy a produccion (Roy):
+- clasp push a .clasp.json (prod) -- Code.gs + appsscript.json.
+- clasp deploy -i sobre el MISMO deployment
+  (AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d)
+  -> @18. Misma URL, no hizo falta tocar index.html ni el cliente OAuth.
+- HALLAZGO importante: index.html con el codigo de getArchivo (commit
+  d62eac9) ya estaba pusheado a origin/main y por lo tanto ya lo servia
+  GitHub Pages ANTES de este deploy -- es decir, el frontend real ya le
+  pegaba a getArchivo contra un backend de prod que todavia no lo tenia.
+  Verificado en vivo (franago.github.io, sesion real de Fran ya activa,
+  solo lectura, sin tocar datos): tras el deploy, 4 POSTs al backend en
+  200, avatar real de Noelia servido via getArchivo como data:image/jpeg
+  inline, 0 requests a drive.google.com, 0 errores de consola.
+- backfillMetadataArchivos() contra prod: 0 errores, 0 sin drive_file_id.
+- revocarSharingPublicoArchivos() contra prod: 4 archivos revocados, 0
+  errores. (Nota para Gary: eran 4 filas con drive_file_id en prod, no 2
+  como decia la nota original de REQ-DATA-001 -- probablemente por un
+  cambio de avatar entre medio. No bloqueo, solo un dato a corregir en la
+  documentacion si hace falta.)
+- Verificado post-revocacion: recargue la app real de nuevo, todo identico,
+  avatar se sigue sirviendo bien.
+
+Estado:
+- PROD: v18 (REQ-MEDIA-001 deployado y verificado con datos reales).
+- REQ-MEDIA-001: CERRADO Y DESPLEGADO. 10/10 criterios verificados (reserva
+  no bloqueante en criterio 10, anotada arriba).
+- REQ-MEDIA-002 queda desbloqueado (dependia de que este REQ este cerrado y
+  desplegado) -- no arrancado en esta sesion.
+========================================================
