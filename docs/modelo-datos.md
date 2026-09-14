@@ -196,6 +196,14 @@ Reglas:
 - **Los subfolders no se guardan en ningún lado.** Se guarda solo el ID de la
   raíz. El árbol se arma con un helper get-or-create:
 
+> **Nota (2026-09-11):** el subárbol `planes/<plan_id>/...` de arriba queda
+> vigente para archivos genéricos de plan, pero las **fotos de tarea**
+> (`proposito='adjunto'`) usan desde REQ-MEDIA-002 un árbol propio con nombres
+> legibles (`planes-fotos/<AAAA>/<mes>/<fecha>-<categoria>-<titulo>/...`) en vez
+> de IDs opacos — ver [REQ-MEDIA-002](requerimientos/REQ-MEDIA-002.md) para el
+> detalle completo y las reglas de normalización/congelado. Gary revisa y
+> reescribe esta sección cuando el REQ se implemente.
+
 ```javascript
 // getOrCreateFolderPath(['media', 'planes', planId]) -> Folder
 function getOrCreateFolderPath(segments) {
@@ -383,6 +391,7 @@ En todos los casos la base guarda `drive_file_id`, nunca una URL.
 | **REQ-SEC-001** | Token de sesión con expiración + revocable (backlog #1; sube de prioridad al exponer config por web) | — | Alta |
 | **REQ-ADMIN-001** | Rol `admin` + hoja `Config` + `setDriveRootFolder` + pantalla de ajustes | DATA-001, SEC-001 | Media |
 | **REQ-MEDIA-001** | Subida y servido de fotos de planes (`getArchivo` proxy) | DATA-001 | Baja (cuando se pida) |
+| **REQ-MEDIA-002** | Fotos de tarea obligatorias al completar + carrusel post-login | MEDIA-001 | Media (definido 2026-09-11) |
 
 Backlog independiente que sigue abierto: XSS en `renderPlanes` (escapar
 `cat.nombre` / `cat.colorHex` / `fotoUrl`), endurecimiento backend (sanitizar

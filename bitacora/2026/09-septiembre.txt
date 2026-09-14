@@ -1089,3 +1089,62 @@ Cambios:
   valida, no bloqueante). REQ-ADMIN-001 y REQ-MEDIA-001 (implementacion)
   quedan para otra sesion.
 ========================================================
+
+========================================================
+2026-09-14 14:30 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul (PM) — definicion de REQ-MEDIA-002
+--------------------------------------------------------
+Sesion de planificacion, sin cambios de codigo. Se definio el alcance de la
+feature "fotos obligatorias al completar una tarea + carrusel post-login"
+que Franco planteo, y se resolvio el orden con lo que ya estaba planeado
+sin implementar (REQ-MEDIA-001).
+
+- docs/requerimientos/REQ-MEDIA-002.md — nuevo. Requerimiento definido:
+  * Se puede adjuntar foto(s) a una tarea en cualquier momento de su ciclo
+    de vida (no solo al completarla).
+  * completePlan devuelve 400 si la tarea no tiene ninguna foto activa —
+    bloquea completar sin foto.
+  * Carrusel post-login, variante "preview + modal" (tira chica en el
+    dashboard, click abre carrusel completo): cada foto con caption de
+    titulo, categoria y fecha.
+  * Visibilidad: cualquier usuario logueado ve cualquier foto (mismo
+    criterio para el punto 4 pendiente de REQ-MEDIA-001).
+  * Estructura de Drive — Opcion B, carpetas legibles (decidida por Franco
+    tras ver un mockup interactivo con las dos opciones):
+    media/planes-fotos/<AAAA>/<NombreMes>/<DD-MM-AAAA>-<categoria>-<titulo>/
+    0001-<DD-MM-AAAA>-<titulo>.<ext>. <NombreMes> capitalizado ("Enero").
+    Ancla de fecha = fecha de la PRIMERA foto subida a esa tarea (no fecha
+    de completado, que puede no existir todavia). "Congelado": editar el
+    titulo/categoria despues no renombra la carpeta. La carpeta se crea
+    recien con la primera foto — crear o completar una tarea sin fotos no
+    deja ningun rastro en Drive (de diseno, explicito en el REQ).
+  * Depende de REQ-MEDIA-001: no arranca hasta que ese este CERRADO y
+    desplegado (cada foto nueva es un archivo mas expuesto por link
+    publico mientras MEDIA-001 no cierre).
+  * Anotado fuera de alcance, candidato a REQ-MEDIA-003 (sin disenar):
+    navegacion por epoca / "recuerdos" tipo Google Fotos o iOS Photos, en
+    vez de mostrar solo lo mas reciente.
+- docs/modelo-datos.md — actualizado: fila nueva en la tabla "Plan de REQs"
+  (REQ-MEDIA-002) y nota en la seccion 5 (Estructura de Drive) marcando que
+  las fotos de tarea usan este arbol nuevo en vez del arbol de IDs opacos
+  (que sigue vigente para avatares y fotos sueltas).
+- Mockup interactivo (Artifact, no versionado en el repo) con la paleta y
+  tipografia reales de la app: comparacion en vivo de IDs opacos vs.
+  carpetas legibles, y de las 3 variantes de carrusel (seccion fija,
+  preview+modal, modal al loguearse) — usado por Franco para decidir.
+
+Estado: REQ-MEDIA-001 y REQ-MEDIA-002 quedan ambos DEFINIDOS, sin puntos
+abiertos. Nada implementado todavia.
+
+PENDIENTE / proxima sesion:
+1. [Bob] Arrancar REQ-MEDIA-001 (endpoint getArchivo, sacar
+   ANYONE_WITH_LINK de handleUploadPhoto, revocar sharing publico de los 2
+   avatares migrados, backfill mime_type/tamano_bytes).
+2. [Jay] Frontend de REQ-MEDIA-001 (setAvatarEl y preview de subida via
+   getArchivo en vez de <img src> publico).
+3. Recien despues: REQ-MEDIA-002 (Bob + Jay), ya completamente definido.
+4. (backlog sin cambios de sesiones anteriores) REQ-ADMIN-001, pasada de UI
+   restante, mover tests al proyecto versionado.
+========================================================
