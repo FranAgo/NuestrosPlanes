@@ -26,10 +26,25 @@ producción**.
 
 - Botón "Agregar foto" en el modal de plan (Jay), disponible mientras la tarea está
   `pendiente` o `completado` (no en `eliminado`).
+- **Selección múltiple en una sola subida (agregado por Franco, 2026-09-14):**
+  el selector de archivos permite elegir varias fotos a la vez (no una por
+  una repitiendo el flujo). Las fotos elegidas juntas se suben como una sola
+  operación desde la perspectiva del usuario — ver un único indicador de
+  progreso, no N botones "Agregar foto" seguidos.
 - Reutiliza `insertArchivo` / `newId('arc')` / hoja `Archivos` ya existentes:
   `owner_tipo='plan'`, `owner_id=plan_id`, `proposito='adjunto'`, `estado='activo'`.
+  Cada foto de la selección múltiple genera su propia fila en `Archivos` — el
+  modelo no cambia, se llama varias veces.
 - Una tarea puede tener varias fotos. Sin límite superior fijo en este REQ — a
   revisar si se vuelve un problema práctico (escala: 2 usuarios).
+- **Para Bob**: decidir la forma de transporte (un solo request con arreglo de
+  fotos vs. N requests secuenciales desde el frontend) — atención al límite de
+  6 minutos de ejecución de Apps Script y al tamaño de payload en base64 si se
+  manda todo junto. Cualquiera de las dos formas es válida siempre que el
+  resultado sea el mismo para el usuario (una sola operación, ver criterio 10).
+- **Para Jay**: mostrar preview de las fotos seleccionadas antes de confirmar
+  la subida, y si alguna falla (formato no soportado, error de red) señalar
+  cuál sin descartar las que sí subieron bien.
 
 ### 2. Foto obligatoria para completar
 
@@ -49,9 +64,9 @@ Para fotos de tareas, esta estructura **reemplaza** el árbol
 ```
 media/
 └── planes-fotos/
-    └── <AAAA>/                                     ej: 2026
-        └── <NombreMes>/                            ej: Enero
-            └── <DD-MM-AAAA>-<categoria>-<titulo>/  ej: 20-01-2026-mantenimiento-arreglar-el-techo
+    └── <AAAA>/                                             ej: 2026
+        └── <NombreMes>/                                    ej: Enero
+            └── <DD-MM-AAAA>-<categoria>-<titulo>-<suf6>/   ej: 20-01-2026-mantenimiento-arreglar-el-techo-7f3a2c
                 ├── 0001-<DD-MM-AAAA>-<titulo>.<ext>
                 ├── 0002-<DD-MM-AAAA>-<titulo>.<ext>
                 └── ...
@@ -84,16 +99,38 @@ Reglas:
   regla de "sin mayúsculas" de [../modelo-datos.md](../modelo-datos.md) §3 —
   se acepta porque es un segmento de ruta pensado para lectura humana en Drive,
   no un identificador del modelo de datos.
-- Numeración `0001`, `0002`... es correlativa **por tarea** (no global), asignada
-  por orden de subida.
+- **Anti-colisión de nombre de carpeta (resuelto por Gary, 2026-09-14):**
+  `<suf6>` son los **últimos 6 caracteres de `plan_id`** (el sufijo aleatorio
+  que ya trae `newId('plan')`, ver
+  [../modelo-datos.md](../modelo-datos.md#generación-de-ids)) — no un valor
+  nuevo a generar. Dos tareas con el mismo título creado el mismo día
+  producen carpetas distintas (`...-arreglar-el-techo-7f3a2c` vs.
+  `...-arreglar-el-techo-2b91d4`) porque cada `plan_id` ya es único por
+  construcción. `getOrCreateFolderPath` sigue buscando por nombre exacto, así
+  que con el sufijo puesto nunca hay ambigüedad — no hace falta lookup por
+  `plan_id` en ningún lado ni tocar el helper. Costo: el nombre de carpeta es
+  un poco menos "limpio" a la vista, aceptado por Franco como trade-off
+  (prioridad: nunca mezclar fotos de dos tareas distintas en Drive).
+- Numeración `0001`, `0002`... es correlativa **por tarea** (no global),
+  asignada por orden de subida. En una subida múltiple, el orden de subida es
+  el **orden de selección** del usuario (el orden en que el navegador entrega
+  los archivos elegidos) — no depende de que Bob transporte la selección como
+  un solo request o como varios.
+  **Anti-colisión de secuencia (resuelto por Gary, 2026-09-14):** contar los
+  archivos existentes en la carpeta y crear el archivo nuevo con el número
+  siguiente es una operación de "leer, calcular, escribir" no atómica — dos
+  subidas a la misma tarea en el mismo instante (los 2 usuarios subiendo a la
+  vez a una tarea compartida) podrían leer el mismo conteo y pisarse el
+  número. Se envuelve ese tramo (contar archivos de la carpeta → crear el
+  archivo con el nombre `NNNN-...`) en `LockService.getScriptLock()`, mismo
+  patrón que ya usa `crearSesion` en [Code.gs:357](../../Code.gs:357). Con 2
+  usuarios el costo de serializar ese tramo es insignificante; no conviene
+  tener el lock abierto durante la subida del blob a Drive en sí (eso sí
+  puede tardar), solo durante el conteo + la creación del archivo con nombre
+  definitivo.
 - Se mantiene la regla de [../modelo-datos.md](../modelo-datos.md) §5 de escribir
   el JSON de recuperación en la Descripción del archivo de Drive (`{archivo_id,
   owner_tipo, owner_id, proposito, subido_por, fecha_subida}`).
-- **Pendiente de Gary**: revisar colisión de nombres (dos tareas con mismo título
-  el mismo día → misma carpeta; dos fotos subidas en el mismo segundo → mismo
-  número de secuencia) y decidir si hace falta un sufijo anti-colisión. Gary
-  actualiza [../modelo-datos.md](../modelo-datos.md) §5 con este árbol una vez
-  cerrado el REQ.
 
 ### 4. Carrusel post-login — "Preview + modal" (confirmado por Franco)
 
@@ -135,6 +172,8 @@ Reglas:
 | 7 | El preview del dashboard abre el modal al click; el modal cierra con el botón de cerrar. |
 | 8 | Ninguna foto de tarea se sirve por URL pública — todas pasan por `getArchivo` con sesión válida. |
 | 9 | Sin regresión: todo lo cubierto por REQ-MEDIA-001 sigue funcionando igual. |
+| 10 | Seleccionar 3+ fotos juntas en "Agregar foto" y confirmar → las 3 quedan activas, numeradas correlativamente (`0001`, `0002`, `0003`) en el orden en que se seleccionaron, en la misma carpeta de la tarea. |
+| 11 | Si una foto de una selección múltiple falla (formato no soportado / error de red), las demás de esa misma selección quedan subidas igual y el usuario ve cuál falló. |
 
 ## Datos sensibles
 
@@ -145,9 +184,10 @@ marco que REQ-DATA-001 / REQ-MEDIA-001.
 
 | Riesgo | Mitigación |
 |---|---|
-| Colisión de nombres de carpeta/archivo (mismo título, mismo día) | Pendiente de definición con Gary antes de que Bob empiece — ver nota en la sección de estructura de Drive. |
+| Colisión de nombres de carpeta/archivo (mismo título, mismo día) | **Resuelto por Gary (2026-09-14)** — sufijo de `plan_id` en el nombre de carpeta + `LockService` en la numeración. Ver sección de estructura de Drive. |
 | Título con caracteres raros rompe el nombre de carpeta | Normalización estricta (allowlist `[a-z0-9-]`) antes de crear la carpeta. |
 | Bloquear "completar" sin foto frustra al usuario si no tiene una a mano en el momento | El flujo de completar abre directo la subida en vez de un error seco — ver punto 2 del alcance. |
+| Subida múltiple: una foto de la selección falla y el usuario pierde las que sí subieron | Cada foto se sube/registra de forma independiente (criterio 11) — una falla no descarta las demás. |
 
 ## Plan de pruebas (Duck)
 
@@ -164,3 +204,13 @@ marco que REQ-DATA-001 / REQ-MEDIA-001.
 7. Inspeccionar Network mientras se ve el carrusel → 0 URLs públicas de Drive
    (criterio 8).
 8. Regresión completa de los criterios de REQ-MEDIA-001 (criterio 9).
+9. Seleccionar 3 fotos juntas en "Agregar foto" y confirmar de una → las 3
+   quedan activas, numeradas `0001`/`0002`/`0003` en orden de selección, 1 sola
+   carpeta (criterio 10).
+10. Forzar que una foto de una selección múltiple falle (ej. archivo no-imagen
+    mezclado con 2 imágenes válidas) → las 2 válidas quedan subidas, la fallida
+    se señala al usuario (criterio 11).
+11. Dos tareas con el mismo título creadas el mismo día, cada una con foto
+    propia → dos carpetas distintas en Drive (verificación directa del fix de
+    Gary, no tiene número de criterio propio pero valida la sección 3 del
+    alcance).

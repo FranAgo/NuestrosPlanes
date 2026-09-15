@@ -1288,3 +1288,82 @@ Estado:
 - REQ-MEDIA-002 queda desbloqueado (dependia de que este REQ este cerrado y
   desplegado) -- no arrancado en esta sesion.
 ========================================================
+
+========================================================
+2026-09-14 23:20 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Gary (DBA) + Paul (PM) + Bob (backend) + Duck (QA) -- REQ-MEDIA-002
+--------------------------------------------------------
+Cambios: REQ-MEDIA-002 (fotos de tarea obligatorias al completar + carrusel)
+queda definido sin bloqueantes y con su Fase 1 (backend) implementada y
+verificada contra Sheets/Drive reales de test. Fase 2 (frontend, Jay) queda
+pendiente para la proxima sesion.
+
+- docs/requerimientos/REQ-MEDIA-002.md
+  - Gary resuelve el unico punto pendiente del REQ: colision de nombres de
+    carpeta (sufijo de 6 caracteres de plan_id, ya unico por newId()) y de
+    numeracion (LockService.getScriptLock() alrededor de contar+crear
+    archivo, mismo patron que crearSesion).
+  - Franco agrega sobre la marcha: seleccion multiple de fotos en una sola
+    subida (no entraba en la definicion original). Quedan 2 criterios de
+    aceptacion nuevos (10 y 11) y 2 pasos nuevos en el plan de pruebas.
+  - Paul organiza el plan de implementacion: Fase 1 Bob, Fase 2 Jay, Duck
+    entra a partir de ahi.
+- docs/modelo-datos.md
+  - Sec. 5 actualizada con el arbol final media/planes-fotos/... y las 2
+    reglas anti-colision resueltas por Gary.
+- Code.gs
+  - Planes gana columna carpeta_fotos_drive_id (cachea el ID de carpeta de
+    Drive de cada tarea -- necesaria para que "congelado" funcione sin
+    recomputar por nombre si el titulo cambia despues).
+  - Nuevo handleUploadPlanPhotos: sube 1+ fotos en una sola operacion
+    (soporta la seleccion multiple), crea/reusa la carpeta de la tarea,
+    numera correlativamente, y una foto invalida no descarta las demas.
+    Todo el tramo critico (resolver/crear carpeta + numerar + crear
+    archivo) esta dentro de un LockService.getScriptLock().
+  - Nuevo handleGetRecentPlanPhotos: ultimas N fotos de tareas con
+    titulo/categoria/fecha, para el carrusel que hara Jay.
+  - handleCompletePlan: nuevo gate -- 400 con code:'FOTO_REQUERIDA' si la
+    tarea no tiene ninguna foto activa.
+  - Nuevos helpers: contarFotosActivasPlan, getCategoriaNombre,
+    normalizarSegmentoRuta, formatFechaDDMMAAAA, contarArchivosEnCarpeta,
+    getOrCreateFolderPath.
+- Tests.gs
+  - grupoSetup (dentro de probarDATA002): bumpeado el numero hardcodeado
+    de columnas de Planes (12 -> 13) por la columna nueva.
+  - grupoPlanesISO (dentro de probarDATA002): se le da una foto fake (via
+    insertArchivo directo, sin tocar Drive) a la tarea que se completa,
+    porque el gate nuevo rompia esa asercion.
+  - Nueva suite probarMEDIA002(): cubre gate sin/con fotos, primera foto
+    crea la carpeta con el nombre y ubicacion exactos, segunda foto no la
+    duplica ni renombra, editar titulo no rompe el "congelado", seleccion
+    multiple con una foto invalida en el medio (las otras 2 sobreviven,
+    numeradas sin huecos), y getRecentPlanPhotos con datos correctos.
+
+Verificado contra Sheets/Drive REALES de test (clasp push -f -P
+.clasp-test.json -I .claspignore-test + clasp run <funcion> -P
+.clasp-test.json -u duck):
+- probarDATA002: 70/70 OK (antes de los 2 arreglos de arriba daba 66/70,
+  con exactamente los 4 fails esperados por el cambio de contrato).
+- probarMEDIA001: 22/22 OK, sin regresion.
+- probarBUGLOGIN001B: 38/38 OK, sin regresion.
+- probarMEDIA002 (nueva): 36/36 OK en el primer intento.
+
+Bug propio encontrado y corregido durante la sesion (no llego a pushearse):
+- handleUploadPlanPhotos leia la fila del plan (para saber si ya tenia
+  carpeta cacheada) ANTES de tomar el LockService -- anulaba la proteccion
+  contra la carrera justo en el caso que debia cubrir (dos primeras-fotos
+  simultaneas a la misma tarea). Corregido moviendo esa lectura adentro
+  del lock.
+
+Pendiente para la proxima sesion:
+- Fase 2 (Jay, frontend): boton "Agregar foto" (seleccion multiple),
+  manejo del 400/FOTO_REQUERIDA al completar, card + modal de carrusel.
+  Contrato de los 2 endpoints nuevos ya definido en el REQ.
+- Confirmar con Gary/Roy si media/planes-fotos/... como subcarpeta de
+  DRIVE_FOLDER_ID es correcto -- el avatar (handleUploadPhoto) no usa
+  ningun subarbol media/usuarios/..., guarda flat en la raiz.
+- Deploy a prod: recien despues de que Fase 2 + Duck den el visto bueno
+  completo (no se toco prod en esta sesion).
+========================================================

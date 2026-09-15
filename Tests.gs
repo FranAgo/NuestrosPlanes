@@ -125,7 +125,7 @@ function grupoSetup(R) {
   R.check('C1 · setupSheets idempotente en Categorias',
           headersDe('Categorias').length === catCols && catCols === 10);
   R.check('C1 · setupSheets idempotente en Planes',
-          headersDe('Planes').length === planCols && planCols === 12);
+          headersDe('Planes').length === planCols && planCols === 13);
 }
 
 // Criterio 3 — backfill deja Categorias en 'activa', no toca Planes.estado,
@@ -187,6 +187,17 @@ function grupoPlanesISO(R) {
   const peli = planes.filter(p => p.planId === 'plan_peli')[0];
   R.check('C10 · getPlanes sigue leyendo el plan histórico (fecha nativa)',
           !!peli && /^\d{4}-\d{2}-\d{2}$/.test(peli.fechaCreacion));
+
+  // REQ-MEDIA-002: completePlan ahora exige al menos 1 foto activa. Esta
+  // suite es sobre fechas/auditoría, no sobre Drive, así que el gate se
+  // satisface con una fila de Archivos directa (sin subir nada real a
+  // Drive) — la mecánica de subida real de punta a punta la cubre
+  // probarMEDIA002().
+  insertArchivo({
+    ownerTipo: 'plan', ownerId: R._planCenar, proposito: 'adjunto',
+    driveFileId: 'fake-drive-id-test-c10', mimeType: 'image/png', tamanoBytes: 1,
+    subidoPor: 'usr_fran', estado: 'activo',
+  });
 
   const comp = parseResp(handleCompletePlan({ planId: R._planCenar, authUserId: 'usr_noe' }));
   R.eq('C10 · completePlan -> 200', comp.status, 200);
@@ -1054,4 +1065,336 @@ function grupoRevocacionSharing(R, archivoIdConDriveReal) {
   const resumen2 = revocarSharingPublicoArchivos();
   R.check('C5 · revocarSharingPublicoArchivos es idempotente (2da corrida no re-revoca)',
           resumen2.yaPrivados >= 1);
+}
+
+// ============================================================
+// probarMEDIA002() — REQ-MEDIA-002: fotos de tarea obligatorias al completar
+// + carrusel. Verifica el backend contra Google Sheets Y Drive REALES: sube
+// imágenes mínimas reales (mismo pixel de prueba que probarMEDIA001) y crea
+// carpetas reales bajo media/planes-fotos/ en el DRIVE_FOLDER_ID del entorno
+// donde corra esto. Todo lo que crea (archivos y carpetas) se trashea en el
+// finally, pase lo que pase.
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarMEDIA002 -P .clasp-test.json -u duck
+//
+// Los grupos de la primera tarea (gate → primera foto → segunda foto →
+// editar título → completar) están deliberadamente ENCADENADOS, no son
+// independientes entre sí: cada uno depende del estado real que Drive/Sheets
+// quedaron después del anterior (mismo patrón que probarMEDIA001 con
+// grupoUploadYGetArchivo). Repetir esa carpeta/tarea desde cero en cada
+// grupo multiplicaría las subidas reales a Drive sin necesidad.
+//
+// Fuera de alcance de este runner (se cubren aparte):
+//   - Criterio 6 (parte visual): el preview del dashboard y el modal del
+//     carrusel son de Jay (Fase 2, todavía no existe) — acá solo se verifica
+//     que getRecentPlanPhotos devuelve los datos correctos para que Jay los
+//     consuma.
+//   - Criterio 7 ("preview + modal" click/cierre) y criterio 8 (Network sin
+//     URLs públicas): requieren navegador — smoke manual, no server-side.
+//   - Limpieza de carpetas intermedias (media/planes-fotos/<año>/<mes>/):
+//     se trashea la carpeta de cada tarea de prueba (con sus archivos
+//     adentro), pero las carpetas de año/mes que quedan vacías arriba NO se
+//     borran — a esta escala (2 usuarios) no vale la complejidad de subir y
+//     borrar solo-si-quedan-vacías.
+// ============================================================
+
+function probarMEDIA002() {
+  const R = nuevoReporte('REQ-MEDIA-002');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  let scratchId = null;
+  const driveFileIdsCreados = [];
+  const driveFolderIdsCreados = [];
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA002 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+
+    sembrarEstadoMedia002(ss);
+
+    const planId  = grupoGateCompletarSinFoto(R);
+    const contexto = planId
+      ? grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolderIdsCreados)
+      : null;
+
+    if (contexto) {
+      grupoSegundaFotoMismaCarpeta(R, contexto, driveFileIdsCreados);
+      grupoEditarTituloNoRenombraCarpeta(R, contexto, driveFileIdsCreados);
+      grupoCompletarConFoto(R, contexto);
+    } else {
+      R.fail('MEDIA-002 · no se pudo crear la carpeta de la primera foto — se saltan los grupos que dependen de ella');
+    }
+
+    grupoFalloParcialSubidaMultiple(R, driveFileIdsCreados, driveFolderIdsCreados);
+    grupoRecentPlanPhotos(R);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    driveFileIdsCreados.forEach(fileId => {
+      try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar de Drive el archivo de prueba ' + fileId + ' — borralo a mano: ' + e);
+      }
+    });
+    driveFolderIdsCreados.forEach(folderId => {
+      try {
+        DriveApp.getFolderById(folderId).setTrashed(true); // trashea la carpeta Y los archivos que quedaran adentro
+      } catch (e) {
+        R.nota('no se pudo borrar de Drive la carpeta de prueba ' + folderId + ' — borrala a mano: ' + e);
+      }
+    });
+    if (scratchId) {
+      try {
+        DriveApp.getFileById(scratchId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e);
+      }
+    }
+  }
+
+  return R.finalizar();
+}
+
+// ------------------------------------------------------------
+// Fixture: Usuarios + 1 categoría activa ('Mantenimiento', el mismo ejemplo
+// que usa el REQ), como quedaría recién después de setupSheets().
+// ------------------------------------------------------------
+
+function sembrarEstadoMedia002(ss) {
+  setupSheets();
+
+  const usuarios = ss.getSheetByName('Usuarios');
+  usuarios.appendRow(['usr_fran', 'Fran', 'fran@test.local', 'sub-fran', '', '']);
+  usuarios.appendRow(['usr_noe',  'Noe',  'noe@test.local',  'sub-noe',  '', '']);
+
+  const categorias = ss.getSheetByName('Categorias');
+  categorias.appendRow(CATEGORIAS_HEADERS.map(c => {
+    switch (c) {
+      case 'categoria_id':   return 'cat_mant';
+      case 'nombre':         return 'Mantenimiento';
+      case 'color_hex':      return '#0ea5e9';
+      case 'creado_por':     return 'usr_fran';
+      case 'fecha_creacion': return new Date().toISOString();
+      case 'estado':         return 'activa';
+      default:               return '';
+    }
+  }));
+
+  const nombresMios = ['Usuarios', 'Categorias', 'Planes', 'Archivos', 'Sesiones', 'Auditoria'];
+  ss.getSheets().forEach(sh => {
+    if (nombresMios.indexOf(sh.getName()) === -1) ss.deleteSheet(sh);
+  });
+  SpreadsheetApp.flush();
+}
+
+// ------------------------------------------------------------
+// Grupos de verificación (criterios de REQ-MEDIA-002)
+// ------------------------------------------------------------
+
+// Criterios 1 y 1b — sin fotos, completePlan da 400/FOTO_REQUERIDA, el plan
+// sigue pendiente, y no se cachea ninguna carpeta (todavía no se creó nada
+// en Drive). Devuelve el planId para que los grupos siguientes le suban la
+// primera foto.
+function grupoGateCompletarSinFoto(R) {
+  const crear = parseResp(handleCreatePlan({
+    titulo: 'Arreglar el techo', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+  }));
+  R.eq('MEDIA-002 setup · createPlan -> 200', crear.status, 200);
+  if (crear.status !== 200) return null;
+  const planId = crear.planId;
+
+  const comp = parseResp(handleCompletePlan({ planId: planId, authUserId: 'usr_fran' }));
+  R.eq('C1 · completePlan sin fotos -> 400', comp.status, 400);
+  R.eq('C1 · completePlan sin fotos -> code FOTO_REQUERIDA', comp.code, 'FOTO_REQUERIDA');
+
+  const fila = filaPorId('Planes', planId);
+  R.eq('C1 · el plan sigue pendiente (no se completó)', fila[col('Planes', 'estado')], 'pendiente');
+  R.check('C1b · sin fotos no se cacheó ninguna carpeta en el plan',
+          !fila[col('Planes', 'carpeta_fotos_drive_id')]);
+
+  return planId;
+}
+
+// Criterio 2 (+ parte del 4) — la primera foto crea la carpeta, recién ahí,
+// con el nombre esperado (fecha-categoría-título-sufijo) y numerada 0001.
+// Devuelve el contexto (planId + carpetaId + primer archivoId) para los
+// grupos siguientes.
+function grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolderIdsCreados) {
+  const subida = parseResp(handleUploadPlanPhotos({
+    planId: planId,
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    authUserId: 'usr_fran',
+  }));
+  R.eq('C2 · uploadPlanPhotos (1ra foto) -> 200', subida.status, 200);
+  R.eq('C2 · 1ra foto sin errores', (subida.errores || []).length, 0);
+  if (!subida.subidas || subida.subidas.length !== 1) {
+    R.fail('MEDIA-002 · la primera foto no se subió — se saltan los grupos dependientes');
+    return null;
+  }
+  driveFileIdsCreados.push(subida.subidas[0].driveFileId);
+
+  const filaTrasPrimera = filaPorId('Planes', planId);
+  R.eq('C2 · la tarea sigue pendiente tras subir 1 foto (subir no completa sola)',
+       filaTrasPrimera[col('Planes', 'estado')], 'pendiente');
+
+  const carpetaId = filaTrasPrimera[col('Planes', 'carpeta_fotos_drive_id')];
+  R.check('C2 · se cacheó el ID de carpeta en el plan tras la 1ra foto', !!carpetaId);
+  if (!carpetaId) return null;
+  driveFolderIdsCreados.push(carpetaId);
+
+  // Nombre y ubicación exactos esperados, calculados con los mismos helpers
+  // que usa handleUploadPlanPhotos (Code.gs) — si alguno cambia de criterio
+  // más adelante, este test lo va a notar solo.
+  const fechaHoyIso = new Date().toISOString().split('T')[0];
+  const [anioEsperado, mesEsperado] = fechaHoyIso.split('-');
+  const sufijoEsperado = planId.split('_').pop().slice(-6);
+  const nombreEsperado = formatFechaDDMMAAAA(fechaHoyIso) + '-mantenimiento-arreglar-el-techo-' + sufijoEsperado;
+
+  const carpeta = DriveApp.getFolderById(carpetaId);
+  R.eq('C2 · nombre de carpeta sigue el patrón fecha-categoría-título-sufijo',
+       carpeta.getName(), nombreEsperado);
+
+  const carpetaMes = carpeta.getParents().hasNext() ? carpeta.getParents().next() : null;
+  R.check('C2 · la carpeta cuelga de una carpeta de mes', !!carpetaMes);
+  if (carpetaMes) {
+    R.eq('C2 · el mes de la carpeta es el correcto', carpetaMes.getName(), NOMBRES_MES[Number(mesEsperado) - 1]);
+    const carpetaAnio = carpetaMes.getParents().hasNext() ? carpetaMes.getParents().next() : null;
+    R.check('C2 · la carpeta de mes cuelga de una carpeta de año', !!carpetaAnio);
+    if (carpetaAnio) {
+      R.eq('C2 · el año de la carpeta es el correcto', carpetaAnio.getName(), anioEsperado);
+    }
+  }
+
+  const archivo = getArchivoRow(subida.subidas[0].archivoId);
+  R.check('C4 · el primer archivo queda numerado 0001',
+          !!archivo && DriveApp.getFileById(archivo.drive_file_id).getName().indexOf('0001-') === 0);
+
+  return { planId: planId, carpetaId: carpetaId };
+}
+
+// Criterio 4 — subir una segunda foto NO crea carpeta nueva ni la renombra,
+// y queda numerada 0002 en la misma carpeta (2 archivos, no más).
+function grupoSegundaFotoMismaCarpeta(R, contexto, driveFileIdsCreados) {
+  const subida2 = parseResp(handleUploadPlanPhotos({
+    planId: contexto.planId,
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    authUserId: 'usr_noe',
+  }));
+  R.eq('C4 · uploadPlanPhotos (2da foto) -> 200', subida2.status, 200);
+  if (!subida2.subidas || subida2.subidas.length !== 1) {
+    R.fail('MEDIA-002 · la segunda foto no se subió — se saltan sus aserciones');
+    return;
+  }
+  driveFileIdsCreados.push(subida2.subidas[0].driveFileId);
+
+  const filaTrasSegunda = filaPorId('Planes', contexto.planId);
+  R.eq('C4 · la carpeta cacheada NO cambia con la 2da foto',
+       filaTrasSegunda[col('Planes', 'carpeta_fotos_drive_id')], contexto.carpetaId);
+
+  const archivo2 = getArchivoRow(subida2.subidas[0].archivoId);
+  R.check('C4 · el segundo archivo queda numerado 0002',
+          !!archivo2 && DriveApp.getFileById(archivo2.drive_file_id).getName().indexOf('0002-') === 0);
+
+  const cantidadEnCarpeta = contarArchivosEnCarpeta(DriveApp.getFolderById(contexto.carpetaId));
+  R.eq('C4 · la carpeta tiene exactamente 2 archivos (no se duplicó)', cantidadEnCarpeta, 2);
+}
+
+// Criterio 5 — editar el título de la tarea NO mueve ni renombra su carpeta;
+// una foto subida después de la edición sigue cayendo en la carpeta vieja.
+function grupoEditarTituloNoRenombraCarpeta(R, contexto, driveFileIdsCreados) {
+  const update = parseResp(handleUpdatePlan({
+    planId: contexto.planId, titulo: 'Arreglar el techo (urgente)', authUserId: 'usr_fran',
+  }));
+  R.eq('C5 setup · updatePlan (cambiar título) -> 200', update.status, 200);
+
+  const subida3 = parseResp(handleUploadPlanPhotos({
+    planId: contexto.planId,
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    authUserId: 'usr_fran',
+  }));
+  R.eq('C5 · uploadPlanPhotos tras editar título -> 200', subida3.status, 200);
+  if (!subida3.subidas || subida3.subidas.length !== 1) {
+    R.fail('MEDIA-002 · la foto post-edición no se subió');
+    return;
+  }
+  driveFileIdsCreados.push(subida3.subidas[0].driveFileId);
+
+  const filaTrasEditar = filaPorId('Planes', contexto.planId);
+  R.eq('C5 · la carpeta cacheada sigue siendo la misma tras editar el título',
+       filaTrasEditar[col('Planes', 'carpeta_fotos_drive_id')], contexto.carpetaId);
+
+  const carpeta = DriveApp.getFolderById(contexto.carpetaId);
+  R.check('C5 · el nombre de la carpeta sigue con el título viejo (congelado)',
+          carpeta.getName().indexOf('arreglar-el-techo') !== -1 && carpeta.getName().indexOf('urgente') === -1);
+}
+
+// Criterio 3 — con al menos 1 foto activa, completePlan funciona igual que
+// antes de este REQ.
+function grupoCompletarConFoto(R, contexto) {
+  const comp = parseResp(handleCompletePlan({ planId: contexto.planId, authUserId: 'usr_noe' }));
+  R.eq('C3 · completePlan con fotos -> 200', comp.status, 200);
+  const fila = filaPorId('Planes', contexto.planId);
+  R.eq('C3 · estado = completado', fila[col('Planes', 'estado')], 'completado');
+}
+
+// Criterios 10 y 11 — selección múltiple: la foto inválida en el medio de 3
+// no descarta las otras 2, que quedan numeradas 0001/0002 sin huecos, y el
+// error reportado señala el índice correcto dentro del arreglo original.
+function grupoFalloParcialSubidaMultiple(R, driveFileIdsCreados, driveFolderIdsCreados) {
+  const crear = parseResp(handleCreatePlan({
+    titulo: 'Pintar la reja', categoriaId: 'cat_mant', userId: 'usr_noe', fechaProgramada: '2026-10-05',
+  }));
+  R.eq('C10/C11 setup · createPlan -> 200', crear.status, 200);
+  if (crear.status !== 200) return;
+  const planId = crear.planId;
+
+  const subida = parseResp(handleUploadPlanPhotos({
+    planId: planId,
+    files: [
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'application/pdf' }, // mime no permitido, a propósito
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+    ],
+    authUserId: 'usr_noe',
+  }));
+  R.eq('C11 · uploadPlanPhotos con 1 foto inválida en el medio sigue -> 200', subida.status, 200);
+  R.eq('C11 · las 2 fotos válidas se subieron igual', (subida.subidas || []).length, 2);
+  R.eq('C11 · se reportó exactamente 1 error', (subida.errores || []).length, 1);
+  R.check('C11 · el error señala el índice 1 (la del medio)',
+          !!subida.errores && subida.errores[0] && subida.errores[0].index === 1);
+
+  (subida.subidas || []).forEach(s => driveFileIdsCreados.push(s.driveFileId));
+
+  const filaPlan = filaPorId('Planes', planId);
+  const carpetaId = filaPlan[col('Planes', 'carpeta_fotos_drive_id')];
+  if (carpetaId) driveFolderIdsCreados.push(carpetaId);
+
+  const numeros = (subida.subidas || [])
+    .map(s => DriveApp.getFileById(s.driveFileId).getName().slice(0, 4))
+    .join(',');
+  R.eq('C10 · las 2 fotos válidas quedan numeradas correlativamente sin huecos (0001,0002)',
+       numeros, '0001,0002');
+
+  R.eq('C11 · las 2 fotos válidas quedan activas en Archivos', contarFotosActivasPlan(planId), 2);
+}
+
+// Criterio 6 (parte de datos, sin frontend) — getRecentPlanPhotos devuelve
+// título/categoría/fecha correctos por foto, para las fotos que ya se
+// subieron en los grupos anteriores.
+function grupoRecentPlanPhotos(R) {
+  const fotos = parseResp(handleGetRecentPlanPhotos({ limit: 50 }));
+  R.eq('C6 · getRecentPlanPhotos -> 200', fotos.status, 200);
+  R.check('C6 · devuelve al menos las fotos subidas en esta corrida', (fotos.fotos || []).length >= 2);
+
+  const todasConDatos = (fotos.fotos || []).every(f => f.tituloPlan && f.categoriaNombre && f.fecha);
+  R.check('C6 · cada foto trae tituloPlan/categoriaNombre/fecha', todasConDatos);
+
+  const deLaReja = (fotos.fotos || []).find(f => (f.tituloPlan || '').indexOf('Pintar la reja') !== -1);
+  R.check('C6 · la foto de "Pintar la reja" trae categoría "Mantenimiento"',
+          !!deLaReja && deLaReja.categoriaNombre === 'Mantenimiento');
 }

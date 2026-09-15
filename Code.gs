@@ -101,6 +101,20 @@ const PLANES_HEADERS = [
   'plan_id', 'titulo', 'categoria_id', 'creado_por',
   'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado',
   'modificado_por', 'fecha_modificacion', 'eliminado_por', 'fecha_eliminacion',
+  // REQ-MEDIA-002: ID de la carpeta de Drive de las fotos de esta tarea.
+  // Se completa una sola vez (con la primera foto) y nunca se vuelve a tocar
+  // ("congelado" aunque después se edite título/categoría) — ver
+  // docs/requerimientos/REQ-MEDIA-002.md §3.
+  'carpeta_fotos_drive_id',
+];
+
+// Nombres de mes capitalizados para el árbol de Drive de fotos de tarea
+// (REQ-MEDIA-002 §3) — es la única excepción a "sin mayúsculas" de
+// docs/modelo-datos.md §3, aceptada porque es un segmento pensado para
+// lectura humana en Drive.
+const NOMBRES_MES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
 // Hoja Auditoria (REQ-DATA-002, ver docs/modelo-datos.md sección 8).
@@ -169,6 +183,10 @@ function doPost(e) {
       case 'updatePlan':      return handleUpdatePlan(body);
       case 'completePlan':    return handleCompletePlan(body);
       case 'deletePlan':      return handleDeletePlan(body);
+
+      // Fotos de tareas (REQ-MEDIA-002)
+      case 'uploadPlanPhotos':    return handleUploadPlanPhotos(body);
+      case 'getRecentPlanPhotos': return handleGetRecentPlanPhotos(body);
 
       default:
         return respond(400, { error: 'Acción no reconocida.' });
@@ -1093,6 +1111,16 @@ function handleCompletePlan(body) {
   const { rowIndex, h } = buscarPlanActivo(sheet, planId);
   if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
+  // REQ-MEDIA-002 criterio 1: no se puede completar una tarea sin al menos
+  // una foto activa. `code` explícito para que el frontend abra directo el
+  // flujo de subida en vez de mostrar un error genérico (ver REQ-MEDIA-002 §2).
+  if (contarFotosActivasPlan(planId) === 0) {
+    return respond(400, {
+      error: 'La tarea necesita al menos una foto para poder completarse.',
+      code: 'FOTO_REQUERIDA',
+    });
+  }
+
   const col = name => h.indexOf(name) + 1;
 
   sheet.getRange(rowIndex, col('estado')).setValue('completado');
@@ -1241,6 +1269,300 @@ function handleGetArchivo(body) {
     Logger.log('Error al leer archivo ' + archivoId + ': ' + err.toString());
     return respond(500, { error: 'Error al leer el archivo.' });
   }
+}
+
+// ------------------------------------------------------------
+// FOTOS DE TAREA (REQ-MEDIA-002)
+// Árbol de Drive, anti-colisión de carpeta/numeración y visibilidad del
+// carrusel: docs/requerimientos/REQ-MEDIA-002.md. Reglas de nombres/fechas:
+// docs/modelo-datos.md §5.
+// ------------------------------------------------------------
+
+// Sube una o varias fotos a una tarea en una sola operación (REQ-MEDIA-002,
+// selección múltiple). `files` es un arreglo de { fileBase64, mimeType }.
+// Cada foto se procesa de forma INDEPENDIENTE: si una falla (mime no
+// soportado, error de Drive), no se corta el loop — las demás quedan
+// subidas igual (criterio 11). La respuesta siempre es 200 con el detalle de
+// qué subió y qué no; no hay "todo o nada" a nivel HTTP.
+function handleUploadPlanPhotos(body) {
+  const { planId, files, authUserId } = body;
+
+  if (!planId) return respond(400, { error: 'ID de tarea requerido.' });
+  if (!Array.isArray(files) || files.length === 0) {
+    return respond(400, { error: 'Se requiere al menos un archivo.' });
+  }
+
+  const sheet = getSheet(SHEETS.PLANES);
+  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+  if (rowIndex === -1) return respond(404, { error: 'Tarea no encontrada.' });
+
+  const col = name => h.indexOf(name) + 1; // 1-based; 0 si la columna no existe
+
+  const subidas = [];
+  const errores = [];
+
+  // Todo el tramo "resolver/crear la carpeta de la tarea + calcular el
+  // próximo número + crear el archivo" queda dentro del lock (mismo patrón
+  // que crearSesion, ver más arriba): dos subidas a la misma tarea en el
+  // mismo instante (los 2 usuarios subiendo a la vez) no pueden calcular el
+  // mismo número siguiente ni crear dos carpetas distintas para la misma
+  // tarea. Con 2 usuarios el costo de serializar este tramo es insignificante.
+  //
+  // Importante: la fila del plan se lee RECIÉN ACÁ ADENTRO, no antes de
+  // pedir el lock. Si se leyera afuera, dos requests concurrentes a la misma
+  // tarea (su primera foto) podrían leer las dos "sin carpeta todavía" antes
+  // de que cualquiera tomara el lock, y la segunda — aunque espere al lock —
+  // seguiría decidiendo con ese dato viejo y crearía una carpeta duplicada.
+  // Leer adentro del lock es lo que hace que el "doble chequeo" funcione.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const fila = sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0];
+    const val  = name => fila[h.indexOf(name)];
+
+    let carpeta;
+    const carpetaCacheadaId = col('carpeta_fotos_drive_id') ? val('carpeta_fotos_drive_id') : '';
+
+    if (carpetaCacheadaId) {
+      carpeta = DriveApp.getFolderById(carpetaCacheadaId);
+    } else {
+      // Primera foto de esta tarea: el nombre de carpeta se calcula con el
+      // estado ACTUAL del plan y queda "congelado" guardando el ID de la
+      // carpeta en la fila — de acá en más, aunque se edite título o
+      // categoría, las fotos nuevas caen en esta misma carpeta.
+      const fechaHoy         = new Date().toISOString().split('T')[0]; // AAAA-MM-DD
+      const [aaaa, mm]       = fechaHoy.split('-');
+      const categoriaNombre  = getCategoriaNombre(val('categoria_id')) || 'sin-categoria';
+      const sufijoAntiColision = (planId.split('_').pop() || '').slice(-6);
+
+      const nombreCarpeta = [
+        formatFechaDDMMAAAA(fechaHoy),
+        normalizarSegmentoRuta(categoriaNombre),
+        normalizarSegmentoRuta(val('titulo')),
+        sufijoAntiColision,
+      ].join('-');
+
+      carpeta = getOrCreateFolderPath([
+        'media', 'planes-fotos', aaaa, NOMBRES_MES[Number(mm) - 1], nombreCarpeta,
+      ]);
+
+      if (col('carpeta_fotos_drive_id')) {
+        sheet.getRange(rowIndex, col('carpeta_fotos_drive_id')).setValue(carpeta.getId());
+      }
+    }
+
+    let siguienteNumero = contarArchivosEnCarpeta(carpeta) + 1;
+
+    files.forEach((archivo, index) => {
+      try {
+        const { fileBase64, mimeType } = archivo || {};
+        if (!fileBase64 || !mimeType) {
+          throw new Error('Archivo y tipo MIME requeridos.');
+        }
+        if (!MIME_EXT[mimeType]) {
+          throw new Error('Tipo de archivo no permitido. Solo JPG, PNG o WEBP.');
+        }
+
+        const bytes        = Utilities.base64Decode(fileBase64);
+        const archivoId     = newId('arc');
+        const fechaHoyFoto  = new Date().toISOString().split('T')[0];
+        const numero        = ('0000' + siguienteNumero).slice(-4);
+        const nombreArchivo = numero + '-' + formatFechaDDMMAAAA(fechaHoyFoto) + '-' +
+          normalizarSegmentoRuta(val('titulo')) + '.' + MIME_EXT[mimeType];
+
+        const file = carpeta.createFile(Utilities.newBlob(bytes, mimeType, nombreArchivo));
+
+        // Metadata en la descripción del archivo: si se pierde la hoja
+        // Archivos, se puede reconstruir recorriendo Drive (mismo patrón que
+        // handleUploadPhoto).
+        file.setDescription(JSON.stringify({
+          archivo_id:   archivoId,
+          owner_tipo:   'plan',
+          owner_id:     planId,
+          proposito:    'adjunto',
+          subido_por:   authUserId || '',
+          fecha_subida: new Date().toISOString(),
+        }));
+
+        insertArchivo({
+          archivoId:   archivoId,
+          ownerTipo:   'plan',
+          ownerId:     planId,
+          proposito:   'adjunto',
+          driveFileId: file.getId(),
+          mimeType:    mimeType,
+          tamanoBytes: bytes.length,
+          subidoPor:   authUserId || '',
+          estado:      'activo',
+        });
+
+        subidas.push({ archivoId: archivoId, driveFileId: file.getId() });
+        siguienteNumero++;
+      } catch (err) {
+        // Sin binario en el log.
+        Logger.log('Error al subir foto de tarea (plan ' + planId + ', índice ' + index + '): ' + err.toString());
+        errores.push({ index: index, error: err.message || 'Error al subir la imagen.' });
+      }
+    });
+  } finally {
+    lock.releaseLock();
+  }
+
+  return respond(200, { success: true, subidas: subidas, errores: errores });
+}
+
+// Fotos de tarea más recientes, para el carrusel post-login (REQ-MEDIA-002
+// punto 4). Ambos usuarios ven todo (mismo criterio que el resto de la app).
+// `limit` es opcional: la card del dashboard pide ~5, el modal a pantalla
+// completa puede pedir más.
+function handleGetRecentPlanPhotos(body) {
+  const { limit } = body;
+  const max = Math.min(Math.max(Number(limit) || 5, 1), 100);
+
+  const archivosSheet = getSheet(SHEETS.ARCHIVOS);
+  const archivosData  = archivosSheet.getDataRange().getValues();
+  const ha       = archivosData[0];
+  const iOwnerT  = ha.indexOf('owner_tipo');
+  const iOwnerId = ha.indexOf('owner_id');
+  const iProp    = ha.indexOf('proposito');
+  const iEstado  = ha.indexOf('estado');
+  const iArcId   = ha.indexOf('archivo_id');
+  const iFSub    = ha.indexOf('fecha_subida');
+  const iFCon    = ha.indexOf('fecha_contenido');
+
+  const fotos = [];
+  for (let i = 1; i < archivosData.length; i++) {
+    const r = archivosData[i];
+    if (r[iOwnerT] === 'plan' && r[iProp] === 'adjunto' && r[iEstado] === 'activo') {
+      fotos.push({
+        archivoId:      r[iArcId],
+        planId:         r[iOwnerId],
+        fechaSubida:    r[iFSub],
+        fechaContenido: formatDate(r[iFCon]),
+      });
+    }
+  }
+
+  // Timestamps ISO 8601 UTC: ordenan cronológicamente como texto (ver
+  // docs/modelo-datos.md, Convención de fechas y horas).
+  fotos.sort((a, b) => (a.fechaSubida < b.fechaSubida ? 1 : -1));
+  const top = fotos.slice(0, max);
+
+  // Un solo pase por Planes y por Categorias para enriquecer, no una consulta
+  // por foto.
+  const planesSheet = getSheet(SHEETS.PLANES);
+  const planesData  = planesSheet.getDataRange().getValues();
+  const hp    = planesData[0];
+  const iPId  = hp.indexOf('plan_id');
+  const iPTit = hp.indexOf('titulo');
+  const iPCat = hp.indexOf('categoria_id');
+  const planesPorId = {};
+  for (let i = 1; i < planesData.length; i++) {
+    planesPorId[planesData[i][iPId]] = {
+      titulo:      planesData[i][iPTit],
+      categoriaId: planesData[i][iPCat] || null,
+    };
+  }
+
+  const categoriasSheet = getSheet(SHEETS.CATEGORIAS);
+  const categoriasData  = categoriasSheet.getDataRange().getValues();
+  const hc    = categoriasData[0];
+  const iCId  = hc.indexOf('categoria_id');
+  const iCNom = hc.indexOf('nombre');
+  const categoriasPorId = {};
+  for (let i = 1; i < categoriasData.length; i++) {
+    categoriasPorId[categoriasData[i][iCId]] = categoriasData[i][iCNom];
+  }
+
+  const resultado = top.map(foto => {
+    const plan = planesPorId[foto.planId] || {};
+    return {
+      archivoId:       foto.archivoId,
+      planId:          foto.planId,
+      tituloPlan:      plan.titulo || null,
+      categoriaNombre: plan.categoriaId ? (categoriasPorId[plan.categoriaId] || null) : null,
+      fecha:           foto.fechaContenido,
+    };
+  });
+
+  return respond(200, { fotos: resultado });
+}
+
+// Cuenta cuántos archivos activos ('adjunto', 'plan') tiene una tarea. Se usa
+// para el gate de handleCompletePlan (REQ-MEDIA-002 criterio 1).
+function contarFotosActivasPlan(planId) {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+
+  let n = 0;
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] === 'plan' && r[iOwnerId] === planId &&
+        r[iProp] === 'adjunto' && r[iEstado] === 'activo') n++;
+  }
+  return n;
+}
+
+// Nombre de una categoría por ID, o null si no existe. Usado para armar el
+// nombre de carpeta de fotos de tarea (REQ-MEDIA-002 §3).
+function getCategoriaNombre(categoriaId) {
+  if (!categoriaId) return null;
+  const sheet = getSheet(SHEETS.CATEGORIAS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId   = h.indexOf('categoria_id');
+  const iNom  = h.indexOf('nombre');
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] === categoriaId) return data[i][iNom];
+  }
+  return null;
+}
+
+// Slug para segmento de ruta de Drive: minúsculas, sin tildes/ñ (NFD separa
+// la tilde como carácter combinante y lo descarta el regex de abajo), espacios
+// y símbolos → '-', descarta todo fuera de [a-z0-9-], trunca a 60 caracteres.
+// Ej.: "Arreglar el techo" -> "arreglar-el-techo". Reglas: REQ-MEDIA-002 §3.
+function normalizarSegmentoRuta(texto) {
+  return (texto || '').toString()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+}
+
+// 'AAAA-MM-DD' -> 'DD-MM-AAAA', para nombres de carpeta/archivo legibles en
+// Drive (REQ-MEDIA-002 §3).
+function formatFechaDDMMAAAA(fechaIso) {
+  const partes = fechaIso.split('-');
+  return partes[2] + '-' + partes[1] + '-' + partes[0];
+}
+
+// Cuenta los archivos (no carpetas) que hay directamente en una carpeta de
+// Drive. Usado para numerar correlativamente las fotos de una tarea.
+function contarArchivosEnCarpeta(folder) {
+  const it = folder.getFiles();
+  let n = 0;
+  while (it.hasNext()) { it.next(); n++; }
+  return n;
+}
+
+// Camina/crea una ruta de carpetas relativa a la raíz configurada
+// (DRIVE_FOLDER_ID), sin guardar los IDs intermedios en ningún lado — se
+// busca por nombre en cada nivel. Ver docs/modelo-datos.md §5.
+function getOrCreateFolderPath(segments) {
+  let folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  for (const nombre of segments) {
+    const it = folder.getFoldersByName(nombre);
+    folder = it.hasNext() ? it.next() : folder.createFolder(nombre);
+  }
+  return folder;
 }
 
 // Inserta una fila en Archivos. Campos en camelCase; el server completa

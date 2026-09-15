@@ -196,13 +196,31 @@ Reglas:
 - **Los subfolders no se guardan en ningún lado.** Se guarda solo el ID de la
   raíz. El árbol se arma con un helper get-or-create:
 
-> **Nota (2026-09-11):** el subárbol `planes/<plan_id>/...` de arriba queda
-> vigente para archivos genéricos de plan, pero las **fotos de tarea**
+> **Nota (2026-09-14, Gary):** el subárbol `planes/<plan_id>/...` de arriba
+> queda vigente para archivos genéricos de plan, pero las **fotos de tarea**
 > (`proposito='adjunto'`) usan desde REQ-MEDIA-002 un árbol propio con nombres
-> legibles (`planes-fotos/<AAAA>/<mes>/<fecha>-<categoria>-<titulo>/...`) en vez
-> de IDs opacos — ver [REQ-MEDIA-002](requerimientos/REQ-MEDIA-002.md) para el
-> detalle completo y las reglas de normalización/congelado. Gary revisa y
-> reescribe esta sección cuando el REQ se implemente.
+> legibles en vez de IDs opacos:
+>
+> ```
+> media/planes-fotos/<AAAA>/<NombreMes>/<DD-MM-AAAA>-<categoria>-<titulo>-<suf6>/
+>   0001-<DD-MM-AAAA>-<titulo>.<ext>
+>   0002-<DD-MM-AAAA>-<titulo>.<ext>
+> ```
+>
+> Dos puntos de colisión resueltos (ver
+> [REQ-MEDIA-002 §3](requerimientos/REQ-MEDIA-002.md#3-estructura-de-drive--carpetas-legibles-opción-b-confirmada-por-franco)
+> para el detalle):
+> - **Nombre de carpeta:** `<suf6>` = los 6 caracteres finales de `plan_id`
+>   (el sufijo anti-colisión que ya trae [`newId()`](#generación-de-ids)), no
+>   un valor nuevo. Como cada `plan_id` es único, dos tareas con mismo título
+>   el mismo día nunca comparten carpeta — sin tocar `getOrCreateFolderPath`.
+> - **Numeración de archivo:** contar + crear el archivo `NNNN-...` se
+>   envuelve en `LockService.getScriptLock()` (mismo patrón que
+>   `crearSesion`, [Code.gs:357](../Code.gs:357)) para que dos subidas
+>   simultáneas a la misma tarea no calculen el mismo número siguiente.
+>
+> Ver [REQ-MEDIA-002](requerimientos/REQ-MEDIA-002.md) para el detalle
+> completo y las reglas de normalización/congelado.
 
 ```javascript
 // getOrCreateFolderPath(['media', 'planes', planId]) -> Folder
