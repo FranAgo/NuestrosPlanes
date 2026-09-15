@@ -1597,3 +1597,25 @@ Cierre de sesión: sin trabajo pendiente sin commitear. Backend en prod
 v20 (deployado en la primera entrada de hoy), frontend en GitHub Pages
 al día con los commits 90729ed y d93e1f0.
 ========================================================
+
+========================================================
+2026-09-15 19:49 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Motivo: Franco reportó que el modal "Nuestros recuerdos" (carrusel de
+fotos, REQ-MEDIA-002) mostraba el ícono de imagen rota del navegador y
+un texto "Cargando..." casi invisible mientras traía la primera foto.
+
+Cambios:
+- index.html — modal del carrusel de recuerdos: se agrega un loader
+  (spinner SVG en overlay dentro de .carrusel-imagen-wrap) que se
+  muestra mientras no hay foto lista, en vez de dejar el <img> con
+  src="" (causa del ícono roto). La imagen aparece con fade-in
+  (opacity + transición 200ms) al cargar. Se maneja también el caso de
+  foto que falla al decodificar (onerror): el caption pasa a mostrar
+  "No se pudo cargar la foto." en vez de quedar con los metadatos
+  como si nada hubiera pasado.
+
+Cierre de sesión: sin trabajo pendiente sin commitear.
+========================================================
