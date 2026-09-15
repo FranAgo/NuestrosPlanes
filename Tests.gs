@@ -1128,6 +1128,7 @@ function probarMEDIA002() {
     }
 
     grupoFalloParcialSubidaMultiple(R, driveFileIdsCreados, driveFolderIdsCreados);
+    grupoGetArchivosBatch(R, driveFileIdsCreados, driveFolderIdsCreados);
     grupoRecentPlanPhotos(R);
 
   } catch (err) {
@@ -1381,6 +1382,53 @@ function grupoFalloParcialSubidaMultiple(R, driveFileIdsCreados, driveFolderIdsC
        numeros, '0001,0002');
 
   R.eq('C11 · las 2 fotos válidas quedan activas en Archivos', contarFotosActivasPlan(planId), 2);
+}
+
+// REQ-PERF-001 criterios 2 y 3 — getArchivos (batch) trae varios archivos en
+// una sola invocación y un archivoId inexistente viene con `error` en su
+// propia entrada, sin tirar abajo el resto de la respuesta. No existía un
+// test permanente para esto (quedó anotado como pendiente en REQ-PERF-001);
+// se agrega acá mismo porque ya usa el fixture de tarea+foto de este REQ.
+function grupoGetArchivosBatch(R, driveFileIdsCreados, driveFolderIdsCreados) {
+  const crear = parseResp(handleCreatePlan({
+    titulo: 'Podar el jardín', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-06',
+  }));
+  R.eq('PERF-001 setup · createPlan -> 200', crear.status, 200);
+  if (crear.status !== 200) return;
+
+  const subida = parseResp(handleUploadPlanPhotos({
+    planId: crear.planId,
+    files: [
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+    ],
+    authUserId: 'usr_fran',
+  }));
+  R.eq('PERF-001 setup · uploadPlanPhotos (2 fotos) -> 200', subida.status, 200);
+  if (!subida.subidas || subida.subidas.length !== 2) {
+    R.fail('PERF-001 · no se pudieron subir las fotos de fixture — se salta el grupo getArchivos');
+    return;
+  }
+  subida.subidas.forEach(s => driveFileIdsCreados.push(s.driveFileId));
+  const filaPlan = filaPorId('Planes', crear.planId);
+  const carpetaId = filaPlan[col('Planes', 'carpeta_fotos_drive_id')];
+  if (carpetaId) driveFolderIdsCreados.push(carpetaId);
+
+  const [idA, idB] = subida.subidas.map(s => s.archivoId);
+  const idInexistente = 'arc_no_existe_999999';
+
+  const batch = parseResp(handleGetArchivos({ archivoIds: [idA, idInexistente, idB] }));
+  R.eq('C2 · getArchivos (batch) -> 200', batch.status, 200);
+  R.eq('C2 · devuelve una entrada por cada archivoId pedido (3)', (batch.archivos || []).length, 3);
+
+  const porId = new Map((batch.archivos || []).map(a => [a.archivoId, a]));
+  const entradaA = porId.get(idA);
+  const entradaB = porId.get(idB);
+  const entradaInexistente = porId.get(idInexistente);
+
+  R.check('C2 · el 1er archivo válido viene con base64 y sin error', !!entradaA && !entradaA.error && !!entradaA.base64);
+  R.check('C2 · el 2do archivo válido viene con base64 y sin error', !!entradaB && !entradaB.error && !!entradaB.base64);
+  R.check('C3 · el archivoId inexistente viene con error, no rompe el resto', !!entradaInexistente && !!entradaInexistente.error);
 }
 
 // Criterio 6 (parte de datos, sin frontend) — getRecentPlanPhotos devuelve

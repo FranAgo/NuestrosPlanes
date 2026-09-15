@@ -99,14 +99,17 @@ aunque varias eran independientes entre sí.
 
 ## Alcance — fuera de este REQ (anotado para el futuro)
 
-- **Endpoint único de carga inicial** (candidato a **REQ-PERF-002**, sin
-  diseñar todavía): juntar categorías + planes + usuarios + avatares + fotos
-  recientes en **una sola invocación** de Apps Script, en vez de las 3 etapas
-  que quedaron tras el punto 5. Es el único cambio que ataca el problema de
-  fondo (el costo fijo por invocación de Apps Script) en vez de acortar la
-  cadena. Discutido con Franco el 15/09, no implementado — requiere que Bob
-  diseñe el contrato de respuesta y que Gary opine sobre el costo de armar esa
-  respuesta combinada del lado del servidor.
+- **Endpoint único de carga inicial** (candidato original a "REQ-PERF-002",
+  sin diseñar todavía): juntar categorías + planes + usuarios + avatares +
+  fotos recientes en **una sola invocación** de Apps Script, en vez de las 3
+  etapas que quedaron tras el punto 5. Es el único cambio que ataca el
+  problema de fondo (el costo fijo por invocación de Apps Script) en vez de
+  acortar la cadena. Discutido con Franco el 15/09, no implementado — al
+  investigar el reporte de "tareas y fotos siguen tardando" resultó que este
+  no era el cuello de botella dominante (ver [REQ-PERF-002](REQ-PERF-002.md)),
+  así que sigue sin numerar formalmente. Si hace falta retomarlo, corresponde
+  REQ-PERF-003, con Bob diseñando el contrato de respuesta y Gary opinando
+  sobre el costo de armarla del lado del servidor.
 - Test automatizado permanente para `getArchivos` en `Tests.gs` — hoy solo
   tiene el smoke que corrió Duck una vez (no quedó en el archivo, ver Plan de
   pruebas).

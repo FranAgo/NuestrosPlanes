@@ -2264,35 +2264,49 @@
       showAppLoading('Cargando…');
       updateHeaderUser();
 
-      try {
-        // Estas 3 llamadas son independientes entre sí — se disparan todas
-        // de una para no pagar, encadenado, el costo fijo de cada viaje a
-        // Apps Script por separado (esto es lo que hacía tardar ~30s el
-        // "Cargando…": antes categorías/planes -> usuarios -> avatares ->
-        // fotos recientes iban una atrás de la otra sin necesidad).
-        const categoriasPromise = loadCategorias();
-        const planesPromise     = loadPlanes();
-        const fotosPromise      = loadFotosRecientes();  // no depende de planes ni categorías
+      // Estas 3 llamadas son independientes entre sí — se disparan todas de
+      // una para no pagar, encadenado, el costo fijo de cada viaje a Apps
+      // Script por separado (esto es lo que hacía tardar ~30s el
+      // "Cargando…": antes categorías/planes -> usuarios -> avatares ->
+      // fotos recientes iban una atrás de la otra sin necesidad).
+      const categoriasPromise = loadCategorias();
+      const planesPromise     = loadPlanes();
+      const fotosPromise      = loadFotosRecientes();  // no depende de planes ni categorías
 
-        await planesPromise;
+      try {
+        // categorías y planes son lecturas simples de hoja, sin pasar por
+        // Drive — apenas resuelven ya se puede pintar la lista de tareas.
+        // REQ-PERF-002: antes el render de tareas quedaba atado a que
+        // terminara también loadOtherUsers (que trae avatares desde Drive,
+        // mucho más lento), así que las tareas tardaban en verse tanto como
+        // la etapa más lenta aunque sus propios datos ya estuvieran listos.
+        await Promise.all([categoriasPromise, planesPromise]);
         // Si un 401 en el medio disparó forceLogout, ya estamos en el login.
         if (!state.session) return;
-        // loadOtherUsers sí depende de los planes (saca los otherIds de ahí),
-        // así que recién puede arrancar acá — pero corre en paralelo con
-        // fotosPromise/categoriasPromise, no atrás de ellas.
-        const usuariosPromise = loadOtherUsers();
-
-        await Promise.all([categoriasPromise, usuariosPromise, fotosPromise]);
-        if (!state.session) return;
-
-        // loadOtherUsers ya resolvió el cache de avatares (prefetchAvatares) —
-        // repintamos el header, que se dibujó antes con el cache todavía vacío.
-        updateHeaderUser();
-        renderPlanes();
         renderCategorias();
+        renderPlanes();
         appLoading.hidden = true;
       } catch (e) {
         if (state.session) showAppLoadError();
+        return;
+      }
+
+      try {
+        // loadOtherUsers sí depende de los planes (saca los otherIds de ahí),
+        // así que recién puede arrancar acá — corre en paralelo con
+        // fotosPromise, en segundo plano: ya no bloquea que se vean las
+        // tareas, que quedaron pintadas arriba.
+        await Promise.all([loadOtherUsers(), fotosPromise]);
+        if (!state.session) return;
+
+        // loadOtherUsers ya resolvió el cache de avatares (prefetchAvatares) —
+        // repintamos con nombres/avatares de otros usuarios, que antes no
+        // estaban listos.
+        updateHeaderUser();
+        renderPlanes();
+      } catch (e) {
+        // Las tareas ya se ven — un fallo acá (nombres/avatares/fotos) no
+        // amerita tapar la app entera con la pantalla de error.
       }
     }
 
@@ -2360,6 +2374,47 @@
     // archivoId nuevo, así que no hace falta invalidar el viejo.
     const avatarCache = new Map(); // archivoId -> dataUrl | null
 
+    // Persistencia del cache en localStorage — REQ-PERF-002 (fotos recientes
+    // tardaban en cada recarga porque este cache, siendo solo en memoria, se
+    // vaciaba entero en cada "Cargando…" y volvía a pedirle a Drive imágenes
+    // que ya se habían visto). El archivoId es inmutable (una foto nueva
+    // siempre nace con un ID nuevo, ver comentario de arriba), así que no
+    // hace falta invalidar entradas viejas: solo acotar cuántas se guardan.
+    const IMAGE_CACHE_KEY           = 'cp_image_cache';
+    const IMAGE_CACHE_MAX_ENTRADAS  = 150; // avatares (2) + varias tandas de fotos de carrusel
+
+    function loadImageCachePersistido() {
+      try {
+        const raw = localStorage.getItem(IMAGE_CACHE_KEY);
+        const obj = raw ? JSON.parse(raw) : null;
+        if (obj && typeof obj === 'object') {
+          Object.entries(obj).forEach(([id, url]) => {
+            if (id && typeof url === 'string') avatarCache.set(id, url);
+          });
+        }
+      } catch (e) { /* sin cache persistido, se repuebla desde Drive */ }
+    }
+
+    // No persiste los `null` (fallos): un archivo que falló por un hipo de
+    // Drive tiene que poder reintentarse en la próxima carga, no quedar
+    // marcado como roto para siempre en localStorage.
+    function guardarImageCachePersistido() {
+      try {
+        const entradas = [...avatarCache.entries()].filter(([, url]) => !!url);
+        const recientes = entradas.slice(-IMAGE_CACHE_MAX_ENTRADAS);
+        localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(Object.fromEntries(recientes)));
+      } catch (e) {
+        // Cuota de localStorage llena (imágenes pesan): probamos una vez más
+        // guardando solo la mitad más reciente; si sigue sin entrar, no pasa
+        // nada — el cache queda solo en memoria para esta sesión.
+        try {
+          const entradas = [...avatarCache.entries()].filter(([, url]) => !!url);
+          const mitad = entradas.slice(-Math.floor(IMAGE_CACHE_MAX_ENTRADAS / 2));
+          localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(Object.fromEntries(mitad)));
+        } catch (e2) { /* sin persistencia, se sigue en memoria nomás */ }
+      }
+    }
+
     // Lectura sincrónica del cache. Devuelve null si todavía no se resolvió
     // (o no hay archivoId) — el llamador cae al inicial como hoy.
     function avatarDataUrl(archivoId) {
@@ -2388,6 +2443,7 @@
       } catch {
         idsFaltantes.forEach(id => avatarCache.set(id, null));
       }
+      guardarImageCachePersistido();
     }
 
     // Resuelve de antemano todos los avatares que hacen falta para el render
@@ -3561,6 +3617,7 @@
     (async function boot() {
       initStars();
       initGoogleAuth();
+      loadImageCachePersistido();
       // Reintento por si la librería GSI todavía no cargó al arrancar.
       let tries = 0;
       const gsiTimer = setInterval(() => {

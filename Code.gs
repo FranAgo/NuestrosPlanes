@@ -1377,6 +1377,26 @@ function newId(prefijo) {
 // Las FKs no las hace cumplir Sheets: se validan acá en código.
 // ------------------------------------------------------------
 
+// Lee un archivo de Drive con un par de reintentos cortos ante error
+// transitorio (Drive API devuelve 500/503 de tanto en tanto bajo uso normal,
+// sobre todo cuando getArchivos pide varios archivos seguidos en la misma
+// invocación). Sin esto, un solo hipo de Drive marcaba la foto entera como
+// "no se pudo cargar" sin necesidad — sondeado a partir del reporte de
+// Franco de errores intermitentes después de REQ-PERF-001/MEDIA-002.
+function leerBlobDriveConReintento(driveFileId) {
+  const intentos = 3;
+  let ultimoError;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      return DriveApp.getFileById(driveFileId).getBlob();
+    } catch (err) {
+      ultimoError = err;
+      if (i < intentos - 1) Utilities.sleep(200 * (i + 1)); // 200ms, 400ms
+    }
+  }
+  throw ultimoError;
+}
+
 // Endpoint getArchivo (REQ-MEDIA-001). Devuelve el binario de un archivo por
 // sesión en vez de por URL pública de Drive.
 // Visibilidad: cualquier usuario con sesión válida puede pedir cualquier
@@ -1398,7 +1418,7 @@ function handleGetArchivo(body) {
   }
 
   try {
-    const blob     = DriveApp.getFileById(archivo.drive_file_id).getBlob();
+    const blob     = leerBlobDriveConReintento(archivo.drive_file_id);
     const base64   = Utilities.base64Encode(blob.getBytes());
     const mimeType = archivo.mime_type || blob.getContentType();
 
@@ -1444,7 +1464,7 @@ function handleGetArchivos(body) {
       return { archivoId: archivoId, error: 'Archivo no encontrado.' };
     }
     try {
-      const blob     = DriveApp.getFileById(archivo.drive_file_id).getBlob();
+      const blob     = leerBlobDriveConReintento(archivo.drive_file_id);
       const base64   = Utilities.base64Encode(blob.getBytes());
       const mimeType = archivo.mime_type || blob.getContentType();
       return { archivoId: archivoId, base64: base64, mimeType: mimeType };

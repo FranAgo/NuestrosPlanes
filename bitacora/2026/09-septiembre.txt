@@ -1619,3 +1619,46 @@ Cambios:
 
 Cierre de sesión: sin trabajo pendiente sin commitear.
 ========================================================
+
+========================================================
+2026-09-15 20:10 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Motivo: Franco reportó que, después de REQ-PERF-001, seguía tardando
+mucho cargar las fotos recientes y sobre todo las tareas al mostrarse,
+y que a veces aparecía "No se pudo cargar la foto." Se investigó antes
+de asumir que era el endpoint único (candidato original a
+REQ-PERF-002) — no lo era: se encontraron tres causas más chicas y de
+menor riesgo.
+
+Cambios:
+- index.html — initApp() ya no espera a que terminen avatares/fotos
+  recientes para pintar la lista de tareas: categorías y planes se
+  renderizan apenas resuelven, en una primera etapa; usuarios/avatares
+  y fotos siguen en segundo plano y repintan al terminar.
+- index.html — el cache de imágenes (avatares + fotos de tarea) ahora
+  se persiste en localStorage (antes era solo en memoria y se vaciaba
+  en cada recarga de página, volviendo a pedirle a Drive fotos ya
+  vistas). Tope de 150 entradas, sin persistir fallos (se reintentan
+  solos en la próxima carga).
+- Code.gs — getArchivo/getArchivos reintentan hasta 3 veces (backoff
+  200/400ms) la lectura de Drive ante error transitorio, en vez de
+  marcar la foto como rota al primer hipo.
+- Tests.gs — nuevo test permanente para getArchivos (batch con 1
+  archivo inexistente entre 2 válidos), que REQ-PERF-001 había dejado
+  anotado como pendiente.
+- docs/requerimientos/REQ-PERF-002.md — nuevo. Documenta este REQ
+  (distinto del candidato "endpoint único" que había anotado
+  REQ-PERF-001, que sigue sin implementar).
+- docs/requerimientos/REQ-PERF-001.md — actualiza la nota de "fuera de
+  alcance" para linkear a REQ-PERF-002 y aclarar que, si se retoma el
+  endpoint único, corresponde numerarlo REQ-PERF-003.
+
+Pruebas: probarMEDIA001 22/22, probarMEDIA002 43/43 (incluye el test
+nuevo), probarBUGLOGIN001B 38/38 — sin regresión, contra el proyecto
+de Apps Script de test. Backend deployado a prod (Web App @21).
+
+Cierre de sesión: pendiente el push a GitHub del frontend/tests/docs
+(backend ya en prod). Queda a confirmación de Franco.
+========================================================
