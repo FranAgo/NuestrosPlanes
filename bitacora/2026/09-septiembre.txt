@@ -1572,3 +1572,28 @@ vivió solo en la conversación.
 Deploy: solo push de index.html a GitHub Pages (este commit). Sin
 cambios en Code.gs, no hizo falta clasp push/redeploy.
 ========================================================
+
+========================================================
+2026-09-15 11:41 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Motivo: Franco notó que el backlog de performance de esta sesión (las
+mejoras de las dos entradas anteriores + la idea del endpoint único
+para la carga inicial) no había quedado escrito en ningún lado, solo
+en la conversación — pidió formalizarlo como los demás REQ del repo.
+
+Cambios:
+- docs/requerimientos/REQ-PERF-001.md — nuevo. Documenta
+  retroactivamente las 5 mejoras implementadas hoy (compresión de
+  fotos, batch getArchivos, fast-path de sesión, caché de
+  Categorias/Usuarios, paralelización de initApp) con el mismo formato
+  que el resto de los REQ (Estado, Objetivo, Alcance, Criterios de
+  aceptación, Riesgos, Plan de pruebas). El endpoint único de carga
+  inicial queda anotado como fuera de este REQ, candidato a
+  REQ-PERF-002, sin diseñar todavía.
+
+Cierre de sesión: sin trabajo pendiente sin commitear. Backend en prod
+v20 (deployado en la primera entrada de hoy), frontend en GitHub Pages
+al día con los commits 90729ed y d93e1f0.
+========================================================
