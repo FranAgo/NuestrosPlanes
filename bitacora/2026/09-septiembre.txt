@@ -1367,3 +1367,77 @@ Pendiente para la proxima sesion:
 - Deploy a prod: recien despues de que Fase 2 + Duck den el visto bueno
   completo (no se toco prod en esta sesion).
 ========================================================
+
+========================================================
+2026-09-15 01:18 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza Fase 2 -> Jay implementa frontend -> Duck hace
+         smoke test real via Claude in Chrome (deployment de test) ->
+         Roy deploya el backend a prod.
+--------------------------------------------------------
+Cambios:
+- index.html — Fase 2 (frontend) de REQ-MEDIA-002 implementada por Jay:
+  * Seccion "Fotos" en el modal de plan (solo al editar, no al crear):
+    seleccion multiple con preview antes de confirmar, subida en una
+    sola llamada a uploadPlanPhotos, marcado individual ok/error por
+    foto sin descartar las que si subieron (criterios 10 y 11).
+  * completarPlan: si el backend devuelve code=FOTO_REQUERIDA, abre
+    directo el modal con la seccion de fotos en vez de un error generico
+    (criterio del REQ §2).
+  * Card de fotos recientes en el dashboard (poblada al final de
+    initApp() y refrescada en caliente tras cada subida) + modal de
+    carrusel a pantalla completa con navegacion prev/next y caption de
+    titulo/categoria/fecha. Reutiliza el cache de avatarCache/
+    fetchAvatarDataUrl (REQ-MEDIA-001) para pedir las fotos por
+    getArchivo, sin URLs publicas (criterios 6, 7, 8).
+  * Bug propio encontrado y corregido en la misma sesion (no llego a
+    pushearse sin el fix): la seccion nueva de Fotos hacia que el modal
+    de plan superara la altura del viewport; .modal no tenia scroll
+    interno, asi que el encabezado quedaba inalcanzable en pantallas
+    bajas. Agregado max-height + overflow-y:auto a .modal (beneficia a
+    todos los modales de la app, no solo a este).
+- docs/requerimientos/REQ-MEDIA-002.md — estado actualizado: backend
+  deployado a prod (@19), falta el push de index.html a GitHub para que
+  quede visible en produccion.
+
+Smoke test real (Duck, via Claude in Chrome -- Chrome real del usuario,
+sesion de Google ya activa, sin tipear credenciales):
+- Contra el deployment de TEST (AKfycbw5O9...GD8o7gZ, redeployado a v7
+  con el backend actual), sirviendo una copia temporal de index.html en
+  localhost:5173 (origin ya autorizado para el OAuth client) apuntando a
+  ese backend de test -- nunca se toco prod ni datos reales.
+- Flujo completo end-to-end: crear tarea -> completar sin foto -> 400
+  FOTO_REQUERIDA abre el modal directo -> subida de 3 archivos juntos (2
+  PNG validos + 1 .txt invalido) en una sola operacion -> 2 quedan ok, 1
+  marcado con el error real del backend ("Tipo de archivo no permitido.
+  Solo JPG, PNG o WEBP.") -> card de recuerdos se refresca sola mostrando
+  "2 fotos nuevas" -> carrusel con caption correcto y navegacion prev/
+  next respeta los limites -> completar la tarea ahora si funciona.
+- Veredicto: APTO. Criterios 2, 3, 6, 7, 10 y 11 verificados con datos
+  reales de test (no solo maquetados). Tarea de prueba "Smoke test
+  MEDIA-002" queda completada en el Sheet de TEST (no se puede borrar
+  una tarea completada desde la UI -- comportamiento preexistente, no
+  relacionado a este REQ); dato descartable, no afecta nada real.
+
+Deploy a produccion (Roy):
+- clasp push a .clasp.json (prod) -- Code.gs + appsscript.json (el
+  backend de MEDIA-002 ya estaba en el repo desde la sesion anterior,
+  sin cambios de codigo backend en esta sesion).
+- clasp version 19 + clasp redeploy sobre el deployment real
+  (AKfycbyKWCtppz...LxD0d) -> @19. Misma URL, no hizo falta tocar el
+  cliente OAuth.
+- Deploy seguro en dos pasos: el backend en prod ya soporta las acciones
+  nuevas, pero el frontend real (GitHub Pages) todavia sirve el
+  index.html viejo hasta el push de este commit -- sin ventana rota
+  intermedia.
+
+Estado:
+- PROD backend: v19 (REQ-MEDIA-002 desplegado y verificado contra test
+  antes de deployar). PROD frontend: se pone al dia con el push de este
+  mismo commit a GitHub Pages.
+- REQ-MEDIA-002: Fase 1 + Fase 2 implementadas, APTO de Duck (smoke real
+  contra deployment de test, no solo maqueta). Pendiente: que Franco
+  confirme el frontend andando en vivo post-push (mismo criterio usado
+  en MEDIA-001 y BUG-LOGIN-001).
+========================================================

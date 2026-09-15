@@ -1102,6 +1102,8 @@
       padding: 2rem;
       width: 100%;
       max-width: 440px;
+      max-height: 100%;
+      overflow-y: auto;
       transform: scale(0.96) translateY(10px);
       transition: var(--transition);
       position: relative;
@@ -1385,6 +1387,176 @@
     }
 
     /* ====================================================
+       FOTOS DE TAREA — REQ-MEDIA-002
+    ==================================================== */
+    .plan-fotos-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .plan-fotos-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .plan-fotos-grid:empty { margin-bottom: 0; }
+
+    .plan-foto-item {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 0.5px solid var(--border-soft);
+      background: #1A1612;
+      flex-shrink: 0;
+    }
+
+    .plan-foto-item.ok    { border-color: rgba(106,170,128,0.5); }
+    .plan-foto-item.error { border-color: rgba(170,96,96,0.6); }
+
+    .plan-foto-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .plan-foto-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .plan-foto-item.subiendo .plan-foto-overlay {
+      display: flex;
+      background: rgba(8,7,6,0.55);
+    }
+
+    .plan-foto-item.error .plan-foto-overlay {
+      display: flex;
+      background: rgba(30,10,10,0.75);
+      color: var(--red-venc);
+      cursor: help;
+    }
+
+    .plan-fotos-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .plan-fotos-actions .btn {
+      white-space: nowrap;
+    }
+
+    /* ====================================================
+       CARRUSEL DE RECUERDOS — REQ-MEDIA-002
+    ==================================================== */
+    .fotos-recientes-card {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      background: var(--bg-card);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.8rem 1rem;
+      margin-bottom: 1.2rem;
+      cursor: none;
+      transition: var(--transition);
+      animation: slideUp 0.3s ease;
+    }
+
+    .fotos-recientes-card:hover {
+      border-color: rgba(184,120,58,0.3);
+    }
+
+    .fotos-recientes-thumbs {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .fotos-recientes-thumb {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 1.5px solid var(--bg-card);
+      margin-left: -12px;
+      flex-shrink: 0;
+    }
+
+    .fotos-recientes-thumb:first-child { margin-left: 0; }
+
+    .fotos-recientes-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .fotos-recientes-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .fotos-recientes-count {
+      font-size: 0.85rem;
+      color: var(--text-main);
+    }
+
+    .fotos-recientes-link {
+      font-size: 0.72rem;
+      color: var(--copper);
+      letter-spacing: 0.04em;
+    }
+
+    #modal-carrusel .modal {
+      max-width: 560px;
+    }
+
+    .carrusel-viewer {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .carrusel-imagen-wrap {
+      flex: 1;
+      aspect-ratio: 4 / 3;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #0A0908;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .carrusel-imagen-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .carrusel-nav:disabled {
+      opacity: 0.25;
+    }
+
+    .carrusel-caption {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text-soft);
+    }
+
+    /* ====================================================
        RESPONSIVE
     ==================================================== */
     @media (max-width: 600px) {
@@ -1394,6 +1566,7 @@
       .nav-tab     { padding: 0.75rem 0.7rem; font-size: 0.65rem; }
       .plans-grid  { grid-template-columns: 1fr; }
       .login-card  { padding: 2rem 1.5rem; }
+      .carrusel-imagen-wrap { aspect-ratio: 1 / 1; }
     }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1481,6 +1654,15 @@
 
       <!-- TAB: PLANES -->
       <div id="tab-planes">
+        <!-- Carrusel de recuerdos — REQ-MEDIA-002 -->
+        <div class="fotos-recientes-card" id="fotos-recientes-card" hidden>
+          <div class="fotos-recientes-thumbs" id="fotos-recientes-thumbs"></div>
+          <div class="fotos-recientes-text">
+            <span class="fotos-recientes-count" id="fotos-recientes-count"></span>
+            <span class="fotos-recientes-link">Ver recuerdos →</span>
+          </div>
+        </div>
+
         <div class="section-header">
           <div>
             <h2>Nuestros Planes</h2>
@@ -1572,11 +1754,56 @@
         <input type="date" id="plan-fecha-vencimiento" />
       </div>
 
+      <!-- Fotos de la tarea — REQ-MEDIA-002. Solo aplica al editar un plan ya
+           guardado (uploadPlanPhotos necesita un planId existente). -->
+      <div class="form-group" id="plan-fotos-section" style="display:none">
+        <label>Fotos</label>
+        <p class="plan-fotos-hint">Se necesita al menos una foto para poder completar esta tarea.</p>
+        <div class="plan-fotos-grid" id="plan-fotos-grid"></div>
+        <div class="plan-fotos-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-agregar-foto-plan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+            Agregar foto
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-confirmar-fotos-plan" style="display:none">
+            Subir fotos
+          </button>
+        </div>
+        <input type="file" id="plan-foto-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none" />
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-secondary" id="btn-cancel-plan">Cancelar</button>
         <button class="btn btn-primary" id="btn-save-plan">Guardar</button>
       </div>
       <div class="error-msg" id="plan-error"></div>
+    </div>
+  </div>
+
+  <!-- ================================================
+       MODAL: CARRUSEL DE RECUERDOS (fotos de tareas) — REQ-MEDIA-002
+  ================================================ -->
+  <div class="modal-overlay" id="modal-carrusel">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Nuestros recuerdos</h3>
+        <button class="btn-icon" id="btn-close-modal-carrusel" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="carrusel-viewer">
+        <button type="button" class="btn-icon carrusel-nav" id="btn-carrusel-prev" aria-label="Foto anterior">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="carrusel-imagen-wrap">
+          <img id="carrusel-imagen" src="" alt="" />
+        </div>
+        <button type="button" class="btn-icon carrusel-nav" id="btn-carrusel-next" aria-label="Foto siguiente">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="carrusel-caption" id="carrusel-caption"></div>
     </div>
   </div>
 
@@ -2049,6 +2276,9 @@
       // (setAvatarEl, renderPlanes) los lea del cache de forma sincrónica,
       // sin promesas ni parpadeo de "sin foto -> foto".
       await prefetchAvatares();
+
+      // REQ-MEDIA-002: carrusel de recuerdos post-login.
+      await loadFotosRecientes();
     }
 
     function updateHeaderUser() {
@@ -2106,6 +2336,106 @@
         el.textContent = user.nombreDisplay?.[0]?.toUpperCase() || '?';
       }
     }
+
+    // ====================================================
+    // CARRUSEL DE RECUERDOS — REQ-MEDIA-002
+    // Fotos de tareas (owner_tipo='plan'), nunca por URL pública: se piden
+    // por getArchivo y se cachean con el mismo Map que ya usan los avatares
+    // (avatarCache/fetchAvatarDataUrl son agnósticos de qué representa el
+    // archivoId — no hace falta un cache nuevo).
+    // ====================================================
+    let fotosRecientes = []; // últimas ~5, para la card del dashboard
+    let carruselFotos  = []; // set más amplio, para el modal a pantalla completa
+    let carruselIndex  = 0;
+
+    async function loadFotosRecientes() {
+      try {
+        const data = await api('getRecentPlanPhotos', { limit: 5 });
+        fotosRecientes = data.status === 200 ? (data.fotos || []) : [];
+      } catch {
+        fotosRecientes = [];
+      }
+      await renderFotosRecientesCard();
+    }
+
+    async function renderFotosRecientesCard() {
+      const card = document.getElementById('fotos-recientes-card');
+
+      if (fotosRecientes.length === 0) {
+        card.hidden = true;
+        return;
+      }
+
+      await Promise.all(fotosRecientes.map(f => fetchAvatarDataUrl(f.archivoId)));
+
+      const thumbs = document.getElementById('fotos-recientes-thumbs');
+      thumbs.innerHTML = fotosRecientes.map(f => {
+        const src = avatarDataUrl(f.archivoId);
+        return src ? `<div class="fotos-recientes-thumb"><img src="${src}" alt="" /></div>` : '';
+      }).join('');
+
+      const n = fotosRecientes.length;
+      document.getElementById('fotos-recientes-count').textContent =
+        `${n} foto${n === 1 ? '' : 's'} nueva${n === 1 ? '' : 's'}`;
+
+      card.hidden = false;
+    }
+
+    async function openModalCarrusel() {
+      const modal = document.getElementById('modal-carrusel');
+      modal.classList.add('visible');
+      document.getElementById('carrusel-imagen').src = '';
+      document.getElementById('carrusel-caption').textContent = 'Cargando…';
+
+      try {
+        const data = await api('getRecentPlanPhotos', { limit: 20 });
+        carruselFotos = data.status === 200 ? (data.fotos || []) : [];
+      } catch {
+        carruselFotos = [];
+      }
+
+      if (carruselFotos.length === 0) {
+        closeModalCarrusel();
+        return;
+      }
+
+      await Promise.all(carruselFotos.map(f => fetchAvatarDataUrl(f.archivoId)));
+      carruselIndex = 0;
+      renderCarruselFoto();
+    }
+
+    function closeModalCarrusel() {
+      document.getElementById('modal-carrusel').classList.remove('visible');
+    }
+
+    function renderCarruselFoto() {
+      const foto = carruselFotos[carruselIndex];
+      if (!foto) return;
+
+      document.getElementById('carrusel-imagen').src = avatarDataUrl(foto.archivoId) || '';
+
+      const partes = [
+        foto.tituloPlan || null,
+        foto.categoriaNombre || null,
+        foto.fecha ? formatDateDisplay(foto.fecha) : null,
+      ].filter(Boolean);
+      document.getElementById('carrusel-caption').textContent = partes.join(' · ');
+
+      document.getElementById('btn-carrusel-prev').disabled = carruselIndex === 0;
+      document.getElementById('btn-carrusel-next').disabled = carruselIndex === carruselFotos.length - 1;
+    }
+
+    document.getElementById('fotos-recientes-card').addEventListener('click', openModalCarrusel);
+    document.getElementById('btn-close-modal-carrusel').addEventListener('click', closeModalCarrusel);
+    document.getElementById('modal-carrusel').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modal-carrusel')) closeModalCarrusel();
+    });
+    document.getElementById('btn-carrusel-prev').addEventListener('click', () => {
+      if (carruselIndex > 0) { carruselIndex--; renderCarruselFoto(); }
+    });
+    document.getElementById('btn-carrusel-next').addEventListener('click', () => {
+      if (carruselIndex < carruselFotos.length - 1) { carruselIndex++; renderCarruselFoto(); }
+    });
 
     // ====================================================
     // LOGOUT
@@ -2335,6 +2665,114 @@
       savePlan();
     });
 
+    // ====================================================
+    // PLAN — FOTOS (REQ-MEDIA-002)
+    // Selección múltiple con preview antes de confirmar, subida en una sola
+    // llamada a uploadPlanPhotos, y marcado individual de las que fallan sin
+    // descartar las que sí subieron (criterios 10 y 11).
+    // ====================================================
+    // { file, mimeType, fileBase64, previewUrl, estado: 'pendiente'|'subiendo'|'ok'|'error', error }
+    let planFotosSeleccion = [];
+
+    function resetPlanFotosSeleccion() {
+      planFotosSeleccion = [];
+      document.getElementById('plan-fotos-grid').innerHTML = '';
+      document.getElementById('btn-confirmar-fotos-plan').style.display = 'none';
+    }
+
+    function renderPlanFotosGrid() {
+      const grid = document.getElementById('plan-fotos-grid');
+      grid.innerHTML = planFotosSeleccion.map(f => {
+        let overlay = '';
+        if (f.estado === 'subiendo') overlay = '<div class="plan-foto-overlay"><span class="spinner"></span></div>';
+        if (f.estado === 'error')    overlay = `<div class="plan-foto-overlay" title="${escapeHtml(f.error || '')}">✕</div>`;
+        return `<div class="plan-foto-item ${f.estado}">
+          <img src="${f.previewUrl}" alt="" />
+          ${overlay}
+        </div>`;
+      }).join('');
+
+      const hayPendientes = planFotosSeleccion.some(f => f.estado === 'pendiente');
+      document.getElementById('btn-confirmar-fotos-plan').style.display = hayPendientes ? '' : 'none';
+    }
+
+    document.getElementById('btn-agregar-foto-plan').addEventListener('click', () => {
+      document.getElementById('plan-foto-input').click();
+    });
+
+    document.getElementById('plan-foto-input').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = '';
+      if (files.length === 0) return;
+
+      const errorEl = document.getElementById('plan-error');
+      errorEl.classList.remove('visible');
+
+      files.forEach(file => {
+        if (file.size > 3 * 1024 * 1024) {
+          errorEl.textContent = `"${file.name}" supera los 3 MB y no se agregó.`;
+          errorEl.classList.add('visible');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          planFotosSeleccion.push({
+            file,
+            mimeType:    file.type,
+            fileBase64:  ev.target.result.split(',')[1],
+            previewUrl:  ev.target.result,
+            estado:      'pendiente',
+            error:       null,
+          });
+          renderPlanFotosGrid();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    document.getElementById('btn-confirmar-fotos-plan').addEventListener('click', async () => {
+      const planId    = state.editingPlanId;
+      const pendientes = planFotosSeleccion.filter(f => f.estado === 'pendiente');
+      if (!planId || pendientes.length === 0) return;
+
+      pendientes.forEach(f => { f.estado = 'subiendo'; });
+      renderPlanFotosGrid();
+
+      const btnConfirmar = document.getElementById('btn-confirmar-fotos-plan');
+      const btnAgregar    = document.getElementById('btn-agregar-foto-plan');
+      btnConfirmar.disabled = true;
+      btnAgregar.disabled   = true;
+
+      try {
+        const data = await api('uploadPlanPhotos', {
+          planId,
+          files: pendientes.map(f => ({ fileBase64: f.fileBase64, mimeType: f.mimeType })),
+        });
+
+        if (data.status === 200) {
+          const erroresPorIndex = new Map((data.errores || []).map(err => [err.index, err.error]));
+          pendientes.forEach((f, i) => {
+            if (erroresPorIndex.has(i)) {
+              f.estado = 'error';
+              f.error  = erroresPorIndex.get(i);
+            } else {
+              f.estado = 'ok';
+            }
+          });
+          // El carrusel de recuerdos se refresca en caliente con lo recién subido.
+          await loadFotosRecientes();
+        } else {
+          pendientes.forEach(f => { f.estado = 'error'; f.error = data.error || 'Error al subir la imagen.'; });
+        }
+      } catch {
+        pendientes.forEach(f => { f.estado = 'error'; f.error = 'Error de conexión.'; });
+      }
+
+      btnConfirmar.disabled = false;
+      btnAgregar.disabled   = false;
+      renderPlanFotosGrid();
+    });
+
     function openModalPlan(planId) {
       state.editingPlanId = planId || null;
       document.getElementById('modal-plan-title').textContent = planId ? 'Editar Plan' : 'Nuevo Plan';
@@ -2360,6 +2798,11 @@
         document.getElementById('plan-fecha-programada').value  = '';
         document.getElementById('plan-fecha-vencimiento').value = '';
       }
+
+      // Fotos (REQ-MEDIA-002): solo tiene sentido editando un plan que ya
+      // existe — "Nuevo Plan" todavía no tiene planId para asociarle fotos.
+      resetPlanFotosSeleccion();
+      document.getElementById('plan-fotos-section').style.display = planId ? '' : 'none';
 
       document.getElementById('modal-plan').classList.add('visible');
     }
@@ -2430,7 +2873,17 @@
 
     async function completarPlan(planId) {
       const data = await api('completePlan', { planId });
-      if (data.status === 200) { await refreshPlanes(); renderPlanes(); }
+      if (data.status === 200) {
+        await refreshPlanes();
+        renderPlanes();
+      } else if (data.code === 'FOTO_REQUERIDA') {
+        // El usuario nunca queda frente a un error seco: se abre directo el
+        // modal con el flujo de subida de fotos (REQ-MEDIA-002 §2).
+        openModalPlan(planId);
+        const errorEl = document.getElementById('plan-error');
+        errorEl.textContent = data.error || 'Subí al menos una foto para poder completar esta tarea.';
+        errorEl.classList.add('visible');
+      }
     }
 
     async function eliminarPlan(planId) {
