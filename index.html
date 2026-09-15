@@ -2303,16 +2303,27 @@
       return archivoId ? (avatarCache.get(archivoId) || null) : null;
     }
 
-    async function fetchAvatarDataUrl(archivoId) {
-      if (!archivoId || avatarCache.has(archivoId)) return;
+    // Trae varias imágenes en UNA sola llamada al backend (acción
+    // getArchivos, plural) en vez de un round-trip HTTP por imagen. Antes,
+    // cargar el carrusel de 20 fotos disparaba 20 invocaciones aparte del Web
+    // App — cada una paga su propio overhead de arranque de Apps Script, más
+    // la validación de sesión y el escaneo de la hoja Archivos. Ahora es 1.
+    async function fetchAvataresDataUrl(archivoIds) {
+      const idsFaltantes = [...new Set((archivoIds || []).filter(id => id && !avatarCache.has(id)))];
+      if (idsFaltantes.length === 0) return;
+
       try {
-        const data = await api('getArchivo', { archivoId });
-        const url  = data.status === 200
-          ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
-          : '';
-        avatarCache.set(archivoId, url || null);
+        const data = await api('getArchivos', { archivoIds: idsFaltantes });
+        const porId = new Map((data.status === 200 ? data.archivos || [] : []).map(a => [a.archivoId, a]));
+        idsFaltantes.forEach(id => {
+          const a   = porId.get(id);
+          const url = a && !a.error
+            ? safeImageUrl(`data:${a.mimeType};base64,${a.base64}`)
+            : '';
+          avatarCache.set(id, url || null);
+        });
       } catch {
-        avatarCache.set(archivoId, null);
+        idsFaltantes.forEach(id => avatarCache.set(id, null));
       }
     }
 
@@ -2324,7 +2335,7 @@
       Object.values(state.users).forEach(u => {
         if (u.avatarArchivoId) ids.add(u.avatarArchivoId);
       });
-      await Promise.all([...ids].map(fetchAvatarDataUrl));
+      await fetchAvataresDataUrl([...ids]);
     }
 
     function setAvatarEl(el, user, large = false) {
@@ -2340,8 +2351,8 @@
     // ====================================================
     // CARRUSEL DE RECUERDOS — REQ-MEDIA-002
     // Fotos de tareas (owner_tipo='plan'), nunca por URL pública: se piden
-    // por getArchivo y se cachean con el mismo Map que ya usan los avatares
-    // (avatarCache/fetchAvatarDataUrl son agnósticos de qué representa el
+    // por getArchivos (batch) y se cachean con el mismo Map que ya usan los
+    // avatares (avatarCache/fetchAvataresDataUrl son agnósticos de qué representa el
     // archivoId — no hace falta un cache nuevo).
     // ====================================================
     let fotosRecientes = []; // últimas ~5, para la card del dashboard
@@ -2366,7 +2377,7 @@
         return;
       }
 
-      await Promise.all(fotosRecientes.map(f => fetchAvatarDataUrl(f.archivoId)));
+      await fetchAvataresDataUrl(fotosRecientes.map(f => f.archivoId));
 
       const thumbs = document.getElementById('fotos-recientes-thumbs');
       thumbs.innerHTML = fotosRecientes.map(f => {
@@ -2399,7 +2410,7 @@
         return;
       }
 
-      await Promise.all(carruselFotos.map(f => fetchAvatarDataUrl(f.archivoId)));
+      await fetchAvataresDataUrl(carruselFotos.map(f => f.archivoId));
       carruselIndex = 0;
       renderCarruselFoto();
     }
@@ -2700,6 +2711,40 @@
       document.getElementById('plan-foto-input').click();
     });
 
+    // Achica y comprime una foto en el navegador ANTES de mandarla al backend.
+    // Una foto de celular sin comprimir (2-4 MB) sube lento y después se
+    // vuelve a bajar igual de lenta cada vez que se muestra en el carrusel
+    // (getArchivo relee el binario de Drive tal cual se guardó). Mismo
+    // criterio que ya usa el recorte de avatar (ver aplicarRecorteAvatar):
+    // redimensionar con canvas y exportar como JPEG. El resultado siempre es
+    // JPEG aunque el original sea PNG/WEBP — es una foto de tarea, no un
+    // gráfico con transparencia, así que no hace falta preservar el formato.
+    function comprimirImagenPlan(file, maxLado = 1800, calidad = 0.82) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(img.src);
+          const escala  = Math.min(1, maxLado / Math.max(img.width, img.height));
+          const canvas  = document.createElement('canvas');
+          canvas.width  = Math.max(1, Math.round(img.width  * escala));
+          canvas.height = Math.max(1, Math.round(img.height * escala));
+
+          const ctx = canvas.getContext('2d');
+          // Fondo blanco antes de dibujar: un PNG con transparencia exportado
+          // a JPEG (que no soporta alfa) dejaría las áreas transparentes en
+          // negro si no se rellenan primero.
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+          resolve({ mimeType: 'image/jpeg', base64: dataUrl.split(',')[1], dataUrl });
+        };
+        img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
     document.getElementById('plan-foto-input').addEventListener('change', (e) => {
       const files = Array.from(e.target.files || []);
       e.target.value = '';
@@ -2708,25 +2753,36 @@
       const errorEl = document.getElementById('plan-error');
       errorEl.classList.remove('visible');
 
-      files.forEach(file => {
-        if (file.size > 3 * 1024 * 1024) {
-          errorEl.textContent = `"${file.name}" supera los 3 MB y no se agregó.`;
+      files.forEach(async file => {
+        // Límite de cordura sobre el ORIGINAL (antes de comprimir): más que
+        // esto no vale la pena intentar decodificarlo en el navegador. Como
+        // ahora se comprime siempre, este tope es mucho más alto que el
+        // límite viejo de 3 MB — ya no hace falta que el usuario elija a
+        // mano una foto "más liviana".
+        if (file.size > 20 * 1024 * 1024) {
+          errorEl.textContent = `"${file.name}" es demasiado grande y no se agregó.`;
           errorEl.classList.add('visible');
           return;
         }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          planFotosSeleccion.push({
-            file,
-            mimeType:    file.type,
-            fileBase64:  ev.target.result.split(',')[1],
-            previewUrl:  ev.target.result,
-            estado:      'pendiente',
-            error:       null,
-          });
-          renderPlanFotosGrid();
-        };
-        reader.readAsDataURL(file);
+
+        let comprimido;
+        try {
+          comprimido = await comprimirImagenPlan(file);
+        } catch {
+          errorEl.textContent = `No se pudo procesar "${file.name}".`;
+          errorEl.classList.add('visible');
+          return;
+        }
+
+        planFotosSeleccion.push({
+          file,
+          mimeType:    comprimido.mimeType,
+          fileBase64:  comprimido.base64,
+          previewUrl:  comprimido.dataUrl,
+          estado:      'pendiente',
+          error:       null,
+        });
+        renderPlanFotosGrid();
       });
     });
 

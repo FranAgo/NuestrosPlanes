@@ -60,6 +60,22 @@ const SESION_PURGA_GRACIA_MS = 7 * 24 * 60 * 60 * 1000;
 // hoja. TTL corto a propósito: solo tiene que cubrir los segundos post-login.
 const SESION_CACHE_BRIDGE_SEC = 120;
 
+// Fast-path de validarSesion(): TTL corto de un veredicto positivo, para
+// evitar releer TODA la hoja Sesiones en cada request de la app (hoy se paga
+// en cada acción: consultar, subir foto, completar, crear tarea). Revisado
+// con Julia antes de sumarlo — el diseño preserva las dos garantías que ya
+// prueba el harness de sesión (grpB_*):
+//   1. Revocación inmediata: handleLogout borra esta entrada de cache en el
+//      mismo momento en que borra el puente de login (ver más abajo), así
+//      que un MISS siempre cae al camino normal contra la hoja — la única
+//      fuente de verdad para revocación y expiración. Nunca se usa como
+//      fallback cuando la hoja falla (a diferencia del puente de login, este
+//      fast-path se consulta ANTES de intentar leer la hoja, no después).
+//   2. No sobrevive a la expiración real: el TTL efectivo se acota al tiempo
+//      que le queda a la sesión (ver cachearValidacionRapida), nunca a
+//      SESION_CACHE_RAPIDA_SEC fijo si la sesión expira antes.
+const SESION_CACHE_RAPIDA_SEC = 90;
+
 // Veto anti-carrera para el logout: mismo problema que el puente de login,
 // pero al revés. Si revocarSesion() corre antes de que la fila de crearSesion()
 // sea visible en la hoja, no encuentra qué marcar 'revocada' — y esa fila
@@ -170,6 +186,7 @@ function doPost(e) {
 
       // Archivos
       case 'getArchivo':      return handleGetArchivo(body);
+      case 'getArchivos':     return handleGetArchivos(body);
 
       // Categorías
       case 'getCategorias':   return handleGetCategorias(body);
@@ -274,6 +291,7 @@ function handleLoginGoogle(body) {
       // Guardar el google_sub la primera vez que entra, para trazabilidad.
       if (!row[3] && googleSub) {
         sheet.getRange(i + 1, 4).setValue(googleSub);
+        invalidarCacheHoja(SHEETS.USUARIOS);
       }
 
       const userId = row[0];
@@ -417,6 +435,15 @@ function validarSesion(sessionToken) {
   const sessionId = sessionToken.slice(0, punto);
   const secreto   = sessionToken.slice(punto + 1);
 
+  // Fast-path: si esta sesión ya se validó hace poco contra la hoja, nos
+  // ahorramos releerla entera. Un HIT solo puede pasar si la última
+  // validación completa fue exitosa (ver cachearValidacionRapida) y el
+  // logout no la borró después — por eso un HIT es tan confiable como leer
+  // la hoja de nuevo, pero sin el costo. Un MISS cae directo al camino de
+  // siempre, sin ninguna otra consecuencia.
+  const rapido = validarDesdeCacheRapida(sessionId, secreto);
+  if (rapido) return rapido;
+
   // La lectura de la hoja va fuera de try/catch a propósito: si getSesionRow()
   // tira (falla transitoria de Sheets), el error propaga como siempre y NO se
   // consulta el puente de cache. La cache solo entra cuando la hoja respondió
@@ -465,7 +492,58 @@ function validarSesion(sessionToken) {
     tocarSesion(fila._rowIndex);
   }
 
+  cachearValidacionRapida(
+    sessionId, String(fila.token_hash), fila.usuario_id,
+    new Date(fila.fecha_expiracion).getTime() - ahora
+  );
+
   return { userId: fila.usuario_id };
+}
+
+// Guarda el veredicto de una validación completa (recién hecha contra la
+// hoja) para que el próximo request pueda saltarse esa lectura. msRestantes
+// es lo que le queda de vida real a la sesión — el TTL nunca lo supera, así
+// esta entrada no puede "revivir" una sesión ya vencida.
+function cachearValidacionRapida(sessionId, tokenHash, usuarioId, msRestantes) {
+  try {
+    const ttlSec = Math.min(SESION_CACHE_RAPIDA_SEC, Math.floor(msRestantes / 1000));
+    if (ttlSec < 1) return;  // ya está por vencer: no vale la pena cachearla
+    CacheService.getScriptCache().put(
+      'sesion-ok:' + sessionId,
+      JSON.stringify({ h: tokenHash, u: usuarioId }),
+      ttlSec
+    );
+  } catch (err) {
+    Logger.log('cachearValidacionRapida: cache no disponible (' + sessionId + '): ' + err.toString());
+  }
+}
+
+// Fast-path de validarSesion(). Devuelve { userId } si hay un veredicto
+// positivo reciente y el secreto presentado coincide con el hash guardado en
+// ese momento, o null para que validarSesion() siga con el camino normal
+// (leer la hoja). Nunca es autoridad de revocación/expiración por sí sola —
+// solo abrevia una validación que ya se hizo, con vida corta y borrado
+// explícito en el logout.
+function validarDesdeCacheRapida(sessionId, secreto) {
+  let crudo;
+  try {
+    crudo = CacheService.getScriptCache().get('sesion-ok:' + sessionId);
+  } catch (err) {
+    return null;
+  }
+  if (!crudo) return null;
+
+  let entry;
+  try {
+    entry = JSON.parse(crudo);
+  } catch (err) {
+    return null;
+  }
+  if (!entry || !entry.h || !entry.u) return null;
+
+  if (!comparacionConstante(hmacHex(secreto), String(entry.h))) return null;
+
+  return { userId: entry.u };
 }
 
 // Fallback de validarSesion() para la ventana post-login: la fila de la sesión
@@ -523,6 +601,11 @@ function handleLogout(body) {
     // SESION_CACHE_BRIDGE_SEC después del logout.
     try {
       CacheService.getScriptCache().remove('sesion:' + sessionId);
+      // Mismo borrado inmediato para el fast-path de validación (ver
+      // SESION_CACHE_RAPIDA_SEC): si no se borra acá, un request con esta
+      // sesión podría seguir validando "por cache" hasta por 90s después del
+      // logout, aunque la hoja ya diga 'revocada'.
+      CacheService.getScriptCache().remove('sesion-ok:' + sessionId);
     } catch (err) {
       Logger.log('handleLogout: no se pudo borrar el puente de cache (' + sessionId + '): ' + err.toString());
     }
@@ -806,6 +889,7 @@ function setAvatarEnUsuario(userId, archivoId, fotoUrl) {
     if (data[i][iId] === userId) {
       if (iAvatar !== -1)              sheet.getRange(i + 1, iAvatar + 1).setValue(archivoId);
       if (iFoto !== -1 && fotoUrl)     sheet.getRange(i + 1, iFoto + 1).setValue(fotoUrl);
+      invalidarCacheHoja(SHEETS.USUARIOS);
       return true;
     }
   }
@@ -823,8 +907,7 @@ function categoriaEstaEliminada(estado) {
 }
 
 function handleGetCategorias(body) {
-  const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data  = sheet.getDataRange().getValues();
+  const data  = getDatosHoja(SHEETS.CATEGORIAS);
   const h     = data[0];
   const iId    = h.indexOf('categoria_id');
   const iNom   = h.indexOf('nombre');
@@ -888,6 +971,7 @@ function handleCreateCategoria(body) {
     }
   });
   sheet.appendRow(fila);
+  invalidarCacheHoja(SHEETS.CATEGORIAS);
 
   return respond(200, { success: true, categoriaId });
 }
@@ -915,6 +999,7 @@ function handleUpdateCategoria(body) {
     if (colorHex) sheet.getRange(i + 1, iCol + 1).setValue(colorHex);
     if (iMod  !== -1) sheet.getRange(i + 1, iMod  + 1).setValue(authUserId || '');
     if (iFMod !== -1) sheet.getRange(i + 1, iFMod + 1).setValue(new Date().toISOString());
+    invalidarCacheHoja(SHEETS.CATEGORIAS);
     return respond(200, { success: true });
   }
 
@@ -960,6 +1045,7 @@ function handleDeleteCategoria(body) {
     if (iEst  !== -1) sheet.getRange(i + 1, iEst  + 1).setValue('eliminada');
     if (iElim !== -1) sheet.getRange(i + 1, iElim + 1).setValue(authUserId || '');
     if (iFel  !== -1) sheet.getRange(i + 1, iFel  + 1).setValue(new Date().toISOString());
+    invalidarCacheHoja(SHEETS.CATEGORIAS);
 
     registrarAuditoria(authUserId, 'categoria.eliminar', 'Categorias', categoriaId, { nombre: nombre });
     return respond(200, { success: true });
@@ -1177,6 +1263,61 @@ function getSheet(sheetName) {
   return sheet;
 }
 
+// Caché de lectura para hojas CHICAS y de BAJO CAMBIO (Categorias: un puñado
+// de filas; Usuarios: 2 filas). TTL corto, invalidado a mano en cada
+// escritura (ver invalidarCacheHoja) — la staleness máxima real es el tiempo
+// entre una escritura y que alguien la llame, nunca más que el TTL.
+// Deliberadamente NO se usa para Planes/Archivos/Sesiones: esas cambian
+// seguido y su estado tiene que ser siempre fresco (ej. el gate de fotos en
+// handleCompletePlan necesita el conteo real, no uno de hace 30 segundos).
+// Diseño: Gary. Uso exclusivo en lecturas de solo existencia/listado — las
+// escrituras (handleUpdateCategoria, etc.) siguen leyendo la hoja en vivo
+// porque necesitan el número de fila real para mutar, no un array cacheado.
+const CACHE_HOJA_TTL_SEC = 30;
+const HOJAS_CACHEABLES = [SHEETS.CATEGORIAS, SHEETS.USUARIOS];
+
+// CacheService es global al SCRIPT, no a la planilla — la clave tiene que
+// incluir qué planilla está activa. Si no, una entrada cacheada mientras
+// corre un test contra una planilla scratch (mismo nombre de hoja
+// "Categorias" que producción) podría filtrarse a otra corrida o a
+// producción. abrirPlanilla().getId() ya resuelve el seam de test
+// (TEST_SPREADSHEET_ID_OVERRIDE) o SPREADSHEET_ID en prod.
+function claveCacheHoja(sheetName) {
+  return 'hoja:' + abrirPlanilla().getId() + ':' + sheetName;
+}
+
+function getDatosHoja(sheetName) {
+  if (HOJAS_CACHEABLES.indexOf(sheetName) === -1) {
+    return getSheet(sheetName).getDataRange().getValues();
+  }
+
+  const clave = claveCacheHoja(sheetName);
+  try {
+    const crudo = CacheService.getScriptCache().get(clave);
+    if (crudo) return JSON.parse(crudo);
+  } catch (err) {
+    Logger.log('getDatosHoja: cache no disponible (' + sheetName + '): ' + err.toString());
+  }
+
+  const data = getSheet(sheetName).getDataRange().getValues();
+  try {
+    CacheService.getScriptCache().put(clave, JSON.stringify(data), CACHE_HOJA_TTL_SEC);
+  } catch (err) {
+    Logger.log('getDatosHoja: no se pudo cachear ' + sheetName + ': ' + err.toString());
+  }
+  return data;
+}
+
+// Se llama después de cualquier escritura a una hoja cacheable, para que el
+// próximo read no sirva datos viejos hasta que venza el TTL solo.
+function invalidarCacheHoja(sheetName) {
+  try {
+    CacheService.getScriptCache().remove(claveCacheHoja(sheetName));
+  } catch (err) {
+    Logger.log('invalidarCacheHoja: cache no disponible (' + sheetName + '): ' + err.toString());
+  }
+}
+
 function respond(statusCode, data) {
   const payload = JSON.stringify({ status: statusCode, ...data });
   return ContentService
@@ -1195,8 +1336,7 @@ function formatDate(value) {
 
 // Una categoría eliminada lógicamente no "existe" para las FK de Planes.
 function categoriaExists(categoriaId) {
-  const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data  = sheet.getDataRange().getValues();
+  const data  = getDatosHoja(SHEETS.CATEGORIAS);
   const h     = data[0];
   const iId   = h.indexOf('categoria_id');
   const iEst  = h.indexOf('estado');
@@ -1209,8 +1349,7 @@ function categoriaExists(categoriaId) {
 }
 
 function userExists(userId) {
-  const sheet = getSheet(SHEETS.USUARIOS);
-  const data = sheet.getDataRange().getValues();
+  const data = getDatosHoja(SHEETS.USUARIOS);
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === userId) return true;
   }
@@ -1269,6 +1408,54 @@ function handleGetArchivo(body) {
     Logger.log('Error al leer archivo ' + archivoId + ': ' + err.toString());
     return respond(500, { error: 'Error al leer el archivo.' });
   }
+}
+
+// Trae varios archivos en una sola invocación: el frontend arma la lista de
+// archivoId que necesita (avatares + fotos del carrusel) y las pide todas
+// juntas, en vez de un request HTTP por imagen (cada uno paga aparte el
+// overhead de invocación de Apps Script + validarSesion + un escaneo de la
+// hoja Archivos). Un solo pase por la hoja resuelve TODOS los IDs pedidos —
+// no reusa getArchivoRow porque eso releería la hoja una vez por ID.
+// Cada archivo se resuelve de forma independiente: uno que falla no tira
+// abajo la respuesta (mismo criterio que uploadPlanPhotos).
+function handleGetArchivos(body) {
+  const { archivoIds } = body;
+
+  if (!Array.isArray(archivoIds) || archivoIds.length === 0) {
+    return respond(400, { error: 'Se requiere al menos un archivoId.' });
+  }
+  // Tope defensivo: un pedido con esto adentro va en una sola invocación de
+  // Apps Script, con su límite de tiempo y de tamaño de respuesta.
+  const ids = archivoIds.slice(0, 100);
+
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const porId = {};
+  for (let i = 1; i < data.length; i++) {
+    const obj = {};
+    h.forEach((col, j) => { obj[col] = data[i][j]; });
+    porId[obj.archivo_id] = obj;
+  }
+
+  const archivos = ids.map(archivoId => {
+    const archivo = porId[archivoId];
+    if (!archivo || archivo.estado !== 'activo') {
+      return { archivoId: archivoId, error: 'Archivo no encontrado.' };
+    }
+    try {
+      const blob     = DriveApp.getFileById(archivo.drive_file_id).getBlob();
+      const base64   = Utilities.base64Encode(blob.getBytes());
+      const mimeType = archivo.mime_type || blob.getContentType();
+      return { archivoId: archivoId, base64: base64, mimeType: mimeType };
+    } catch (err) {
+      // Sin binario en el log.
+      Logger.log('Error al leer archivo ' + archivoId + ' (batch): ' + err.toString());
+      return { archivoId: archivoId, error: 'Error al leer el archivo.' };
+    }
+  });
+
+  return respond(200, { archivos: archivos });
 }
 
 // ------------------------------------------------------------
@@ -1512,8 +1699,7 @@ function contarFotosActivasPlan(planId) {
 // nombre de carpeta de fotos de tarea (REQ-MEDIA-002 §3).
 function getCategoriaNombre(categoriaId) {
   if (!categoriaId) return null;
-  const sheet = getSheet(SHEETS.CATEGORIAS);
-  const data  = sheet.getDataRange().getValues();
+  const data  = getDatosHoja(SHEETS.CATEGORIAS);
   const h     = data[0];
   const iId   = h.indexOf('categoria_id');
   const iNom  = h.indexOf('nombre');

@@ -1441,3 +1441,90 @@ Estado:
   confirme el frontend andando en vivo post-push (mismo criterio usado
   en MEDIA-001 y BUG-LOGIN-001).
 ========================================================
+
+========================================================
+2026-09-15 10:49 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Motivo: Franco reportó que la app tarda mucho en consultar tareas, subir
+fotos, completar tareas y agregar tareas nuevas. Diagnóstico + backlog de
+performance (sin REQ formal todavía, se referencia como REQ-PERF-001 en
+los mensajes de deploy) + implementación de las 4 mejoras acordadas.
+
+Cambios:
+- index.html — comprimirImagenPlan(): las fotos de tarea se redimensionan
+  y comprimen a JPEG en el navegador (canvas, máx. 1800px, calidad 0.82)
+  ANTES de subir, igual criterio que ya usaba el recorte de avatar. Sube
+  el límite de tamaño de archivo original de 3MB a 20MB (antes había que
+  elegir a mano una foto "más liviana"; ahora se comprime siempre).
+- index.html — fetchAvataresDataUrl(): batch de imágenes. El carrusel de
+  recuerdos y los avatares pedían 1 request HTTP por foto (hasta 21 para
+  el modal de 20 fotos); ahora piden todas las que falten en una sola
+  llamada a la acción getArchivos. Reemplaza fetchAvatarDataUrl (singular)
+  en los 3 call sites (prefetchAvatares, renderFotosRecientesCard,
+  openModalCarrusel).
+- Code.gs — handleGetArchivos(): acción nueva 'getArchivos' (plural),
+  batch de hasta 100 archivoId por llamada, un solo pase por la hoja
+  Archivos en vez de 1 lectura completa por ID. getArchivo (singular)
+  queda intacto — lo siguen usando los tests de MEDIA-001.
+- Code.gs — fast-path de validarSesion(): SESION_CACHE_RAPIDA_SEC (90s),
+  cachearValidacionRapida()/validarDesdeCacheRapida(). Evita releer toda
+  la hoja Sesiones en cada request de la app. Revisado con criterio de
+  Julia antes de sumarlo: el logout borra esta entrada de cache de
+  inmediato (handleLogout), así que la revocación sigue siendo efectiva
+  al toque; el TTL nunca supera el tiempo real que le queda a la sesión.
+  No se usa nunca como fallback cuando la hoja falla (se consulta ANTES
+  de leerla, no después) — no debilita las garantías que ya probaba el
+  harness de sesión (grpB_*).
+- Code.gs — getDatosHoja()/invalidarCacheHoja(): caché de lectura (TTL
+  30s) para Categorias y Usuarios (hojas chicas, cambian poco). NO se usa
+  para Planes/Archivos/Sesiones (necesitan estado siempre fresco, ej. el
+  gate de fotos de completePlan). Invalidado a mano en cada escritura:
+  handleCreateCategoria, handleUpdateCategoria, handleDeleteCategoria,
+  handleLoginGoogle (google_sub), setAvatarEnUsuario.
+- userExists/categoriaExists/getCategoriaNombre/handleGetCategorias pasan
+  a leer por getDatosHoja() en vez de sheet.getDataRange().getValues()
+  directo.
+
+Bug introducido y corregido en esta misma sesión (antes de correr un solo
+test): getDatosHoja() cacheaba por nombre de hoja nada más, pero
+CacheService es global al script, no a la planilla — una entrada de una
+planilla scratch de test se podía filtrar a otra corrida o a prod, porque
+todas tienen una hoja "Categorias"/"Usuarios". Se corrigió incluyendo el
+ID de la planilla activa en la clave de cache (claveCacheHoja()).
+
+Verificación (Duck):
+- Suites existentes contra Apps Script real (proyecto de test, planillas
+  scratch descartables): REQ-DATA-002 70/70, BUG-LOGIN-001-B 38/38 (sigue
+  probando que el logout invalida al toque y que la hoja nunca se salta
+  por un error de cache), REQ-MEDIA-001 22/22, REQ-MEDIA-002 36/36.
+- Smoke propio para el código nuevo (getArchivos batch, fast-path de
+  sesión, invalidación de cache de Categorias) corrido y aprobado, 20/20
+  — no quedó como test permanente en Tests.gs por no corresponder a un
+  REQ documentado todavía; si se formaliza como REQ-PERF-001 se vuelve a
+  escribir ahí.
+- Frontend probado en el navegador real (no en la cabeza): imagen
+  sintética de ~8MB comprimida a ~85KB JPEG con comprimirImagenPlan();
+  fetchAvataresDataUrl() pidiendo 4 IDs hizo 1 sola llamada a getArchivos,
+  y una segunda tanda con 2 ya cacheados + 1 nuevo pidió solo el nuevo.
+- No probado: el flujo completo con login real de Google en el navegador
+  (requiere cuenta real autenticándose) — se verificó cada pieza por
+  separado contra el motor real en su lugar.
+
+Deploy:
+- clasp push -f (prod) -- Code.gs + appsscript.json.
+- clasp version 20 + clasp redeploy sobre el deployment real
+  (AKfycbyKWCtppz...LxD0d) -> @20. Misma URL, sin tocar SCRIPT_URL.
+- Backend en prod ya soporta getArchivos; el push de index.html a GitHub
+  Pages (este mismo commit) es lo que activa la compresión y el batch en
+  el cliente.
+
+Estado:
+- PROD backend: v20. PROD frontend: se pone al día con el push de este
+  commit a GitHub Pages.
+- Pendiente: que Franco note la mejora de velocidad usando la app en vivo
+  (mismo criterio de cierre que MEDIA-001/MEDIA-002/BUG-LOGIN-001). Si el
+  backlog de performance se formaliza como REQ-PERF-001, falta agregar
+  test permanente para getArchivos.
+========================================================
