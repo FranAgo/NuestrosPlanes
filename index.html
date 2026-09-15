@@ -2220,10 +2220,26 @@
       updateHeaderUser();
 
       try {
-        await Promise.all([loadCategorias(), loadPlanes()]);
+        // Estas 3 llamadas son independientes entre sí — se disparan todas
+        // de una para no pagar, encadenado, el costo fijo de cada viaje a
+        // Apps Script por separado (esto es lo que hacía tardar ~30s el
+        // "Cargando…": antes categorías/planes -> usuarios -> avatares ->
+        // fotos recientes iban una atrás de la otra sin necesidad).
+        const categoriasPromise = loadCategorias();
+        const planesPromise     = loadPlanes();
+        const fotosPromise      = loadFotosRecientes();  // no depende de planes ni categorías
+
+        await planesPromise;
         // Si un 401 en el medio disparó forceLogout, ya estamos en el login.
         if (!state.session) return;
-        await loadOtherUsers();
+        // loadOtherUsers sí depende de los planes (saca los otherIds de ahí),
+        // así que recién puede arrancar acá — pero corre en paralelo con
+        // fotosPromise/categoriasPromise, no atrás de ellas.
+        const usuariosPromise = loadOtherUsers();
+
+        await Promise.all([categoriasPromise, usuariosPromise, fotosPromise]);
+        if (!state.session) return;
+
         // loadOtherUsers ya resolvió el cache de avatares (prefetchAvatares) —
         // repintamos el header, que se dibujó antes con el cache todavía vacío.
         updateHeaderUser();
@@ -2277,8 +2293,10 @@
       // sin promesas ni parpadeo de "sin foto -> foto".
       await prefetchAvatares();
 
-      // REQ-MEDIA-002: carrusel de recuerdos post-login.
-      await loadFotosRecientes();
+      // REQ-MEDIA-002 (carrusel de recuerdos): se dispara aparte, en
+      // paralelo con esta función — ver initApp(). No depende de usuarios
+      // ni de avatares, así que encadenarlo acá adentro solo sumaba una
+      // etapa secuencial más a la carga inicial sin necesidad.
     }
 
     function updateHeaderUser() {

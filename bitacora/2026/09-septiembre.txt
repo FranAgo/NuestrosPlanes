@@ -1528,3 +1528,47 @@ Estado:
   backlog de performance se formaliza como REQ-PERF-001, falta agregar
   test permanente para getArchivos.
 ========================================================
+
+========================================================
+2026-09-15 11:30 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Motivo: Franco reportó que, aun con las mejoras de la entrada anterior,
+recargar la página se queda ~30s en "Cargando…" — demasiado para ser
+solo tareas.
+
+Cambios:
+- index.html — initApp(): antes encadenaba categorías/planes -> usuarios
+  -> avatares -> lista de fotos recientes -> imágenes de fotos, 5 etapas
+  en serie (loadFotosRecientes vivía adentro de loadOtherUsers() sin
+  depender de nada de ahí). Se reordenó para que categorías, planes y la
+  lista de fotos recientes arranquen las 3 juntas desde el principio, y
+  loadOtherUsers (que sí depende de los planes, saca los otherIds de
+  ahí) arranque en cuanto llegan los planes, en paralelo con el resto.
+  Queda en 3 etapas en serie como máximo. Cambio solo de frontend, no
+  toca Code.gs.
+- refreshPlanes() (se usa tras crear/editar/borrar una tarea) pierde el
+  refresco incidental de fotos recientes que arrastraba por depender de
+  loadOtherUsers — no es una regresión: ninguna de esas acciones toca
+  fotos, y las fotos ya se refrescan aparte justo después de subirlas.
+
+Verificación (Duck): medido en el navegador con latencia simulada fija
+(400ms por llamada) para aislar la profundidad de la cadena, no el
+tiempo absoluto. Antes: 5 etapas x 400ms = 2000ms. Ahora: 3 etapas x
+400ms = 1200ms (40% menos). Con la latencia real de Apps Script (mucho
+mayor que 400ms) el efecto en los ~30s reportados debería ser mayor,
+aunque no elimina el problema de fondo: siguen siendo 3 viajes de red
+en serie, cada uno con el costo fijo de invocación de Apps Script.
+
+Pendiente (no bloqueante, no implementado en esta sesión): la baja
+definitiva requeriría un endpoint de backend que devuelva categorías +
+planes + usuarios + avatares + fotos recientes en una sola invocación
+de Apps Script, en vez de varias por separado. Discutido con Franco,
+queda para cuando se formalice REQ-PERF-001 (ver entrada anterior) — no
+existe todavía ese archivo de requerimiento, el backlog de esta sesión
+vivió solo en la conversación.
+
+Deploy: solo push de index.html a GitHub Pages (este commit). Sin
+cambios en Code.gs, no hizo falta clasp push/redeploy.
+========================================================
