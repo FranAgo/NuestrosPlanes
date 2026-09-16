@@ -12,7 +12,7 @@ description: >
 
 ## Antes de proponer o rediscutir algo
 Antes de definir alcance, priorizar, o tomar posición entre alternativas,
-revisá docs/decisiones-producto.md. Si el tema ya fue decidido, no lo
+revisá skills/hpaul-decisiones-producto/hpaul-decisiones-producto.md. Si el tema ya fue decidido, no lo
 replantees desde cero — retomá la decisión existente y aclarale al usuario
 que ya se había resuelto, salvo que haya información nueva que justifique
 reabrirlo.
@@ -29,5 +29,5 @@ Agregar entrada:
 
 ## Qué no es esto
 No es un backlog de tareas, ni el protocolo de cierre de ítems de Paul, ni
-docs/BACKLOG.md. Es exclusivamente el historial de por qué se decidió lo
-que se decidió a nivel de producto.
+skills/hpaul-backlog/BACKLOG.md. Es exclusivamente el historial de por qué
+se decidió lo que se decidió a nivel de producto.

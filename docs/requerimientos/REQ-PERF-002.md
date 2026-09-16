@@ -1,6 +1,6 @@
 # REQ-PERF-002 — Performance: render de tareas desacoplado de imágenes, cache de imágenes persistido y reintento de Drive
 
-> **Estado:** IMPLEMENTADO, APTO de Duck. Backend en prod (Web App @21, 2026-09-15). Frontend pendiente de push a GitHub Pages (queda en working tree hasta confirmación de Franco, ver flujo de commit/push del proyecto).
+> **Estado:** CERRADO. Backend en prod (Web App @21, 2026-09-15). Frontend pusheado a GitHub Pages (commit `7ae8311`, 2026-09-15). *(Estado corregido el 2026-09-16 — el doc decía "pendiente de push" pero ya estaba en `main` hacía varias sesiones.)*
 > **Dueño técnico:** Bob (back) + Jay (front) · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-PERF-001](REQ-PERF-001.md) (contexto y arquitectura ya diagnosticada ahí).
 > **Nota:** REQ-PERF-001 había dejado anotado un candidato "REQ-PERF-002" distinto (endpoint único de carga inicial). Tras investigar el reporte nuevo de Franco, ese no resultó ser el cuello de botella principal — este REQ ataca tres causas más concretas y de menor riesgo. El endpoint único sigue sin diseñar; si hace falta retomarlo, corresponde numerarlo REQ-PERF-003.

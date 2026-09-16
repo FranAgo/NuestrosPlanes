@@ -1979,3 +1979,89 @@ Cambios:
 - docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
   de este bug como cuarto item.
 ========================================================
+
+========================================================
+2026-09-16 00:07 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza el ordenamiento. Cierre de sesion.
+--------------------------------------------------------
+Tres cosas de proceso/orden, cierre de la sesion de REQ-PERF-005.
+
+1. Rutas rotas en las skills nuevas de Paul (commiteadas la sesion
+   anterior, nunca probadas): decision-log_SKILL.md, backlog-triage_SKILL.md
+   y paul-engineer-pm_SKILL.md decian textualmente "revisa
+   docs/decisiones-producto.md" y "docs/BACKLOG.md", pero esos archivos
+   viven en skills/hpaul-decisiones-producto/... y skills/hpaul-backlog/...
+   Si alguien invocaba esas skills literalmente, buscaban en una ruta
+   inexistente y no encontraban nada, en silencio. Corregidas las 3
+   referencias en los 3 archivos.
+
+2. Diagnostico de thumbnailLink (Drive API v3, Servicio Avanzado) para
+   REQ-PERF-004, corrido contra el proyecto de test — Franco pidio evaluar
+   si hay una forma mas eficiente de servir imagenes de Drive antes de
+   seguir iterando a mano en el carrusel:
+   - Habilitado temporalmente el Servicio Avanzado de Drive en
+     appsscript.json (solo test), agregada una funcion de diagnostico
+     temporal en Tests.gs con una foto sintetica realista (PNG 900x600,
+     ~112KB, generada con Node — no el fixture trivial de las demas
+     suites).
+   - Resultado (corrido 2 veces, mismo resultado ambas): a diferencia de
+     DriveApp.getThumbnail() (descartado en REQ-PERF-003, no funciona para
+     fotos subidas), el campo thumbnailLink SI esta disponible de
+     inmediato tras subir (hasThumbnail:true sin esperar) y es liviano:
+     594 bytes a 220px vs. 111.584 bytes el original (~188x mas chico).
+     Probados ademas 400px (1.103B), 800px (2.653B) y 1600px (= el
+     original, sin upscale).
+   - Limpieza: Tests.gs y appsscript.json revertidos a como estaban
+     (git checkout) y re-empujados asi al proyecto de test. Los archivos
+     de prueba en Drive se autodestruyen en cada corrida
+     (setTrashed). Nada de esto toco prod ni quedo en el repo.
+   - Aplica a REQ-PERF-004 (card de fotos recientes del dashboard), NO al
+     carrusel a pantalla completa (necesita resolucion completa). Falta:
+     que Bob lo implemente con fallback al blob completo si no hay
+     thumbnailLink, y que Julia confirme que proxear la URL de Google
+     desde Apps Script (nunca exponerla directo al cliente) mantiene el
+     criterio de privacidad de REQ-MEDIA-001.
+
+3. Consolidacion del backlog historico, a pedido de Franco ("empezamos a
+   ordenar mejor"): se recorrio toda la bitacora de la sesion buscando
+   items pendientes mencionados en prosa a lo largo de varias sesiones
+   (nunca se habian volcado a BACKLOG.md, que seguia vacio pese a existir
+   la skill). Cada item se verifico contra el codigo actual antes de
+   agregarlo -- varios ya estaban resueltos y NO se agregaron (nav-tab/
+   filter-chip ya son <button>, confirm() nativo ya se reemplazo,
+   errorEl.textContent de forceLogout() ya se limpia, IDs de categoria/
+   plan ya usan newId(), trigger de purgarSesiones() ya verificado en
+   prod, carpeta de Drive ya compartida con Noelia, revocarSesion() en
+   ventana fria ya corregido, tests ya viven versionados en Tests.gs).
+   Quedaron 11 items reales en skills/hpaul-backlog/BACKLOG.md (BL-001 a
+   BL-011): endpoint unico de carga inicial, test permanente de
+   getArchivos batch, REQ-ADMIN-001, glifos UI restantes a SVG,
+   enmascarar dominio en enmascararEmail(), purga de Auditoria,
+   REQ-MEDIA-003 candidato (navegacion por epoca / "recuerdos", pedido
+   explicito de Franco), limite de fotos por tarea, editar/borrar una
+   foto individual, reordenar fotos, y REQ-PERF-004 (thumbnailLink, ver
+   punto 2 arriba).
+
+   De paso se corrigieron 3 encabezados de "Estado" desactualizados
+   (REQ-PERF-002.md, REQ-PERF-003.md, REQ-MEDIA-002.md decian "pendiente
+   de push a GitHub" cuando ya estaban en produccion hacia varias
+   sesiones, con el numero de commit correcto).
+
+Cambios:
+- skills/hpaul-decision-log/decision-log_SKILL.md,
+  skills/hpaul-triage/backlog-triage_SKILL.md,
+  skills/paul-engineer-pm/paul-engineer-pm_SKILL.md — rutas corregidas.
+- skills/hpaul-backlog/BACKLOG.md — 11 items consolidados (BL-001 a
+  BL-011).
+- docs/requerimientos/REQ-PERF-002.md, REQ-PERF-003.md,
+  REQ-MEDIA-002.md — Estado corregido (ya estaban deployados).
+- Sin cambios en Code.gs/Tests.gs/appsscript.json (el diagnostico de
+  thumbnailLink se revirtio por completo, ver punto 2).
+
+Estado: nada pendiente de deploy a prod en esta sesion (todos los cambios
+de codigo -- REQ-PERF-005, 4 bugs corregidos -- ya estaban pusheados en
+entradas anteriores de hoy). Esta entrada es orden/documentacion + un
+diagnostico descartado del repo.
+========================================================

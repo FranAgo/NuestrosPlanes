@@ -1,6 +1,6 @@
 # REQ-PERF-003 — Performance: card de "fotos recientes" sin salto de layout
 
-> **Estado:** IMPLEMENTADO, APTO de Duck. Sin regresión (suites REQ-MEDIA-001 22/22, REQ-MEDIA-002 48/48, BUG-LOGIN-001-B 38/38 — sin cambios respecto a antes de este REQ, porque `Code.gs`/`Tests.gs` no se tocan). Pendiente: verificación visual en navegador real (no automatizable) y push a producción — queda en working tree hasta confirmación de Franco, ver flujo de commit/push del proyecto.
+> **Estado:** CERRADO. Sin regresión (suites REQ-MEDIA-001 22/22, REQ-MEDIA-002 48/48, BUG-LOGIN-001-B 38/38 — sin cambios respecto a antes de este REQ, porque `Code.gs`/`Tests.gs` no se tocan). Pusheado a producción (commit `481e97c`, 2026-09-15). Pendiente real: verificación visual en navegador con login de Google (no automatizable en este entorno). *(Estado corregido el 2026-09-16 — el doc decía "pendiente de push" pero ya estaba en `main` hacía varias sesiones.)*
 > **Dueño técnico:** Jay (front) · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-PERF-002](REQ-PERF-002.md) (arquitectura de `initApp()` en dos etapas y cache de imágenes ya en prod).
 > **Reemplaza a:** una versión anterior de este mismo REQ que incluía además un mecanismo de miniaturas de Drive (`getThumbnail()`) para acelerar la carga de las fotos. Ese mecanismo se probó, no funcionó, y se descartó por completo — ver "Alcance — fuera de este REQ" y [REQ-PERF-004](REQ-PERF-004.md).
