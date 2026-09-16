@@ -1773,3 +1773,62 @@ Cambios:
 - skills/hpaul-triage/backlog-triage_SKILL.md — nuevo. Cuando mandar una
   idea al backlog vs. formalizarla como REQ.
 ========================================================
+
+========================================================
+2026-09-15 23:22 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza -> Jay implementa -> Duck prueba. REQ-PERF-005.
+--------------------------------------------------------
+Franco reporto: al abrir "Nuestros recuerdos" (carrusel de fotos de tareas)
+las fotos tardaban 40+ segundos en cargar, y a veces daba directamente "no
+se pudo cargar la foto".
+
+Diagnostico: openModalCarrusel() pedia las hasta 20 fotos del carrusel en
+UNA sola llamada al backend (getArchivos, batch), que las lee de Drive
+secuencialmente dentro de una sola ejecucion de Apps Script y no responde
+hasta terminar con las 20 -> de ahi los 40+ segundos. Si esa llamada unica
+fallaba (timeout), las 20 quedaban en null a la vez -> fallo total.
+
+REQ-PERF-005 — IMPLEMENTADO, APTO de Duck:
+- docs/requerimientos/REQ-PERF-005.md — nuevo. Definicion de Paul,
+  diagnostico, criterios de aceptacion, cierre.
+- index.html:
+  * fetchArchivoDataUrl(archivoId) — nueva, trae UN archivo via getArchivo
+    (endpoint singular ya existente) y lo cachea en el avatarCache de
+    siempre (sin cache nuevo).
+  * openModalCarrusel() ya no espera el batch de 20 — solo pide metadata
+    y renderiza.
+  * renderCarruselFoto() (ahora async) trae solo la foto del indice actual
+    on-demand, y al resolver prefetchea en silencio (sin await) la
+    siguiente, para que "Siguiente" se sienta instantaneo.
+  * carruselRenderToken — contador que descarta una respuesta que llega
+    tarde si el usuario ya navego a otra foto (evita que una foto vieja
+    pise a la que esta visible).
+- Cambio 100% de cliente, no toca Code.gs ni Tests.gs ni el contrato de
+  ningun endpoint.
+
+Bug introducido y corregido en esta sesion (Duck lo encontro antes de
+aprobar, no llego a produccion): la primera version de
+fetchArchivoDataUrl llamaba a guardarImageCachePersistido() (guarda el
+cache en localStorage) en CADA foto navegada, en vez de una vez por
+apertura de modal como hacia el codigo viejo. Con fotos de hasta ~500KB
+en base64 y hasta 150 entradas de cache, eso excedia la cuota de
+localStorage y forzaba un reintento fallido en cada click de "siguiente"
+-> el mismo tipo de traba que este REQ buscaba eliminar, por otra via.
+Corregido: se saco esa llamada de fetchArchivoDataUrl (la persistencia
+sigue existiendo igual que antes para avatares y "fotos recientes" del
+dashboard, conjuntos chicos).
+
+Pruebas (Duck): verificado por lectura de codigo (flujo completo
+trazado, scope de cada variable compartida confirmado, condicion de
+carrera con carruselRenderToken analizada caso por caso). Sintaxis del
+script inline verificada (node -e "new Function(...)") sin errores, antes
+y despues del fix. No verificado en navegador real (requiere login de
+Google, mismo limite que REQ-PERF-002/003).
+
+Estado: REQ-PERF-005 CERRADO (Jay entrego, Duck aprobo con una correccion
+en el camino, Paul verifico). Pendiente de deploy: no aplica — es un
+cambio de index.html, se sirve directo por GitHub Pages con este push, sin
+paso de clasp/Apps Script de por medio.
+========================================================

@@ -2463,6 +2463,37 @@
       guardarImageCachePersistido();
     }
 
+    // Trae UN archivo on-demand y lo cachea (REQ-PERF-005). A diferencia de
+    // fetchAvataresDataUrl (que pide un lote entero y no resuelve nada hasta
+    // que Drive respondió los N archivos), esta función se usa para pedir
+    // solo la foto que hace falta AHORA — el carrusel de recuerdos la usa en
+    // vez del batch para no bloquear la primera foto detrás de las otras 19.
+    //
+    // A propósito NO llama a guardarImageCachePersistido(): esta función se
+    // dispara en cada navegación del carrusel (hasta 20 fotos de hasta
+    // ~500KB en base64 cada una), y la persistencia a localStorage siempre
+    // fue pensada para conjuntos chicos (avatares, "fotos recientes" del
+    // dashboard — ver comentario más arriba). Intentar guardar ~150 entradas
+    // pesadas en cada click de "siguiente" excede la cuota de localStorage y
+    // obliga a reintentar en cada llamada (Duck lo detectó en la revisión de
+    // este REQ) — el mismo jank que este REQ vino a eliminar, por otra vía.
+    // El cache en memoria (avatarCache) alcanza para la sesión activa.
+    async function fetchArchivoDataUrl(archivoId) {
+      if (!archivoId) return null;
+      if (avatarCache.has(archivoId)) return avatarCache.get(archivoId);
+
+      try {
+        const data = await api('getArchivo', { archivoId });
+        const url = data.status === 200
+          ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
+          : '';
+        avatarCache.set(archivoId, url || null);
+      } catch {
+        avatarCache.set(archivoId, null);
+      }
+      return avatarCache.get(archivoId);
+    }
+
     // Resuelve de antemano todos los avatares que hacen falta para el render
     // actual (sesión propia + usuarios ya cargados en state.users).
     async function prefetchAvatares() {
@@ -2576,7 +2607,6 @@
         return;
       }
 
-      await fetchAvataresDataUrl(carruselFotos.map(f => f.archivoId));
       carruselIndex = 0;
       renderCarruselFoto();
     }
@@ -2585,18 +2615,34 @@
       document.getElementById('modal-carrusel').classList.remove('visible');
     }
 
-    function renderCarruselFoto() {
-      const foto = carruselFotos[carruselIndex];
+    // REQ-PERF-005: trae la foto actual on-demand (no las 20 de golpe) y
+    // prefetchea la siguiente en silencio para que "siguiente" se sienta
+    // instantáneo en el caso común. carruselRenderToken evita que una
+    // respuesta que llega tarde (el usuario ya navegó a otra foto mientras
+    // esta pedía a Drive) pise lo que está visible en ese momento.
+    let carruselRenderToken = 0;
+
+    async function renderCarruselFoto() {
+      const miToken           = ++carruselRenderToken;
+      const indiceSolicitado  = carruselIndex;
+      const foto              = carruselFotos[indiceSolicitado];
       if (!foto) return;
 
-      const imagen = document.getElementById('carrusel-imagen');
-      const loader = document.getElementById('carrusel-loader');
-      const src = avatarDataUrl(foto.archivoId);
+      const imagen  = document.getElementById('carrusel-imagen');
+      const loader  = document.getElementById('carrusel-loader');
+      const caption = document.getElementById('carrusel-caption');
 
       imagen.classList.remove('is-loaded');
+      imagen.removeAttribute('src');
       loader.classList.remove('is-hidden');
+      caption.textContent = '';
 
-      const caption = document.getElementById('carrusel-caption');
+      document.getElementById('btn-carrusel-prev').disabled = indiceSolicitado === 0;
+      document.getElementById('btn-carrusel-next').disabled = indiceSolicitado === carruselFotos.length - 1;
+
+      const src = await fetchArchivoDataUrl(foto.archivoId);
+      if (miToken !== carruselRenderToken) return; // ya se navegó a otra foto
+
       const partes = [
         foto.tituloPlan || null,
         foto.categoriaNombre || null,
@@ -2615,13 +2661,12 @@
         imagen.src = src;
         caption.textContent = partes.join(' · ');
       } else {
-        imagen.removeAttribute('src');
         loader.classList.add('is-hidden');
         caption.textContent = 'No se pudo cargar la foto.';
       }
 
-      document.getElementById('btn-carrusel-prev').disabled = carruselIndex === 0;
-      document.getElementById('btn-carrusel-next').disabled = carruselIndex === carruselFotos.length - 1;
+      const siguiente = carruselFotos[indiceSolicitado + 1];
+      if (siguiente) fetchArchivoDataUrl(siguiente.archivoId);
     }
 
     document.getElementById('fotos-recientes-card').addEventListener('click', openModalCarrusel);
