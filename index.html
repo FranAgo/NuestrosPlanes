@@ -2657,8 +2657,13 @@
       const loader  = document.getElementById('carrusel-loader');
       const caption = document.getElementById('carrusel-caption');
 
-      imagen.classList.remove('is-loaded');
-      imagen.removeAttribute('src');
+      // A propósito NO se borra la foto anterior acá. Antes se limpiaba el
+      // <img> (removeAttribute('src')) apenas arrancaba cada navegación, así
+      // que navegar rápido dejaba el elemento "sin fuente" por un instante
+      // — el navegador lo pinta como ícono de imagen rota antes de que la
+      // foto siguiente esté lista. Ahora la foto que ya se está viendo se
+      // queda visible (con el loader superpuesto) hasta que la próxima
+      // resuelve; recién ahí se hace el swap, en un solo paso.
       loader.classList.remove('is-hidden');
       caption.textContent = '';
 
@@ -2675,17 +2680,22 @@
       ].filter(Boolean);
 
       if (src) {
+        imagen.classList.remove('is-loaded');
         imagen.onload = () => {
           imagen.classList.add('is-loaded');
           loader.classList.add('is-hidden');
         };
         imagen.onerror = () => {
+          imagen.classList.remove('is-loaded');
+          imagen.removeAttribute('src');
           loader.classList.add('is-hidden');
           caption.textContent = 'No se pudo cargar la foto.';
         };
         imagen.src = src;
         caption.textContent = partes.join(' · ');
       } else {
+        imagen.classList.remove('is-loaded');
+        imagen.removeAttribute('src');
         loader.classList.add('is-hidden');
         caption.textContent = 'No se pudo cargar la foto.';
       }

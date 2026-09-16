@@ -1882,3 +1882,43 @@ Cambios:
 - docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
   de este bug como segundo item de "Bugs encontrados y corregidos".
 ========================================================
+
+========================================================
+2026-09-15 23:34 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Jay corrige. Pulido reportado por Franco tras el fix anterior.
+--------------------------------------------------------
+Franco confirmo que el fix de la duplicacion de pedidos anda mucho mejor
+(incluso noto correctamente que las fotos ya vistas quedan cacheadas y
+por eso volver rapido a una foto anterior responde bien). Reporto un
+resto menor: navegando muy rapido, el carrusel mostraba el icono nativo
+de "imagen rota" del navegador por ~1 segundo antes de asentarse.
+
+Causa: renderCarruselFoto() borraba la foto que se estaba viendo
+(imagen.removeAttribute('src')) apenas arrancaba CADA navegacion, antes
+de tener la foto siguiente lista. Con clicks rapidos, el <img> quedaba
+"sin fuente" (estado que el navegador pinta como icono roto) durante
+toda la espera de red de la foto nueva.
+
+Fix (index.html, renderCarruselFoto): la foto actual ya no se borra al
+arrancar la navegacion — se queda visible (con el loader superpuesto)
+hasta que la foto siguiente efectivamente resuelve, y recien ahi se hace
+el swap en un solo paso (borrar + asignar la nueva fuente, sin estado
+intermedio visible). Solo se limpia el <img> cuando una foto realmente
+falla.
+
+No se toco fetchArchivoDataUrl (la deduplicacion y el no-cacheo de
+fallos del fix anterior siguen igual) — este es un cambio acotado a como
+se pinta el <img>, sin relacion con la logica de red.
+
+Estado: REQ-PERF-005 sigue CERRADO, con este pulido incorporado como
+tercer item de "Bugs encontrados y corregidos" en
+docs/requerimientos/REQ-PERF-005.md.
+
+Cambios:
+- index.html — renderCarruselFoto ya no limpia el <img> antes de tener
+  lista la foto siguiente; el swap se hace en un solo paso.
+- docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
+  de este bug como tercer item.
+========================================================

@@ -139,3 +139,18 @@ modelo de datos. Gary y Julia no necesitan intervenir.
    deduplican a una sola llamada real, un fallo simulado se reintenta
    correctamente en el segundo pedido, y un éxito cacheado no repite
    llamadas — los 3 casos pasan.
+
+3. **Encontrado por Franco en producción, tras el fix del punto 2**: con la
+   duplicación de pedidos ya resuelta, navegar muy rápido seguía mostrando
+   el ícono nativo de "imagen rota" del navegador por ~1 segundo antes de
+   asentarse. Causa: `renderCarruselFoto()` borraba la foto que se estaba
+   viendo (`imagen.removeAttribute('src')`) apenas arrancaba CADA
+   navegación, antes de tener la foto siguiente lista — con clicks
+   rápidos, el `<img>` quedaba "sin fuente" (estado que el navegador
+   pinta como ícono roto) durante toda la espera de red de la foto nueva.
+   Corregido: la foto actual ya NO se borra al arrancar la navegación —
+   se queda visible (con el loader superpuesto) hasta que la foto
+   siguiente efectivamente resuelve, y recién ahí se hace el swap en un
+   solo paso (borrar + asignar la nueva fuente, sin estado intermedio
+   visible). Solo se limpia el `<img>` cuando una foto realmente falla
+   (rama `else` / `onerror`), no como paso previo de cada navegación.
