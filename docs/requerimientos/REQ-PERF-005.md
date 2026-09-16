@@ -102,18 +102,40 @@ modelo de datos. Gary y Julia no necesitan intervenir.
 4. **No verificado en navegador real** (criterios 1-4 del REQ): requiere
    login de Google, mismo límite que REQ-PERF-002/003.
 
-### Bug encontrado y corregido en esta sesión
+### Bugs encontrados y corregidos en esta sesión
 
-Duck detectó que `fetchArchivoDataUrl` llamaba a
-`guardarImageCachePersistido()` en cada foto individual traída durante la
-navegación del carrusel (antes, el batch viejo lo hacía una sola vez por
-apertura de modal). Eso implica intentar `JSON.stringify` + guardar en
-`localStorage` hasta 150 entradas de imágenes pesadas (~200-500KB c/u en
-base64) **en cada click de "siguiente"**, muy por encima de la cuota típica
-del navegador — el intento (y su reintento con la mitad de las entradas)
-falla en cada llamada para cualquier sesión con más de ~15-25 fotos
-navegadas, reintroduciendo jank sincrónico justo en el flujo que este REQ
-buscaba hacer instantáneo. Corregido: se sacó esa llamada de
-`fetchArchivoDataUrl` — la persistencia sigue existiendo para avatares y
-"fotos recientes" (conjuntos chicos), no para el browsing completo del
-carrusel, que solo necesita cache en memoria durante la sesión activa.
+1. Duck detectó que `fetchArchivoDataUrl` llamaba a
+   `guardarImageCachePersistido()` en cada foto individual traída durante
+   la navegación del carrusel (antes, el batch viejo lo hacía una sola vez
+   por apertura de modal). Eso implica intentar `JSON.stringify` + guardar
+   en `localStorage` hasta 150 entradas de imágenes pesadas (~200-500KB c/u
+   en base64) **en cada click de "siguiente"**, muy por encima de la cuota
+   típica del navegador — el intento (y su reintento con la mitad de las
+   entradas) falla en cada llamada para cualquier sesión con más de ~15-25
+   fotos navegadas, reintroduciendo jank sincrónico justo en el flujo que
+   este REQ buscaba hacer instantáneo. Corregido: se sacó esa llamada de
+   `fetchArchivoDataUrl` — la persistencia sigue existiendo para avatares y
+   "fotos recientes" (conjuntos chicos), no para el browsing completo del
+   carrusel, que solo necesita cache en memoria durante la sesión activa.
+
+2. **Encontrado por Franco en producción, tras el primer deploy de este
+   REQ**: navegar rápido por el carrusel podía dejar una foto puntual
+   mostrando "No se pudo cargar la foto." de forma permanente (ni
+   navegando de vuelta a ella se recuperaba). Causa: el prefetch de "la
+   foto siguiente" se dispara sin esperar (`fetchArchivoDataUrl` en fire-
+   and-forget), y si el usuario navegaba hasta esa foto antes de que el
+   prefetch resolviera, `renderCarruselFoto` pedía el mismo `archivoId`
+   **por segunda vez en simultáneo** — el chequeo de cache corría antes de
+   que el primer pedido hubiera terminado. Dos pedidos concurrentes a la
+   misma foto, sumados en ráfaga a cada click rápido, y además cualquier
+   fallo (de cualquier origen) quedaba cacheado como `null` **para
+   siempre**, sin forma de reintentar en lo que durara la sesión.
+   Corregido: `fetchArchivoDataUrl` ahora deduplica pedidos en vuelo por
+   `archivoId` (un `Map` de promesas, `archivosEnCurso`) y **no cachea los
+   fallos** — solo el éxito queda en `avatarCache`, así que una foto que
+   falló por un hipo transitorio se reintenta sola la próxima vez que se
+   pide. Verificado con un harness de Node aislado (fuera del navegador,
+   simulando latencia de red): pedidos solapados para el mismo archivo se
+   deduplican a una sola llamada real, un fallo simulado se reintenta
+   correctamente en el segundo pedido, y un éxito cacheado no repite
+   llamadas — los 3 casos pasan.

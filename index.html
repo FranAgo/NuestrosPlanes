@@ -2478,20 +2478,45 @@
     // obliga a reintentar en cada llamada (Duck lo detectó en la revisión de
     // este REQ) — el mismo jank que este REQ vino a eliminar, por otra vía.
     // El cache en memoria (avatarCache) alcanza para la sesión activa.
+    //
+    // Dos correcciones sobre condiciones de carrera detectadas navegando
+    // rápido en producción:
+    // - archivosEnCurso deduplica pedidos: el prefetch de "la siguiente
+    //   foto" (disparado sin esperar, ver renderCarruselFoto) y el pedido
+    //   real cuando el usuario llega a esa foto pueden solaparse si navega
+    //   rápido — sin esto, la misma foto se pedía dos veces en simultáneo.
+    // - un fallo (null) ya NO se trata como resuelto para siempre: antes,
+    //   un hipo transitorio de Drive (o la sobrecarga de pedidos duplicados
+    //   de arriba) dejaba esa foto marcada como rota por el resto de la
+    //   sesión, sin forma de reintentar. Ahora solo se cachea el éxito;
+    //   un fallo se vuelve a intentar la próxima vez que se pida esa foto.
+    const archivosEnCurso = new Map(); // archivoId -> Promise en vuelo
+
     async function fetchArchivoDataUrl(archivoId) {
       if (!archivoId) return null;
-      if (avatarCache.has(archivoId)) return avatarCache.get(archivoId);
 
-      try {
-        const data = await api('getArchivo', { archivoId });
-        const url = data.status === 200
-          ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
-          : '';
-        avatarCache.set(archivoId, url || null);
-      } catch {
-        avatarCache.set(archivoId, null);
-      }
-      return avatarCache.get(archivoId);
+      const cacheado = avatarCache.get(archivoId);
+      if (cacheado) return cacheado;
+
+      if (archivosEnCurso.has(archivoId)) return archivosEnCurso.get(archivoId);
+
+      const promesa = (async () => {
+        try {
+          const data = await api('getArchivo', { archivoId });
+          const url = data.status === 200
+            ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
+            : '';
+          if (url) avatarCache.set(archivoId, url);
+        } catch {
+          // Fallo transitorio: no se cachea, para poder reintentar después.
+        } finally {
+          archivosEnCurso.delete(archivoId);
+        }
+        return avatarCache.get(archivoId) || null;
+      })();
+
+      archivosEnCurso.set(archivoId, promesa);
+      return promesa;
     }
 
     // Resuelve de antemano todos los avatares que hacen falta para el render

@@ -1832,3 +1832,53 @@ en el camino, Paul verifico). Pendiente de deploy: no aplica — es un
 cambio de index.html, se sirve directo por GitHub Pages con este push, sin
 paso de clasp/Apps Script de por medio.
 ========================================================
+
+========================================================
+2026-09-15 23:28 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Jay corrige, Duck reprueba. Bug encontrado por Franco en produccion.
+--------------------------------------------------------
+A los pocos minutos de subido REQ-PERF-005, Franco probo el carrusel en
+vivo y reporto: "pulse rapido y se rompio" — una foto quedo mostrando
+"No se pudo cargar la foto." de forma permanente, ni navegando de vuelta
+a ella se recuperaba.
+
+Causa: el prefetch de "la foto siguiente" (agregado en REQ-PERF-005) se
+dispara sin esperar (fire-and-forget). Si el usuario navegaba hasta esa
+foto antes de que el prefetch terminara, se pedia el mismo archivoId una
+SEGUNDA vez en simultaneo (el chequeo de cache corria antes de que el
+primer pedido hubiera resuelto) — y ademas, cualquier fallo (de cualquier
+origen: Drive, red, la propia duplicacion de pedidos) quedaba cacheado
+como null PARA SIEMPRE, sin forma de reintentar en lo que durara la
+sesion.
+
+Fix (index.html, fetchArchivoDataUrl):
+- archivosEnCurso (Map de promesas en vuelo) deduplica pedidos solapados
+  para el mismo archivoId — el prefetch y el pedido real ahora comparten
+  la misma llamada en vez de disparar dos.
+- Un fallo YA NO se cachea: solo el exito queda en avatarCache. Una foto
+  que fallo por un hipo transitorio se reintenta sola la proxima vez que
+  se pide (navegando de vuelta, por ejemplo).
+
+Verificacion (Duck): esta vez con un test EJECUTABLE, no solo lectura de
+codigo — harness de Node aislado que extrae la logica de
+fetchArchivoDataUrl y simula latencia de red:
+- Pedidos solapados al mismo archivoId -> 1 sola llamada real, ambos
+  callers reciben el mismo resultado. PASA.
+- Fallo simulado en el primer pedido -> el segundo pedido reintenta y
+  tiene exito (no quedo cacheado como roto). PASA.
+- Exito ya cacheado -> no dispara una segunda llamada. PASA.
+Sintaxis del script inline verificada de nuevo sin errores.
+
+Estado: REQ-PERF-005 sigue CERRADO, con esta correccion incorporada al
+mismo REQ (no se abre un REQ nuevo, es la misma funcionalidad recien
+entregada). Documentado en docs/requerimientos/REQ-PERF-005.md, seccion
+"Bugs encontrados y corregidos en esta sesion", item 2.
+
+Cambios:
+- index.html — fetchArchivoDataUrl reescrita con deduplicacion de
+  pedidos en vuelo y sin cacheo de fallos (ver arriba).
+- docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
+  de este bug como segundo item de "Bugs encontrados y corregidos".
+========================================================
