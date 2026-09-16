@@ -1518,6 +1518,19 @@
       letter-spacing: 0.04em;
     }
 
+    /* Skeleton de "fotos recientes" mientras carga — se muestra desde que
+       arranca la app (reservando el espacio) en vez de aparecer de golpe
+       recién cuando termina de resolver. */
+    .fotos-recientes-card.is-loading .fotos-recientes-thumb {
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--border-soft) 37%, var(--bg-card) 63%);
+      background-size: 400% 100%;
+      animation: skeletonShimmer 1.4s ease infinite;
+    }
+
+    .fotos-recientes-card.is-loading .fotos-recientes-link {
+      visibility: hidden;
+    }
+
     #modal-carrusel .modal {
       max-width: 560px;
     }
@@ -2286,6 +2299,10 @@
         renderCategorias();
         renderPlanes();
         appLoading.hidden = true;
+        // Reserva el espacio de "fotos recientes" con un skeleton apenas se
+        // ven las tareas, en vez de dejarlo ausente y que aparezca de golpe
+        // (empujando la lista) cuando fotosPromise recién resuelva más abajo.
+        showFotosRecientesSkeleton();
       } catch (e) {
         if (state.session) showAppLoadError();
         return;
@@ -2478,6 +2495,28 @@
     let carruselFotos  = []; // set más amplio, para el modal a pantalla completa
     let carruselIndex  = 0;
 
+    // REQ-PERF-003: true una vez que renderFotosRecientesCard() ya pintó el
+    // resultado final (con fotos o vacío). Evita que el skeleton de carga
+    // pise un resultado que resolvió rápido, y evita que un refresco en
+    // caliente posterior (subir una foto nueva) vuelva a mostrar el
+    // skeleton tapando miniaturas que ya están visibles.
+    let fotosRecientesListo = false;
+
+    // Reserva el espacio de la card de "fotos recientes" con un placeholder
+    // (shimmer) apenas se pintan las tareas — antes la card quedaba `hidden`
+    // hasta que TODO el fetch resolvía y aparecía de golpe, empujando la
+    // lista de tareas. Es un no-op si el resultado real ya se pintó primero.
+    function showFotosRecientesSkeleton() {
+      if (fotosRecientesListo) return;
+
+      const card = document.getElementById('fotos-recientes-card');
+      card.classList.add('is-loading');
+      document.getElementById('fotos-recientes-thumbs').innerHTML =
+        '<div class="fotos-recientes-thumb"></div>'.repeat(3);
+      document.getElementById('fotos-recientes-count').textContent = 'Cargando recuerdos…';
+      card.hidden = false;
+    }
+
     async function loadFotosRecientes() {
       try {
         const data = await api('getRecentPlanPhotos', { limit: 5 });
@@ -2492,6 +2531,8 @@
       const card = document.getElementById('fotos-recientes-card');
 
       if (fotosRecientes.length === 0) {
+        fotosRecientesListo = true;
+        card.classList.remove('is-loading');
         card.hidden = true;
         return;
       }
@@ -2508,6 +2549,8 @@
       document.getElementById('fotos-recientes-count').textContent =
         `${n} foto${n === 1 ? '' : 's'} nueva${n === 1 ? '' : 's'}`;
 
+      fotosRecientesListo = true;
+      card.classList.remove('is-loading');
       card.hidden = false;
     }
 

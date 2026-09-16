@@ -1662,3 +1662,84 @@ de Apps Script de test. Backend deployado a prod (Web App @21).
 Cierre de sesión: pendiente el push a GitHub del frontend/tests/docs
 (backend ya en prod). Queda a confirmación de Franco.
 ========================================================
+
+========================================================
+2026-09-15 21:25 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza -> Bob/Jay/Duck — REQ-PERF-003, REQ-PERF-004 (backlog)
+--------------------------------------------------------
+Motivo: Franco reporto que, con las tareas ya cargando bien, la card de
+"fotos recientes" del dashboard segui tardando y aparecia de golpe,
+empujando la lista de tareas. Pidio dos cosas: que carguen mas rapido y
+que no aparezcan de la nada.
+
+Nota de proceso: arranque a tocar index.html directo sin pasar por Paul
+primero (Franco lo señalo). Se corrigio el flujo para el resto de la
+sesion: Paul organiza, Bob/Jay implementan, Duck prueba antes de cerrar.
+
+Intento descartado (Bob) — miniaturas de Drive para acelerar la carga:
+- Se implemento `thumb` en handleGetArchivos/leerBlobDriveConReintento
+  (Code.gs), usando DriveApp.getFileById(id).getThumbnail() con fallback
+  al blob completo, mas la plomeria de cache separado por resolucion en
+  index.html (claveAvatar, archivoId::thumb).
+- Duck lo probo contra el proyecto de test con una foto realista (PNG de
+  220x220, no el fixture trivial de 1x1 que usan las demas suites):
+  getThumbnail() devolvio null tanto sin espera como esperando 8s antes
+  de pedirlo, y cayo al fallback (mismo peso exacto que sin thumb). Para
+  descartar un problema de entorno/permisos, se probo getThumbnail()
+  contra la spreadsheet scratch (Google Sheets) en la misma corrida: ahi
+  si funciono (devolvio una miniatura real).
+- Conclusion: DriveApp.getThumbnail() en Apps Script es confiable para
+  archivos nativos de Google Workspace, no para imagenes subidas
+  (JPG/PNG) — limitacion conocida del servicio, no un bug del proyecto
+  ni un tema de timing.
+- Paul decidio revertir el mecanismo por completo: no aportaba ahorro
+  real (siempre caia al fallback) y sumaba una llamada extra a Drive
+  antes de cada fallback, con riesgo de hacer las cosas mas lentas en
+  vez de mas rapidas. Code.gs y Tests.gs quedaron identicos a como
+  estaban antes de esta sesion (sin diff).
+
+REQ-PERF-003 (redefinido, solo la parte que funciono) — IMPLEMENTADO,
+APTO de Duck:
+- index.html — la card de "fotos recientes" ahora reserva su espacio con
+  un skeleton (shimmer) apenas se pintan las tareas en initApp(), en vez
+  de quedar `hidden` hasta que termina todo el fetch. showFotosRecientesSkeleton()
+  es no-op si el resultado real ya se pinto antes (carga rapida); un flag
+  fotosRecientesListo evita que el refresco en caliente post-upload de
+  una foto nueva vuelva a mostrar el skeleton tapando miniaturas ya
+  visibles.
+- Cambio puramente de cliente, no toca Code.gs ni ningun contrato de
+  endpoint.
+- docs/requerimientos/REQ-PERF-003.md — reescrito para reflejar el
+  alcance final (solo skeleton) y documentar el diagnostico completo del
+  intento descartado de miniaturas de Drive.
+- docs/requerimientos/REQ-PERF-004.md — nuevo, PROPUESTO por Paul, sin
+  implementar. Deja anotado el enfoque que si podria funcionar: generar
+  una miniatura real en el cliente al subir la foto (ya existe
+  comprimirImagenPlan) y guardarla en una columna nueva de la hoja
+  Archivos, para que la card la lea sin tocar Drive. Necesita que Gary
+  defina el esquema antes de implementarse — queda para otra sesion.
+
+Bug introducido y corregido en esta sesion (no se mezcla con lo de
+arriba): al tocar index.html antes de pasar por Paul quede una llamada a
+showFotosRecientesSkeleton() sin la funcion declarada (ReferenceError en
+cuanto cargara la app). Jay lo corrigio antes de que llegara a Duck.
+
+Pruebas (Duck), contra el proyecto de Apps Script de test:
+- probarMEDIA002 48/48 (incluyo temporalmente 5 checks de thumb:true,
+  removidos junto con el revert de Bob), probarMEDIA001 22/22,
+  probarBUGLOGIN001B 38/38 — sin regresion.
+- Diagnostico ad hoc de miniaturas (removido del repo tras usarlo, no
+  queda como test permanente): foto realista generada sinteticamente
+  (PNG 220x220, ~145KB), subida real via uploadPlanPhotos al proyecto de
+  test, comparacion directa del peso de la respuesta con/sin thumb.
+- No verificado en navegador real (requiere login de Google): que la
+  card efectivamente no salte de layout al cargar (REQ-PERF-003
+  criterios 1-3, verificados por lectura de codigo, no en vivo).
+
+Estado: REQ-PERF-003 CERRADO (Jay entrego, Duck aprobo, Paul verifico).
+REQ-PERF-004: PROPUESTO, sin implementar, prioridad a definir con
+Franco en otra sesion. Nada pendiente de deploy a prod (Code.gs sin
+cambios respecto a la version ya deployada, @21).
+========================================================
