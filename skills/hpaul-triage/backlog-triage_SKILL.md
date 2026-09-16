@@ -20,7 +20,20 @@ registra lo que falta decidir o construir.
 - Idea que no se formaliza en el momento → agregar a skills/hpaul-backlog/BACKLOG.md, estado Propuesto.
 - Se decide priorizar → actualizar el campo Prioridad del ítem, no reordenar el archivo.
 - Se formaliza como REQ → actualizar estado a "Formalizado como REQ-XXX", la entrada queda, no se borra.
-- Antes de cerrar cualquier sesión: repasar la conversación buscando ideas mencionadas que no quedaron ni en un REQ ni en skills/hpaul-backlog/BACKLOG.md, y agregarlas.
+- **El hallazgo es sobre un REQ que YA existe** (diagnóstico, prueba, dato
+  nuevo que cambia el enfoque de un REQ ya formalizado en
+  docs/requerimientos/REQ-XXX.md, aunque siga sin implementar) → esto NO es
+  un ítem nuevo de backlog. Actualizar **directamente el REQ-XXX.md**
+  correspondiente en la misma sesión en que surge el hallazgo (sección
+  "Enfoque propuesto" o la que aplique, y el Estado si corresponde).
+  Solo si además conviene tener el hallazgo indexado en
+  skills/hpaul-backlog/BACKLOG.md, agregarlo ahí como referencia cruzada al
+  REQ — nunca como el único lugar donde vive la información.
+- Antes de cerrar cualquier sesión: repasar la conversación buscando ideas
+  mencionadas que no quedaron ni en un REQ ni en
+  skills/hpaul-backlog/BACKLOG.md, y agregarlas — y buscar también
+  hallazgos sobre REQs ya existentes que solo quedaron en BACKLOG.md o en
+  la bitácora, para propagarlos al REQ-XXX.md correspondiente.
 
 ## Qué no es esto
 No es un REQ. No lleva Objetivo, Alcance ni Criterios de aceptación — eso se

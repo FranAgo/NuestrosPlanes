@@ -1,6 +1,6 @@
 # REQ-PERF-004 — Performance: miniatura real de fotos, generada al subir
 
-> **Estado:** PROPUESTO por Paul. Sin diseñar en detalle, sin implementar. Prioridad a definir con Franco.
+> **Estado:** PROPUESTO por Paul. Sin implementar. Hay dos enfoques diagnosticados (ver abajo) — falta que Franco elija cuál seguir (o confirme el preferido) antes de diseñar en detalle. Prioridad a definir con Franco.
 > **Dueño técnico:** por definir (Bob + Jay, con esquema de datos a cargo de Gary) · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-PERF-003](REQ-PERF-003.md) (diagnóstico de por qué el enfoque de miniaturas de Drive no sirve).
 
@@ -19,6 +19,28 @@ realista (no es un problema de timing ni de permisos). Ver el diagnóstico
 completo en REQ-PERF-003, sección "Alcance — fuera de este REQ".
 
 ## Enfoque propuesto (a validar con el equipo antes de implementar)
+
+**Actualización 2026-09-16 — diagnóstico de `thumbnailLink` (ver también
+[BACKLOG.md, BL-011](../../skills/hpaul-backlog/BACKLOG.md)):** se probó,
+contra el proyecto de test, el campo `thumbnailLink` de la API de Drive v3
+(Servicio Avanzado) — a diferencia de `DriveApp.getThumbnail()` (descartado
+en REQ-PERF-003, no sirve para fotos subidas), `thumbnailLink` **sí
+funciona**: disponible de inmediato tras subir (`hasThumbnail:true` sin
+esperar), y liviano — 594 bytes a 220px vs. 111.584 bytes del original
+(~188x más chico). Probado también a 400px (1.103B), 800px (2.653B) y
+1600px (= original, sin upscale). Corrido dos veces, mismo resultado.
+Aplica solo a la card del dashboard (necesita el proxy de Apps Script para
+no exponer la URL de Google al cliente, mismo criterio de privacidad de
+REQ-MEDIA-001) — no al carrusel a pantalla completa, que necesita
+resolución completa. Este enfoque es mucho menos invasivo que el de abajo:
+no toca el flujo de subida ni agrega columnas a `Archivos`, solo cambia
+cómo `getRecentPlanPhotos` sirve la miniatura. Falta: Bob lo implementa con
+fallback al blob completo si Drive no devuelve `thumbnailLink` (fotos
+viejas o error), y Julia confirma el criterio de privacidad del proxy.
+**Candidato preferido sobre el enfoque original de abajo, a confirmar con
+Franco antes de implementar.**
+
+### Enfoque original (client-side, más invasivo — supersedido si el de arriba se aprueba)
 
 Generar la miniatura del lado del cliente, en el mismo momento en que ya se
 comprime la foto para subirla (`comprimirImagenPlan()`,

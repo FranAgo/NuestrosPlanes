@@ -2065,3 +2065,57 @@ de codigo -- REQ-PERF-005, 4 bugs corregidos -- ya estaban pusheados en
 entradas anteriores de hoy). Esta entrada es orden/documentacion + un
 diagnostico descartado del repo.
 ========================================================
+
+========================================================
+2026-09-16 00:22 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza. Correccion de proceso pedida por Franco.
+--------------------------------------------------------
+Franco pidio revisar bien el estado del proyecto ("revisa bien, habia
+pendientes") y luego marco un gap de proceso: el diagnostico de
+thumbnailLink (BL-011, corrido en la sesion anterior "para REQ-PERF-004")
+habia quedado solo en BACKLOG.md y en la bitacora, sin propagarse al doc
+REQ-PERF-004.md al que referia.
+
+Causa raiz: la skill hpaul-backlog-triage trata todo hallazgo como "idea
+sin formalizar -> BACKLOG.md", sin contemplar el caso de un hallazgo sobre
+un REQ que YA existe como doc formal (REQ-PERF-004 ya estaba propuesto por
+Paul desde antes del diagnostico).
+
+Correccion:
+1. docs/requerimientos/REQ-PERF-004.md actualizado con el hallazgo completo
+   de thumbnailLink como enfoque preferido (menos invasivo que el enfoque
+   client-side original, que queda marcado como supersedido a confirmar),
+   y Estado del REQ ajustado para reflejar que hay dos enfoques
+   diagnosticados, pendiente eleccion de Franco.
+2. skills/hpaul-triage/backlog-triage_SKILL.md: agregada regla explicita —
+   un hallazgo sobre un REQ ya formalizado se escribe directo en el
+   REQ-XXX.md correspondiente, BACKLOG.md queda como mucho de referencia
+   cruzada, nunca como unico lugar donde vive el dato. Tambien se agrego
+   el chequeo al cierre de sesion (buscar hallazgos sobre REQs existentes
+   que hayan quedado solo en BACKLOG.md/bitacora).
+3. Guardado en memoria de Claude Code (fuera del repo) para reforzar el
+   chequeo en sesiones futuras: leer siempre skills/hpaul-backlog/BACKLOG.md
+   al preguntar "que quedo pendiente", y propagar hallazgos de REQs
+   existentes al doc correspondiente.
+
+Verificacion: spot-check de dos items de BACKLOG.md contra el codigo
+actual (BL-004: glifos sueltos del empty state y del overlay de foto con
+error, BL-005: enmascararEmail no oculta dominio) — ambos siguen vigentes
+tal cual descritos, sin cambios necesarios. Sin busqueda de TODO/FIXME
+pendiente en index.html/Code.gs/Tests.gs mas alla de dos comentarios que
+no son marcadores reales.
+
+Cambios:
+- docs/requerimientos/REQ-PERF-004.md — agregado el diagnostico de
+  thumbnailLink como enfoque preferido, Estado actualizado.
+- skills/hpaul-triage/backlog-triage_SKILL.md — regla nueva: hallazgo sobre
+  REQ existente va al REQ-XXX.md, no solo a BACKLOG.md.
+
+Estado: nada pendiente de deploy a prod (cambio de documentacion/proceso
+puro, no toca index.html/Code.gs/Tests.gs). Pendientes reales del
+proyecto: REQ-PERF-005 (falta verificacion visual en navegador real con
+login de Google) y REQ-PERF-004 (falta que Franco elija entre los dos
+enfoques diagnosticados antes de que Bob implemente).
+========================================================
