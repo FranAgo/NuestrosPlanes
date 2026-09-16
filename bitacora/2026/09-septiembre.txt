@@ -1743,3 +1743,33 @@ REQ-PERF-004: PROPUESTO, sin implementar, prioridad a definir con
 Franco en otra sesion. Nada pendiente de deploy a prod (Code.gs sin
 cambios respecto a la version ya deployada, @21).
 ========================================================
+
+========================================================
+2026-09-15 21:28 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Se commitean skills que estaban sin trackear/sin commitear desde antes
+de esta sesion (no se generaron en esta sesion, Franco pidio incluirlas
+al cerrar).
+
+Cambios:
+- skills/identidad-visual/SKILL.md -> skills/hjay-identidad-visual/SKILL.md
+  — renombrado. Criterio de diseño de UI de Franco (feedback inmediato,
+  forgiveness, divulgacion progresiva, manipulacion directa; reglas
+  chicas: sin iconos emoji, cursor pointer en clickeables, transiciones
+  150-300ms, glass con opacidad alta, bordes visibles en ambos temas).
+- skills/paul-engineer-pm/SKILL.md -> skills/paul-engineer-pm/paul-engineer-pm_SKILL.md
+  — renombrado + extendido: Paul ahora revisa docs/decisiones-producto.md
+  antes de definir alcance/prioridad, anota en docs/BACKLOG.md lo que se
+  pospone, y al formalizar un REQ actualiza la entrada de BACKLOG.md que
+  le dio origen (si la habia).
+- skills/hpaul-backlog/BACKLOG.md — nuevo. Plantilla del backlog de ideas
+  sin formalizar (etapa previa a un REQ).
+- skills/hpaul-decision-log/decision-log_SKILL.md +
+  skills/hpaul-decisiones-producto/hpaul-decisiones-producto.md — nuevos.
+  Registro de decisiones de producto (contexto/opciones/decision/motivo/
+  cuando reabrir), para no re-debatir algo ya resuelto.
+- skills/hpaul-triage/backlog-triage_SKILL.md — nuevo. Cuando mandar una
+  idea al backlog vs. formalizarla como REQ.
+========================================================

@@ -1,5 +1,5 @@
 ---
-name: identidad-visual
+name: hjay-identidad-visual
 description: >
   Aplica el criterio de diseño de Franco (principios de interacción y
   reglas de calidad de UI) a cualquier diseño, mockup, landing o interfaz
