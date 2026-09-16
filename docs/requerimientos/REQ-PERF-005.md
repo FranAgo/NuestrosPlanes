@@ -1,6 +1,6 @@
 # REQ-PERF-005 — Carga on-demand de fotos en el carrusel de recuerdos
 
-> **Estado:** IMPLEMENTADO, APTO de Duck. Sin regresión (cambio 100% de cliente, `Code.gs`/`Tests.gs` sin tocar). Pendiente: verificación visual en navegador real (no automatizable en este entorno, requiere login de Google — mismo límite que REQ-PERF-002/003) y push a producción, ver flujo de commit/push del proyecto.
+> **Estado:** CERRADO (2026-09-16) — verificado en navegador real contra producción, con Franco logueado. Sin regresión (cambio 100% de cliente, `Code.gs`/`Tests.gs` sin tocar). Ya pusheado (commits `9a47ce5`, `4e1c502`, `ccce7d6`, `4afc90e`).
 > **Dueño técnico:** Jay (front) · **QA:** Duck · **PM:** Paul
 > **Relacionado:** [REQ-MEDIA-002](REQ-MEDIA-002.md) (creó el carrusel), [REQ-PERF-002](REQ-PERF-002.md) (reintento de Drive por archivo, se sigue usando tal cual), [REQ-PERF-003](REQ-PERF-003.md) (card del dashboard — no tiene este problema, no se toca), [REQ-PERF-004](REQ-PERF-004.md) (miniatura server-side — sigue propuesta, sin relación directa).
 
@@ -99,8 +99,25 @@ modelo de datos. Gary y Julia no necesitan intervenir.
 3. **Regresión**: no aplica correr suites de Apps Script — no hay cambio de
    contrato de backend. `avatarCache`/`avatarDataUrl`/`fetchAvataresDataUrl`
    quedan sin tocar, usados igual por avatares y por REQ-PERF-003.
-4. **No verificado en navegador real** (criterios 1-4 del REQ): requiere
-   login de Google, mismo límite que REQ-PERF-002/003.
+4. **Verificado en navegador real contra producción** (2026-09-16, Franco
+   logueado con su cuenta de Google en el Browser pane):
+   - **Criterio 1**: primera foto visible en ~2-4s desde el click en "Ver
+     recuerdos" (antes: 40+ segundos). PASA.
+   - **Criterio 3**: navegar a "siguiente" mostró la foto ya prefetcheada
+     sin spinner visible. PASA.
+   - **Criterio 4**: ráfaga de 4 clicks rápidos en "siguiente" (índice
+     6→10) terminó mostrando la foto correcta del índice final, sin
+     ninguna foto vieja pisando a la actual. PASA.
+   - **Criterio 5**: la card de "fotos recientes" del dashboard siguió
+     mostrando sus miniaturas circulares con normalidad después de navegar
+     el carrusel — sin regresión de `avatarCache`. PASA.
+   - **Criterio 2** (fallo aislado por foto) no se forzó en producción
+     (no hay forma segura de simular un fallo puntual de Drive contra
+     datos reales) — queda cubierto solo por el harness de Node
+     documentado en los "Bugs encontrados y corregidos" de abajo.
+   - Sin errores nuevos en consola durante toda la navegación (los únicos
+     errores presentes son de Cross-Origin-Opener-Policy del popup de
+     login de Google, preexistentes y no relacionados con este REQ).
 
 ### Bugs encontrados y corregidos en esta sesión
 

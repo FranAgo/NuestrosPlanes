@@ -2119,3 +2119,44 @@ proyecto: REQ-PERF-005 (falta verificacion visual en navegador real con
 login de Google) y REQ-PERF-004 (falta que Franco elija entre los dos
 enfoques diagnosticados antes de que Bob implemente).
 ========================================================
+
+========================================================
+2026-09-16 01:02 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Duck verifica en navegador real. Cierre de REQ-PERF-005.
+--------------------------------------------------------
+Franco pidio avanzar con la verificacion pendiente de REQ-PERF-005 en el
+navegador. Como la app requiere login real de Google ("Solo nosotros
+dos"), Franco inicio sesion el mismo en la pestana del Browser pane y
+Claude Code continuo la navegacion desde ahi.
+
+Verificado contra produccion (franago.github.io), con Franco logueado:
+- Criterio 1: primera foto del carrusel visible en ~2-4 segundos desde el
+  click en "Ver recuerdos" (antes: 40+ segundos). PASA.
+- Criterio 3: navegar a "siguiente" mostro la foto ya prefetcheada sin
+  spinner visible. PASA.
+- Criterio 4: rafaga de 4 clicks rapidos en "siguiente" (indice 6->10)
+  termino mostrando la foto correcta del indice final -- confirmado
+  leyendo el estado interno (carruselIndex/carruselFotos) por consola --
+  sin ninguna foto vieja pisando a la actual. PASA.
+- Criterio 5: la card de "fotos recientes" del dashboard siguio
+  mostrando sus miniaturas circulares con normalidad despues de navegar
+  el carrusel -- sin regresion de avatarCache. PASA.
+- Criterio 2 (fallo aislado por foto) no se forzo en produccion -- no hay
+  forma segura de simular un fallo puntual de Drive contra datos reales.
+  Queda cubierto solo por el harness de Node ya documentado.
+- Sin errores nuevos en consola durante toda la navegacion (unicos
+  errores presentes: Cross-Origin-Opener-Policy del popup de login de
+  Google, preexistentes, sin relacion con este REQ).
+
+Cambios:
+- docs/requerimientos/REQ-PERF-005.md -- Estado actualizado a CERRADO
+  (verificado en navegador real), agregados los resultados de los 5
+  criterios en "Plan de pruebas".
+
+Estado: REQ-PERF-005 CERRADO. Nada pendiente de deploy a prod (cambio de
+documentacion puro, el codigo ya estaba pusheado de sesiones anteriores).
+Unico pendiente real del proyecto: REQ-PERF-004 (falta que Franco elija
+entre los dos enfoques diagnosticados antes de que Bob implemente).
+========================================================
