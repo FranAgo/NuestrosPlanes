@@ -1922,3 +1922,60 @@ Cambios:
 - docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
   de este bug como tercer item.
 ========================================================
+
+========================================================
+2026-09-15 23:46 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Jay corrige. Cuarto pulido reportado por Franco en la misma sesion.
+--------------------------------------------------------
+Franco reporto: con el fix anterior (foto vieja visible hasta tener la
+nueva lista), navegar rapido por varias fotos podia quedar "tildado"
+mostrando la foto vieja con el loader colgado un buen rato.
+
+Causa: cada navegacion dispara su propio pedido de red
+(fetchArchivoDataUrl), y los pedidos de fotos que el usuario ya dejo
+atras (superadas por clicks posteriores) NO se cancelaban — seguian
+corriendo igual, sin que nada los usara. Los navegadores limitan cuantas
+conexiones simultaneas abren contra el mismo origen, asi que el pedido
+de la foto que SI importa podia quedar haciendo cola detras de varios
+pedidos viejos e irrelevantes.
+
+Fix (index.html):
+- api() ahora acepta una `signal` opcional, para poder abortar el
+  fetch() subyacente.
+- fetchArchivoDataUrl guarda un AbortController por pedido en vuelo
+  (archivosEnCurso pasa de Map<id, Promise> a Map<id, {promise,
+  controller}>).
+- Nueva abortFetchesExcepto(idsAConservar): cancela todo pedido en
+  vuelo que no este en la lista a conservar.
+- renderCarruselFoto() llama abortFetchesExcepto([archivoId actual])
+  apenas arranca cada navegacion — cancela lo que quedo pendiente de
+  fotos que ya no importan, asi el pedido vigente sale sin hacer cola.
+
+Verificacion (Duck): test ejecutable en Node (no solo lectura de
+codigo) que simula 5 clicks rapidos con latencia de red real (300ms) —
+sin cancelar, el 5to pedido (el unico que importa) tendria que esperar
+a los 4 anteriores; con la cancelacion implementada, resuelve en ~310ms
+y solo se completa la llamada de la foto vigente, las demas quedan
+abortadas. PASA.
+
+Nota de proceso: Franco sugirio buscar en internet si ya existia una
+forma establecida de resolver esto antes de seguir iterando a mano.
+Se aclaro que no hizo falta para ESTE bug (AbortController para
+cancelar pedidos obsoletos es un patron estandar, ya resuelto y
+probado), pero la sugerencia disparo una busqueda aparte sobre si hay
+una forma mas eficiente de servir las imagenes de Drive en general —
+ver nota separada, no bloquea el cierre de este fix.
+
+Estado: REQ-PERF-005 sigue CERRADO, con este fix incorporado como
+cuarto item de "Bugs encontrados y corregidos" en
+docs/requerimientos/REQ-PERF-005.md.
+
+Cambios:
+- index.html — api() acepta signal; fetchArchivoDataUrl usa
+  AbortController; nueva abortFetchesExcepto(); renderCarruselFoto la
+  invoca al arrancar cada navegacion.
+- docs/requerimientos/REQ-PERF-005.md — agregado el diagnostico y fix
+  de este bug como cuarto item.
+========================================================

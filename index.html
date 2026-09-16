@@ -2111,14 +2111,14 @@
     // el login todavía no tiene sesión y el logout justamente la está cerrando.
     const SILENT_401 = ['loginGoogle', 'logout'];
 
-    async function api(action, params = {}) {
+    async function api(action, params = {}, signal) {
       const body = {
         action,
         userId:       state.session?.userId || '',
         sessionToken: state.session?.sessionToken || '',
         ...params,
       };
-      const res  = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
+      const res  = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body), signal });
       const data = await res.json();
 
       if (data && data.status === 401 && !SILENT_401.includes(action)) {
@@ -2479,8 +2479,8 @@
     // este REQ) — el mismo jank que este REQ vino a eliminar, por otra vía.
     // El cache en memoria (avatarCache) alcanza para la sesión activa.
     //
-    // Dos correcciones sobre condiciones de carrera detectadas navegando
-    // rápido en producción:
+    // Correcciones sobre condiciones de carrera detectadas navegando rápido
+    // en producción:
     // - archivosEnCurso deduplica pedidos: el prefetch de "la siguiente
     //   foto" (disparado sin esperar, ver renderCarruselFoto) y el pedido
     //   real cuando el usuario llega a esa foto pueden solaparse si navega
@@ -2490,7 +2490,22 @@
     //   de arriba) dejaba esa foto marcada como rota por el resto de la
     //   sesión, sin forma de reintentar. Ahora solo se cachea el éxito;
     //   un fallo se vuelve a intentar la próxima vez que se pida esa foto.
-    const archivosEnCurso = new Map(); // archivoId -> Promise en vuelo
+    // - abortFetchesExcepto() cancela los pedidos que quedaron en vuelo de
+    //   fotos que ya no importan (el usuario siguió navegando antes de que
+    //   resolvieran). Sin esto, navegar rápido por varias fotos acumulaba
+    //   pedidos abandonados que seguían corriendo igual — y como los
+    //   navegadores limitan cuántas conexiones simultáneas abren contra el
+    //   mismo origen, esos pedidos viejos e irrelevantes podían dejar el
+    //   pedido de la foto que SÍ importa haciendo cola detrás, con el
+    //   loader colgado un buen rato.
+    const archivosEnCurso = new Map(); // archivoId -> { promise, controller }
+
+    function abortFetchesExcepto(idsAConservar) {
+      const conservar = new Set(idsAConservar);
+      archivosEnCurso.forEach(({ controller }, archivoId) => {
+        if (!conservar.has(archivoId)) controller.abort();
+      });
+    }
 
     async function fetchArchivoDataUrl(archivoId) {
       if (!archivoId) return null;
@@ -2498,24 +2513,25 @@
       const cacheado = avatarCache.get(archivoId);
       if (cacheado) return cacheado;
 
-      if (archivosEnCurso.has(archivoId)) return archivosEnCurso.get(archivoId);
+      if (archivosEnCurso.has(archivoId)) return archivosEnCurso.get(archivoId).promise;
 
+      const controller = new AbortController();
       const promesa = (async () => {
         try {
-          const data = await api('getArchivo', { archivoId });
+          const data = await api('getArchivo', { archivoId }, controller.signal);
           const url = data.status === 200
             ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
             : '';
           if (url) avatarCache.set(archivoId, url);
         } catch {
-          // Fallo transitorio: no se cachea, para poder reintentar después.
+          // Fallo o pedido cancelado: no se cachea, para poder reintentar después.
         } finally {
           archivosEnCurso.delete(archivoId);
         }
         return avatarCache.get(archivoId) || null;
       })();
 
-      archivosEnCurso.set(archivoId, promesa);
+      archivosEnCurso.set(archivoId, { promise: promesa, controller });
       return promesa;
     }
 
@@ -2652,6 +2668,11 @@
       const indiceSolicitado  = carruselIndex;
       const foto              = carruselFotos[indiceSolicitado];
       if (!foto) return;
+
+      // Cancela pedidos de fotos que quedaron pendientes de navegaciones
+      // anteriores y ya no importan — así el pedido de ESTA foto no hace
+      // cola detrás de ellos (ver comentario de fetchArchivoDataUrl).
+      abortFetchesExcepto([foto.archivoId]);
 
       const imagen  = document.getElementById('carrusel-imagen');
       const loader  = document.getElementById('carrusel-loader');

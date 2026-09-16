@@ -154,3 +154,24 @@ modelo de datos. Gary y Julia no necesitan intervenir.
    solo paso (borrar + asignar la nueva fuente, sin estado intermedio
    visible). Solo se limpia el `<img>` cuando una foto realmente falla
    (rama `else` / `onerror`), no como paso previo de cada navegación.
+
+4. **Encontrado por Franco en producción, tras el fix del punto 3**: con la
+   foto anterior ya no borrándose de entrada, navegar rápido por varias
+   fotos podía quedar "tildado" mostrando la foto vieja con el loader
+   colgado un buen rato. Causa: cada navegación dispara su propio pedido
+   de red (`fetchArchivoDataUrl`), y los pedidos de fotos que el usuario
+   ya dejó atrás (superadas por clicks posteriores) **no se cancelaban** —
+   seguían corriendo igual, sin que nada los usara. Como los navegadores
+   limitan cuántas conexiones simultáneas abren contra el mismo origen, el
+   pedido de la foto que SÍ importa podía quedar haciendo cola detrás de
+   varios pedidos viejos e irrelevantes. Corregido: `fetchArchivoDataUrl`
+   ahora guarda un `AbortController` por pedido en vuelo, y
+   `renderCarruselFoto()` llama `abortFetchesExcepto([archivoId actual])`
+   apenas arranca cada navegación — cancela todo lo que quedó pendiente de
+   fotos que ya no importan, así el pedido vigente sale sin hacer cola.
+   `api()` ahora acepta una `signal` opcional para poder abortar el
+   `fetch()` subyacente. Verificado con un harness de Node que simula 5
+   clicks rápidos con latencia de red real (300ms): sin la cancelación, el
+   quinto pedido (el único que importa) tendría que esperar a los 4
+   anteriores; con la cancelación, resuelve en ~310ms — solo se completa
+   la llamada de la foto vigente, las demás quedan abortadas.
