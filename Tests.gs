@@ -1446,3 +1446,38 @@ function grupoRecentPlanPhotos(R) {
   R.check('C6 · la foto de "Pintar la reja" trae categoría "Mantenimiento"',
           !!deLaReja && deLaReja.categoriaNombre === 'Mantenimiento');
 }
+
+// ============================================================
+// probarBUGCARGA001() — BUG-CARGA-001 fase 1, criterios 4 y 5 (parte
+// servidor): una excepción dentro de doPost responde 500 con un código corto
+// para cruzar con el log, y sin filtrar mensaje/stack al cliente.
+// No toca ninguna planilla: los dos casos fallan antes de leer datos.
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarBUGCARGA001 -P .clasp-test.json -u duck
+// El console.error de cada caso se verifica a ojo en Ejecuciones (test).
+// ============================================================
+function probarBUGCARGA001() {
+  const R = nuevoReporte('BUG-CARGA-001');
+  const formatoCodigo = /^E-[0-9A-F]{6}$/;
+
+  const casos = [
+    { desc: 'body no-JSON',        evento: { postData: { contents: '{esto no es json' } } },
+    { desc: 'evento sin postData', evento: {} },
+  ];
+  const codigos = [];
+
+  casos.forEach(function (c) {
+    const resp = parseResp(doPost(c.evento));
+    R.eq('C4 · ' + c.desc + ' -> 500', resp.status, 500);
+    R.check('C4 · ' + c.desc + ' -> trae codigo con formato E-XXXXXX', formatoCodigo.test(resp.codigo || ''));
+    R.eq('C5 · ' + c.desc + ' -> mensaje genérico', resp.error, 'Error interno del servidor.');
+    R.eq('C5 · ' + c.desc + ' -> solo status/error/codigo (sin stack ni detalle)',
+         Object.keys(resp).sort().join(','), 'codigo,error,status');
+    codigos.push(resp.codigo);
+  });
+
+  R.check('C4 · dos errores distintos dan códigos distintos', codigos[0] !== codigos[1]);
+  R.nota('Códigos generados en esta corrida (buscarlos en Ejecuciones): ' + codigos.join(', '));
+  return R.finalizar();
+}

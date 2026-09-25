@@ -153,9 +153,11 @@ const AUDITORIA_DETALLE_CLAVES_OK = [
 // ------------------------------------------------------------
 
 function doPost(e) {
+  // Fuera del try para que el catch sepa qué acción falló (BUG-CARGA-001).
+  let action = '(sin parsear)';
   try {
     const body = JSON.parse(e.postData.contents);
-    const action = body.action;
+    action = body.action;
 
     // Endpoints que NO requieren sesión válida
     const publicActions = ['loginGoogle'];
@@ -209,10 +211,25 @@ function doPost(e) {
         return respond(400, { error: 'Acción no reconocida.' });
     }
   } catch (err) {
-    // No exponemos detalles internos al cliente
-    Logger.log('Error en doPost: ' + err.toString());
-    return respond(500, { error: 'Error interno del servidor.' });
+    // BUG-CARGA-001: antes solo se hacía Logger.log y la ejecución quedaba
+    // como "Completada" sin rastro útil en el panel de Ejecuciones.
+    // console.error sí aparece ahí (Registros de Cloud). El código corto viaja
+    // al cliente para poder cruzar lo que ve el usuario con esta línea del
+    // log. Al cliente NO le llegan mensaje ni stack (pueden traer IDs
+    // internos); el log no incluye el body (trae el token de sesión).
+    const codigo = codigoError();
+    console.error('doPost [' + codigo + '] acción=' + action + ' — ' +
+      (err && err.message ? err.message : String(err)) +
+      (err && err.stack ? '\n' + err.stack : ''));
+    return respond(500, { error: 'Error interno del servidor.', codigo: codigo });
   }
+}
+
+// Código corto para correlacionar un error visto en la app con su línea en
+// Ejecuciones. No es secreto ni único globalmente: solo tiene que distinguir
+// un error de otro en la misma semana.
+function codigoError() {
+  return 'E-' + Utilities.getUuid().replace(/-/g, '').slice(0, 6).toUpperCase();
 }
 
 // ------------------------------------------------------------

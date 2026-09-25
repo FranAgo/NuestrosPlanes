@@ -1204,6 +1204,15 @@
       letter-spacing: 0.02em;
     }
 
+    /* BUG-CARGA-001: el motivo del fallo, más chico y apagado que el título */
+    #app-loading .load-error-motivo {
+      max-width: 32rem;
+      padding: 0 1rem;
+      font-size: 0.75rem;
+      text-align: center;
+      opacity: 0.75;
+    }
+
     #app-loading .retry-btn {
       margin-top: 0.3rem;
       padding: 0.5rem 1.1rem;
@@ -2127,6 +2136,37 @@
       return data;
     }
 
+    // BUG-CARGA-001: variante de api() SOLO para lecturas (getPlanes,
+    // getCategorias, getRecentPlanPhotos). Una falla pasajera —error de red o
+    // 5xx— se reintenta una vez antes de darla por perdida. No usar en
+    // escrituras: un reintento ahí podría crear o completar algo dos veces.
+    const REINTENTO_LECTURA_MS = 800;
+
+    async function apiLectura(action, params = {}) {
+      try {
+        const data = await api(action, params);
+        if (!(data && data.status >= 500)) return data;
+        console.warn(`[${action}] respondió ${data.status}${data.codigo ? ' (' + data.codigo + ')' : ''} — reintentando una vez`);
+      } catch (e) {
+        console.warn(`[${action}] error de red (${e.message}) — reintentando una vez`);
+      }
+      await new Promise(r => setTimeout(r, REINTENTO_LECTURA_MS));
+      return api(action, params);
+    }
+
+    // Texto para el usuario a partir de una respuesta fallida (o de la
+    // excepción de red), con el código del servidor para cruzarlo con el log
+    // de Ejecuciones. Nunca incluye tokens ni IDs: solo lo que el servidor
+    // ya eligió exponer (error + codigo).
+    function motivoDeFallo(que, dataOError) {
+      if (dataOError instanceof Error) {
+        return `No se pudieron cargar ${que}: no hubo respuesta del servidor (conexión).`;
+      }
+      const d = dataOError || {};
+      const detalle = d.error || `respuesta inesperada (${d.status ?? 'sin estado'})`;
+      return `No se pudieron cargar ${que}: ${detalle}` + (d.codigo ? ` · código ${d.codigo}` : '');
+    }
+
     // ====================================================
     // LOGIN
     // ====================================================
@@ -2256,9 +2296,10 @@
       appLoading.hidden = false;
     }
 
-    function showAppLoadError() {
+    function showAppLoadError(motivo) {
       appLoading.innerHTML =
         '<p>No se pudieron cargar los datos.</p>' +
+        (motivo ? '<p class="load-error-motivo">' + escapeHtml(motivo) + '</p>' : '') +
         '<button type="button" class="retry-btn" id="app-retry">Reintentar</button>';
       appLoading.hidden = false;
       document.getElementById('app-retry').addEventListener('click', () => {
@@ -2293,9 +2334,22 @@
         // terminara también loadOtherUsers (que trae avatares desde Drive,
         // mucho más lento), así que las tareas tardaban en verse tanto como
         // la etapa más lenta aunque sus propios datos ya estuvieran listos.
-        await Promise.all([categoriasPromise, planesPromise]);
+        const [respCategorias, respPlanes] = await Promise.all([categoriasPromise, planesPromise]);
         // Si un 401 en el medio disparó forceLogout, ya estamos en el login.
         if (!state.session) return;
+
+        // BUG-CARGA-001: una respuesta de error (500, etc.) NO es "no hay
+        // planes". Antes se ignoraba y se pintaba la lista vacía, que el
+        // usuario lee como "se borró todo".
+        const fallida = [['los planes', respPlanes], ['las categorías', respCategorias]]
+          .find(([, resp]) => !resp || resp.status !== 200);
+        if (fallida) {
+          const motivo = motivoDeFallo(...fallida);
+          console.error('[initApp] ' + motivo);
+          showAppLoadError(motivo);
+          return;
+        }
+
         renderCategorias();
         renderPlanes();
         appLoading.hidden = true;
@@ -2304,7 +2358,11 @@
         // (empujando la lista) cuando fotosPromise recién resuelva más abajo.
         showFotosRecientesSkeleton();
       } catch (e) {
-        if (state.session) showAppLoadError();
+        if (state.session) {
+          const motivo = motivoDeFallo('los datos', e);
+          console.error('[initApp] ' + motivo, e);
+          showAppLoadError(motivo);
+        }
         return;
       }
 
@@ -2591,9 +2649,13 @@
 
     async function loadFotosRecientes() {
       try {
-        const data = await api('getRecentPlanPhotos', { limit: 5 });
+        const data = await apiLectura('getRecentPlanPhotos', { limit: 5 });
         fotosRecientes = data.status === 200 ? (data.fotos || []) : [];
-      } catch {
+        // Las fotos no tapan la app si fallan (BUG-CARGA-001 criterio 2),
+        // pero el motivo queda en consola en vez de perderse.
+        if (data.status !== 200) console.error('[fotos recientes] ' + motivoDeFallo('las fotos', data));
+      } catch (e) {
+        console.error('[fotos recientes] ' + motivoDeFallo('las fotos', e));
         fotosRecientes = [];
       }
       await renderFotosRecientesCard();
@@ -2657,17 +2719,36 @@
     }
 
     // REQ-PERF-005: trae la foto actual on-demand (no las 20 de golpe) y
-    // prefetchea la siguiente en silencio para que "siguiente" se sienta
-    // instantáneo en el caso común. carruselRenderToken evita que una
-    // respuesta que llega tarde (el usuario ya navegó a otra foto mientras
-    // esta pedía a Drive) pise lo que está visible en ese momento.
+    // prefetchea las adyacentes en silencio para que navegar en cualquier
+    // dirección se sienta instantáneo en el caso común. carruselRenderToken
+    // evita que una respuesta que llega tarde (el usuario ya navegó a otra
+    // foto mientras esta pedía a Drive) pise lo que está visible en ese
+    // momento.
     let carruselRenderToken = 0;
+
+    // Bug encontrado por Franco en producción, navegando rápido en ambas
+    // direcciones: abortFetchesExcepto() cancela la ESPERA del lado del
+    // cliente, pero no cancela la ejecución ya disparada del lado de Apps
+    // Script — el servidor sigue corriendo igual aunque el cliente haya
+    // abortado. Disparar un pedido real por cada click de una ráfaga deja
+    // varias ejecuciones "huérfanas" corriendo en el servidor, y la que sí
+    // importa (la última) puede terminar esperando detrás de ellas. Por eso
+    // el pedido real se demora NAV_DEBOUNCE_MS: si el usuario sigue
+    // navegando antes de que venza, se reprograma para el índice nuevo, así
+    // que una ráfaga de clicks dispara UN solo pedido al servidor, para la
+    // foto en la que el usuario finalmente se queda parado. Si la foto ya
+    // está en cache (típicamente por el prefetch de abajo), se muestra al
+    // toque, sin debounce.
+    const NAV_DEBOUNCE_MS = 200;
+    let carruselFetchTimer = null;
 
     async function renderCarruselFoto() {
       const miToken           = ++carruselRenderToken;
       const indiceSolicitado  = carruselIndex;
       const foto              = carruselFotos[indiceSolicitado];
       if (!foto) return;
+
+      if (carruselFetchTimer) { clearTimeout(carruselFetchTimer); carruselFetchTimer = null; }
 
       // Cancela pedidos de fotos que quedaron pendientes de navegaciones
       // anteriores y ya no importan — así el pedido de ESTA foto no hace
@@ -2691,7 +2772,15 @@
       document.getElementById('btn-carrusel-prev').disabled = indiceSolicitado === 0;
       document.getElementById('btn-carrusel-next').disabled = indiceSolicitado === carruselFotos.length - 1;
 
-      const src = await fetchArchivoDataUrl(foto.archivoId);
+      const cacheada = avatarCache.get(foto.archivoId);
+      const src = cacheada
+        ? cacheada
+        : await new Promise(resolve => {
+            carruselFetchTimer = setTimeout(() => {
+              carruselFetchTimer = null;
+              resolve(fetchArchivoDataUrl(foto.archivoId));
+            }, NAV_DEBOUNCE_MS);
+          });
       if (miToken !== carruselRenderToken) return; // ya se navegó a otra foto
 
       const partes = [
@@ -2721,8 +2810,13 @@
         caption.textContent = 'No se pudo cargar la foto.';
       }
 
-      const siguiente = carruselFotos[indiceSolicitado + 1];
-      if (siguiente) fetchArchivoDataUrl(siguiente.archivoId);
+      // Prefetch simétrico: antes solo se traía la foto siguiente, así que
+      // retroceder a una foto no visitada nunca era instantáneo (bug
+      // encontrado por Franco en producción). Se prefetchean las dos
+      // adyacentes para que "anterior" se sienta igual de instantáneo que
+      // "siguiente" en el caso común.
+      [carruselFotos[indiceSolicitado + 1], carruselFotos[indiceSolicitado - 1]]
+        .forEach(adyacente => { if (adyacente) fetchArchivoDataUrl(adyacente.archivoId); });
     }
 
     document.getElementById('fotos-recientes-card').addEventListener('click', openModalCarrusel);
@@ -2798,9 +2892,13 @@
     // ====================================================
     // PLANES — CARGA Y RENDER
     // ====================================================
+    // Devuelve la respuesta para que initApp distinga "error" de "lista vacía"
+    // (BUG-CARGA-001). No tira: los que recargan tras guardar/borrar siguen
+    // funcionando igual que antes.
     async function loadPlanes() {
-      const data = await api('getPlanes');
+      const data = await apiLectura('getPlanes');
       if (data.status === 200) state.planes = data.planes || [];
+      return data;
     }
 
     // Recarga planes y actualiza el mapa de usuarios en un solo paso
@@ -3241,8 +3339,9 @@
     // CATEGORÍAS — CARGA Y RENDER
     // ====================================================
     async function loadCategorias() {
-      const data = await api('getCategorias');
+      const data = await apiLectura('getCategorias');
       if (data.status === 200) state.categorias = data.categorias || [];
+      return data;
     }
 
     function renderCategorias() {

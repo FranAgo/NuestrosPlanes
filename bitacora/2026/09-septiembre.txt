@@ -2160,3 +2160,46 @@ documentacion puro, el codigo ya estaba pusheado de sesiones anteriores).
 Unico pendiente real del proyecto: REQ-PERF-004 (falta que Franco elija
 entre los dos enfoques diagnosticados antes de que Bob implemente).
 ========================================================
+
+========================================================
+2026-09-25 15:52 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Contexto: Franco creyó haber roto el proyecto al mover una carpeta de test.
+Revisado: repo, archivos de test (.clasp-test.json, .claspignore-test,
+Tests.gs) y datos de prod intactos. Lo que estaba roto:
+- clasp perfil "duck": token vencido (invalid_grant). Re-login hecho
+  (clasp login --user duck --creds client_secret.json --use-project-scopes).
+- GitHub: el repo usaba la cuenta de la empresa (gestion-sis). Configurado
+  credential.https://github.com.username=FranAgo en este repo (solo local)
+  + login de GCM con la cuenta personal. Verificado: token FranAgo con push.
+- App de prod mostraba "No hay planes aquí todavía" con 4 planes activos
+  en la hoja -> BUG-CARGA-001 (fase 1).
+
+Cambios:
+- Code.gs -- doPost: el catch ahora registra con console.error (visible en
+  Ejecuciones) la accion, el mensaje, el stack y un codigo corto E-XXXXXX;
+  la respuesta 500 incluye ese codigo, sin detalle interno. Nueva
+  codigoError().
+- Tests.gs -- nueva suite probarBUGCARGA001 (9 checks).
+- index.html -- apiLectura(): 1 reintento automatico en 5xx/red, solo para
+  lecturas (getPlanes, getCategorias, getRecentPlanPhotos). initApp muestra
+  "No se pudieron cargar los datos" con el motivo y el codigo + Reintentar
+  cuando planes/categorias no vuelven 200 (antes pintaba la lista vacia).
+  loadFotosRecientes registra el error en consola. Estilo
+  .load-error-motivo. Incluye el cambio pendiente del 16/09 del carrusel
+  (REQ-PERF-005: debounce 200 ms + prefetch simetrico).
+- docs/requerimientos/BUG-CARGA-001.md -- nuevo: diagnostico, criterios,
+  resultados de Duck y hallazgos.
+
+Pruebas (Duck, entorno de test): probarBUGCARGA001 9/9, probarDATA002
+70/70, probarBUGLOGIN001B 38/38, probarMEDIA001 APTO, probarMEDIA002 43/43.
+Front con fetch simulado: 12 casos OK (ver BUG-CARGA-001.md). Carrusel OK.
+
+Hallazgos:
+- Logger.log NO aparece en el panel de Ejecuciones; console.error si.
+- purgarSesiones (trigger semanal) falla desde el 11/09 por falta de
+  permiso (se agrego el scope script.scriptapp). Requiere que Franco
+  re-autorice corriendo una funcion desde el editor de prod.
+========================================================
