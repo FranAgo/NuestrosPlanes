@@ -1,6 +1,6 @@
 # BUG-CARGA-001 — La app muestra "No hay planes" cuando la carga falla
 
-> **Estado:** Fase 1 IMPLEMENTADA y APROBADA por Duck en test (2026-09-25) — **pendiente de deploy a prod** (Code.gs vía clasp + index.html vía push a GitHub Pages). Fase 2 pendiente de datos reales.
+> **Estado:** Fase 1 EN PRODUCCIÓN (2026-09-25) — servidor versión 22 del deployment de prod, front commit `a8faf0c` en GitHub Pages. Verificado en prod: 500 con `codigo` (E-E9C351) y carga completa de la app en Chrome sin errores. Fase 2 pendiente de datos reales (esperar la próxima falla y leer `doPost [E-XXXXXX]` en Ejecuciones).
 >
 > | Condición de cierre | Estado |
 > |---|---|
@@ -112,6 +112,18 @@ atrás a f4 → instantáneo (ya precargada).
    las sesiones vencidas/revocadas no se están purgando. No causa la pantalla
    vacía. **Arreglo:** Franco abre el editor del proyecto de prod, corre
    `listarTriggers` una vez y acepta los permisos (re-autoriza el trigger).
+   *2026-09-25 21:39:* Franco corrió `listarTriggers` desde el editor →
+   Completada sin pedir autorización (los scopes ya estaban consentidos). El
+   trigger sigue programado. **Pendiente:** confirmar que la próxima
+   ejecución semanal de `purgarSesiones` termine sin error.
+3. **Permisos que vencían cada 7 días:** la app OAuth del proyecto de Cloud
+   (`nuestrosplanes-507721`) estaba en estado "Prueba", y en ese modo Google
+   vence los refresh tokens a los 7 días (así se cayó el perfil `duck` de
+   clasp). Se pasó a **"En producción"** (2026-09-25, con OK de Franco):
+   página principal + `privacidad.html` (commit `c58591f`) cargadas en la
+   marca. Sin verificación de Google (límite 100 usuarios, aviso "app no
+   verificada"; sin costo). Perfil `duck` re-logueado después del cambio y
+   probado (`probarBUGCARGA001` 9/9).
 
 ## Fase 2 — Causa raíz
 

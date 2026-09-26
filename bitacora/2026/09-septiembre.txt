@@ -2203,3 +2203,32 @@ Hallazgos:
   permiso (se agrego el scope script.scriptapp). Requiere que Franco
   re-autorice corriendo una funcion desde el editor de prod.
 ========================================================
+
+========================================================
+2026-09-25 21:42 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Deploy de BUG-CARGA-001 a produccion y permisos que no vencen.
+
+Cambios:
+- Produccion (servidor): clasp push + clasp deploy al deployment de prod
+  -> version 22. Verificado: un pedido roto devuelve 500 con codigo
+  (E-E9C351); la app carga completa en Chrome sin errores.
+- Produccion (front): commit a8faf0c pusheado a main (GitHub Pages).
+- privacidad.html -- nueva politica de privacidad (revisada por Julia
+  contra el codigo, Ley 25.326), requerida por Google para publicar la
+  app OAuth. Commit c58591f.
+- Google Cloud (nuestrosplanes-507721), con OK explicito de Franco:
+  marca con pagina principal y link de privacidad; app OAuth pasada de
+  "Prueba" a "En produccion" -> los tokens ya no vencen cada 7 dias.
+  Sin verificacion de Google (sin costo, limite 100 usuarios).
+- clasp perfil duck re-logueado despues del cambio; probado OK.
+- purgarSesiones: Franco corrio listarTriggers desde el editor de prod ->
+  Completada sin pedir permisos. Trigger sigue programado. Pendiente:
+  confirmar que la proxima ejecucion semanal no de error.
+- .claude/settings.local.json (Franco, a mano) -- permitidos git add,
+  git commit, clasp deploy y firebase en modo auto.
+- docs/requerimientos/BUG-CARGA-001.md -- estado en produccion y
+  hallazgos 2 y 3.
+========================================================
