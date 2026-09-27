@@ -55,9 +55,17 @@ diagnóstico y fix"); el perfil `duck` es el que lo tiene.
   `doPost [E-XXXXXX]` (el código que devuelve el 500 y muestra el front).
 - El panel se abre con `?authuser=agoglia.franco@gmail.com`; sin eso abre
   la cuenta de la empresa y dice que no se puede abrir.
+- Más rápido que el panel: `clasp logs --json` con el perfil **por
+  defecto** (con `-u duck` da "Insufficient Permission"). Trae las 100
+  entradas más recientes de Cloud Logging, **incluidas las de
+  `Logger.log`**, de prod y test mezclados (comparten el proyecto de
+  Cloud). Para separarlos: `invocation_type` "web app" es uso real; "apps
+  script api" es `clasp run` (tests).
 
 **Por qué:** BUG-CARGA-001 (2026-09-25): cargas fallidas durante días que
-nadie podía ver. `docs/requerimientos/BUG-CARGA-001.md`.
+nadie podía ver. El 2026-09-27, `clasp logs` mostró la causa (errores de
+permisos del 20 al 25/09) que el panel de Ejecuciones nunca había
+mostrado. `docs/requerimientos/BUG-CARGA-001.md`.
 
 ## El editor de Apps Script por control remoto es frágil
 

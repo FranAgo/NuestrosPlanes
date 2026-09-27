@@ -41,7 +41,9 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Prioridad: Baja
 - Origen: REQ-PERF-001 (2026-09-15)
 - Nota: hoy solo tiene el smoke que corrió Duck una vez; no quedó como test
-  permanente en Tests.gs.
+  permanente en Tests.gs. *(2026-09-27, validación de skills: tampoco hay
+  test de 401 por `doPost` para `getArchivos` ni `getRecentPlanPhotos`;
+  `getArchivo` sí lo tiene. Sumarlos acá.)*
 
 ### BL-003 — REQ-ADMIN-001: rol admin + panel
 - Estado: Propuesto
@@ -58,7 +60,9 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: quedan 2 glifos sueltos violando la regla de identidad-visual (nada
   de glifos como iconos de UI): el "✦" del empty state y el "✕" del overlay
   de foto con error en la grilla de subida. El corazón "♡" del `<title>` es
-  identidad de marca y no aplica acá.
+  identidad de marca y no aplica acá. *(2026-09-27: son 3; falta también el
+  "◇" del vacío de categorías, `index.html:3353`. Ver `docs/DESIGN.md`,
+  "Iconos".)*
 
 ### BL-005 — Enmascarar también el dominio en enmascararEmail()
 - Estado: Propuesto
@@ -121,7 +125,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27
 
 ### BL-012 — `docs/DESIGN.md` de Nuestros Planes
-- Estado: Propuesto
+- Estado: En curso (escrito el 2026-09-27, falta la revisión de Franco y el commit)
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). Jay y `hjay-identidad-visual` usan el `DESIGN.md` del proyecto "si tiene uno"; en sis-web salió de extraer del código colores, tipografía y componentes.
 - Nota: extraer de `index.html` el sistema de diseño real (tokens de color, radios, tipografía, botones, modales, excepciones) para que los cambios visuales tengan una referencia escrita. Lo mantiene Jay.
@@ -133,7 +137,45 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: juntar en un solo archivo las superficies ya revisadas (REQ-SEC-001/002, REQ-DATA-002, BUG-LOGIN-001), los hallazgos abiertos (BL-005, BL-006) y el criterio acordado. Hoy está repartido entre los REQ.
 
 ### BL-014 — Validar las skills traídas de sis-web con escenarios de Peroncitos
-- Estado: Propuesto
+- Estado: En curso (2026-09-27: A/B corridos para `hjulia-revision-cambio` y `hjay-verificacion-visual`, resultado en `docs/skills/INVENTARIO.md`; los cambios siguen en BL-020)
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). La metodología pide probar cada skill con un subagente limpio ("Claude B") y al menos 3 escenarios; las copias no se probaron sobre este proyecto.
 - Nota: sobre todo `hjulia-revision-cambio` (piensa en reglas de base de datos; acá la capa que decide es `Code.gs`) y `hjay-verificacion-visual` (con el preview local que pega a prod). Registrar el resultado en `docs/skills/INVENTARIO.md`.
+
+## Sesión 2026-09-27 (2)
+
+### BL-015 — Sacar a alguien de `Usuarios` no corta sus sesiones
+- Estado: Propuesto
+- Prioridad: Sin definir
+- Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano en el código
+- Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance).
+
+### BL-016 — Las fotos quedan en el navegador después de cerrar sesión
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
+- Nota: `clearSession()` borra `cp_session` pero no `cp_image_cache` (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`. En un dispositivo compartido se pueden leer desde DevTools sin sesión (Ley 25.326).
+
+### BL-017 — ¿Las fotos de un plan eliminado siguen en "recuerdos"?
+- Estado: Propuesto
+- Prioridad: Sin definir
+- Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
+- Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
+
+### BL-018 — Deudas de UI que dejó a la vista `docs/DESIGN.md`
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: armado de `docs/DESIGN.md` (BL-012), 2026-09-27
+- Nota: falta `color-scheme: dark` (el calendario nativo de `<input type="date">` puede salir claro); no hay bloque `prefers-reduced-motion`; `--transition` es `all`; los `<label>` no tienen `for`; los botones de la tarjeta de plan no tienen `aria-label` ni `type="button"`. Detalle en DESIGN.md, "Deudas conocidas".
+
+### BL-019 — Nada avisa si la autorización del Apps Script vuelve a vencer
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: causa raíz de BUG-CARGA-001 (2026-09-27)
+- Nota: del 20 al 25/09 la Web App respondió 500 por permisos y nadie se enteró hasta que Franco vio la pantalla vacía. Con la app OAuth en "En producción" no debería repetirse, pero hoy solo se detecta mirando `clasp logs`. Evaluar una alerta de Cloud Logging por "No tienes permiso".
+
+### BL-020 — Mejoras genéricas a dos skills traídas de sis-web
+- Estado: Priorizado
+- Prioridad: Media
+- Origen: validación A/B de BL-014 (2026-09-27)
+- Nota: `hjay-verificacion-visual` y `hjulia-revision-cambio` asumen una base con SDK y reglas (Firestore). Cambios mínimos propuestos, todos genéricos: "la capa que decide (regla de la base o handler del servidor)", anular escrituras "en la capa más baja por la que salen todas (el SDK, o `fetch`)", la fila "cuenta dada de baja con sesión válida" en la matriz, alturas bajas y teclado virtual cuando el síntoma es vertical, reclamos desde un teléfono (sin F12), y que "anda" en el servidor lo prueban los tests. Decidido (DEC-003): se editan acá y no se lleva nada a sis-web. Queda para otra sesión: aplicar los cambios con el proceso de `docs/skills/METODOLOGIA.md` y volver a correr A/B.

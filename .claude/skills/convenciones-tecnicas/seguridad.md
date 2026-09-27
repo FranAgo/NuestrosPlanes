@@ -11,10 +11,19 @@ HTML · 5. Archivos de Drive · 6. Auditoría y datos personales · 7. Tests.
 ## 1. Qué capa decide
 
 No hay reglas de base de datos: la planilla no es accesible para el
-cliente. **Todo control real vive en `Code.gs`**, en el handler de cada
-acción de `doPost`. Lo que el front oculta o deshabilita es cosmético.
-Un endpoint nuevo valida la sesión (`validarSesion`) antes de leer o
-escribir nada; revisar leer/crear/modificar/borrar por separado.
+cliente. **Todo control real vive en `Code.gs`**. Lo que el front oculta
+o deshabilita es cosmético. La Web App es `ANYONE_ANONYMOUS`: cualquiera
+puede llamar a `doPost` con cualquier parámetro.
+
+- La sesión la valida el router, no cada handler: `doPost` llama a
+  `validarSesion` para toda acción que no esté en `publicActions` y pisa
+  `body.userId` con el de la sesión. Un endpoint nuevo **no va en
+  `publicActions`** y usa `body.authUserId`, nunca un id que venga del body
+  (única excepción: `getUser`).
+- Lo que cada acción permite (dueño, estado, tipo de archivo) lo decide su
+  handler. Revisar leer, crear, modificar y borrar por separado.
+- Un test tiene que entrar por `doPost`, igual que el front. Llamar al
+  handler directo saltea el gate de sesión y no prueba el acceso.
 
 ## 2. Cuentas
 
@@ -32,6 +41,13 @@ escribir nada; revisar leer/crear/modificar/borrar por separado.
 - Token opaco `<session_id>.<secreto>`; la hoja `Sesiones` guarda
   `HMAC-SHA256(secreto, SESSION_SECRET)`, nunca el secreto. Comparación
   en tiempo constante. Expiración absoluta de 15 días, revocable.
+- `validarSesion` mira `Sesiones`, no `Usuarios`: sacar a alguien de la
+  lista blanca no corta sus sesiones abiertas. Para cortarlas hoy hay que
+  marcar sus filas de `Sesiones` como `revocada` (y esperar el caché de
+  90 s). La matriz de acceso lleva la fila "cuenta dada de baja con sesión
+  todavía válida".
+- Al cerrar sesión, el front borra `cp_session` pero no `cp_image_cache`
+  (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`.
 - El puente anti-carrera de `CacheService` (`validarDesdePuente`) guarda
   el hash, no el token, y solo se consulta si la hoja respondió "no
   está", nunca si falló. El logout lo borra siempre. Ver
@@ -54,10 +70,20 @@ Revisado el 2026-09-27: todos los usos actuales respetan su contexto.
 
 ## 5. Archivos de Drive
 
-Las fotos nunca se sirven con URL pública ni con una URL de Google en el
-cliente: pasan por `getArchivo`/`getArchivos` con sesión y vuelven como
-data URL. Una miniatura de Drive (BL-011) se baja en el servidor, no se
-expone su `thumbnailLink`.
+Las fotos se muestran siempre desde `getArchivo`/`getArchivos` (con
+sesión), que las devuelven como data URL. Los archivos de Drive son
+privados (`revocarSharingPublicoArchivos`), así que ninguna URL de Google
+alcanza para verlos sin la cuenta del dueño.
+
+Excepción que ya existe: el avatar guarda en `Usuarios.fotoUrl` una URL
+`drive.google.com/thumbnail?id=…` y esa URL llega al cliente (`getUser`,
+respuesta de `uploadPhoto`). Expone el id del archivo, no el contenido. Lo
+nuevo no suma URLs de Google al cliente.
+
+Una miniatura de Drive (BL-011, REQ-PERF-004) se baja en el servidor, y su
+`thumbnailLink` no va al cliente ni a los logs. Esa URL sale siempre de
+`Drive.Files.get` sobre el `drive_file_id` de la hoja, nunca de un
+parámetro del pedido: el pedido al link lleva el token del dueño.
 
 ## 6. Auditoría y datos personales
 

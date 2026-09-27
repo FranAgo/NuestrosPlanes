@@ -2284,3 +2284,62 @@ del catalogo OK, check-sintaxis OK. Revision de seguridad de paso: todo
 HTML armado con datos pasa por escapeHtml/safeId/safeColor segun el
 contexto, sin hallazgos. Sin cambios de codigo de la app: no hay deploy.
 ========================================================
+
+========================================================
+2026-09-27 17:40 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- (fuera del repo) Franco desactivo en claude.ai las skills viejas con
+  prefijo anthropic-skills:. Verificado con la lista de skills de la cuenta.
+  El skillOverrides de .claude/settings.local.json no las apagaba; se deja
+  como esta.
+- docs/requerimientos/BUG-CARGA-001.md: seccion "Revision de logs del
+  2026-09-27". clasp logs mostro 30 errores "No tienes permiso para llamar
+  a SpreadsheetApp.openById" en la Web App de prod del 20 al 25/09 y
+  ninguno despues de la re-autorizacion del 25/09. Es la causa raiz
+  probable (autorizacion OAuth vencida con la app en modo Prueba).
+  purgarSesiones corrio sin error el 27/09. Queda para cerrar con el OK de
+  Franco.
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md: clasp logs
+  --json (perfil por defecto) muestra tambien Logger.log, y como separar
+  prod de test.
+- docs/DESIGN.md (nuevo, BL-012): sistema de diseno de Nuestros Planes
+  extraido de index.html (variables de :root, tipografia, componentes,
+  iconos, excepciones como el cursor propio, deudas conocidas).
+- Validacion A/B (BL-014) de hjulia-revision-cambio y
+  hjay-verificacion-visual con subagentes de solo lectura; hallazgos
+  verificados a mano.
+- .claude/skills/convenciones-tecnicas/seguridad.md: el gate de sesion
+  vive en el router de doPost (no en cada handler); la baja en Usuarios no
+  corta sesiones; el logout no borra cp_image_cache; excepcion de la URL
+  de Drive del avatar; cuidados de thumbnailLink.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md: simular
+  con window.fetch (unico punto de salida); SCRIPT_URL es const; no
+  sembrar cp_session (una recarga manda el token falso a prod); hover en
+  emulacion movil.
+- Tests.gs: comentario de uso con -I .claspignore-test y -u duck (solo
+  comentario; check-sintaxis en verde).
+- docs/backlog.md: nota en BL-002 y BL-004 (falta el glifo ◇); BL-012 y
+  BL-014 en curso; nuevos BL-015 a BL-020.
+- docs/skills/INVENTARIO.md: resultado de la validacion A/B, DESIGN.md
+  existente, skills de claude.ai desactivadas.
+Sin cambios de logica de la app: no hay deploy.
+========================================================
+
+========================================================
+2026-09-27 17:55 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/BUG-CARGA-001.md — CERRADO con el OK de Franco
+  (causa raiz en la revision de logs de la entrada anterior).
+- docs/decisiones.md — DEC-003: las skills se mejoran en este repo y se
+  deja de sincronizar con sis-web, salvo pedido de Franco.
+- docs/backlog.md — BL-020 pasa a Priorizado (se hace aca, en otra
+  sesion); BL-014 remite a BL-020.
+- docs/skills/INVENTARIO.md — seccion "Relacion con sis-web" segun
+  DEC-003.
+========================================================

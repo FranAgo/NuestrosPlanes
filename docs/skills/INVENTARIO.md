@@ -2,7 +2,7 @@
 
 Fase 0 de `docs/skills/METODOLOGIA.md`. Se actualiza al cerrar cada pasada
 o cada vez que se traen versiones nuevas desde sis-web. Última
-actualización: 2026-09-27 (reemplazo por las skills de sis-web, DEC-001).
+actualización: 2026-09-27 (validación A/B de dos herramientas, BL-014).
 
 ## Skills del repo (`.claude/skills/`)
 
@@ -13,9 +13,9 @@ actualización: 2026-09-27 (reemplazo por las skills de sis-web, DEC-001).
 | `hpaul-triage` | Herramienta | Paul | sis-web, tal cual | Sin pasada propia. La regla de Peroncitos "hallazgo sobre REQ existente → al REQ" vive en `CLAUDE.md`, no en la herramienta |
 | `jay-engineer-frontend` | Persona | Jay | sis-web, tal cual | Sin pasada propia |
 | `hjay-identidad-visual` | Herramienta | Jay | sis-web, tal cual | Sin pasada propia |
-| `hjay-verificacion-visual` | Herramienta | Jay | sis-web, tal cual | Nueva en Peroncitos |
+| `hjay-verificacion-visual` | Herramienta | Jay | sis-web, tal cual | Validada A/B el 2026-09-27 (ver abajo) |
 | `julia-engineer-appsec` | Persona | Julia | sis-web, tal cual | Sin pasada propia |
-| `hjulia-revision-cambio` | Herramienta | Julia | sis-web, tal cual | Nueva en Peroncitos |
+| `hjulia-revision-cambio` | Herramienta | Julia | sis-web, tal cual | Validada A/B el 2026-09-27 (ver abajo) |
 | `duck-engineer-qa-testing` | Persona | Duck | sis-web, tal cual | Sin pasada propia |
 | `bob-engineer-backend` | Persona | Bob | sis-web (igual a la anterior de Peroncitos) | Sin pasada propia |
 | `gary-engineer-dba` | Persona | Gary | sis-web, con el contexto de datos generalizado (ya no dice "facturación, clientes, empleados") | Sin pasada propia |
@@ -32,9 +32,35 @@ El `convenciones-tecnicas` de sis-web no se copió: es de InSIS (Firestore,
 | `docs/backlog.md` | `hpaul-triage` | `skills/hpaul-backlog/BACKLOG.md` |
 | `docs/decisiones.md` | `hpaul-decision-log` | `skills/hpaul-decisiones-producto/hpaul-decisiones-producto.md` (solo plantilla) |
 
-Todavía no existen (ver backlog): un `docs/DESIGN.md` de Nuestros Planes
-(lo mantendría Jay) y un documento de seguimiento de seguridad (Julia).
-Las dos personas los mencionan como "si el proyecto tiene uno".
+| `docs/DESIGN.md` | Jay | (nuevo, 2026-09-27, BL-012) |
+
+Todavía no existe (ver backlog, BL-013) el documento de seguimiento de
+seguridad que menciona la persona de Julia "si el proyecto tiene uno".
+
+## Validación A/B (2026-09-27, BL-014)
+
+Mismos 4 escenarios de Peroncitos para cada herramienta. Claude A: línea
+base, con `CLAUDE.md` y `convenciones-tecnicas` pero sin la herramienta ni
+su persona (prohibido abrirlas). Claude B: con la herramienta, contrastándola
+contra el código. Los dos, solo lectura.
+
+**`hjulia-revision-cambio`.** A y B llegaron a los mismos hallazgos reales
+(BL-015, BL-016, BL-017, la URL de Drive del avatar), verificados a mano. La
+herramienta aporta orden y formato (matriz, hallazgo contra hipótesis, la
+celda que decide producto), no hallazgos nuevos: la línea base es fuerte,
+igual que en sis-web. B encontró que asume reglas de base y emulador (BL-020).
+
+**`hjay-verificacion-visual`.** A también trabajó bien (criterios,
+anchos, alturas, no hacer click contra prod). B aportó alturas y teclado,
+el reclamo desde un teléfono y el script de medición de solo lectura. Lo
+más importante salió de contrastar: **los dos siguieron un consejo roto de
+`verificacion-navegador.md`** (sembrar `cp_session`, reasignar
+`SCRIPT_URL`, que es `const`). Se corrigió ese tema el mismo día.
+
+**Conclusión:** las dos herramientas quedan. Los cuidados propios de
+Peroncitos se corrigieron en `convenciones-tecnicas` (`seguridad.md`,
+`verificacion-navegador.md`). Las mejoras genéricas a las herramientas
+quedan en BL-020 (se editan acá, DEC-003).
 
 ## Referencias cruzadas
 
@@ -43,8 +69,7 @@ Las dos personas los mencionan como "si el proyecto tiene uno".
   `docs/decisiones.md`.
 - `paul-engineer-pm` → `hpaul-decision-log`, `hpaul-triage`.
 - `jay-engineer-frontend` → `hjay-identidad-visual`,
-  `hjay-verificacion-visual`, `convenciones-tecnicas`, `DESIGN.md` del
-  proyecto (no existe todavía).
+  `hjay-verificacion-visual`, `convenciones-tecnicas`, `docs/DESIGN.md`.
 - `julia-engineer-appsec` → `hjulia-revision-cambio`,
   `convenciones-tecnicas`, documento de seguimiento de seguridad (no
   existe todavía), comando `security-review`.
@@ -55,14 +80,14 @@ Las dos personas los mencionan como "si el proyecto tiene uno".
 
 ## Fuera del repo
 
-Las copias con prefijo `anthropic-skills:` de la cuenta de claude.ai son
-versiones viejas. En este proyecto están apagadas con `skillOverrides` en
-`.claude/settings.local.json` (que no se versiona: en otra máquina hay que
-repetirlo).
+Las copias viejas con prefijo `anthropic-skills:` se desactivaron en la
+cuenta de claude.ai el 2026-09-27 (verificado con la lista de skills de la
+cuenta). El `skillOverrides` de `.claude/settings.local.json` que intentaba
+apagarlas no funcionaba y quedó sin efecto.
 
-## Mantener en sincronía con sis-web
+## Relación con sis-web
 
-Las skills genéricas (todas menos `convenciones-tecnicas`) son copias. Si
-sis-web las mejora, se traen de nuevo con un diff primero y se anota acá
-qué cambió. Lo propio de Peroncitos nunca va adentro de una skill
-genérica: va a `CLAUDE.md` o a `convenciones-tecnicas`.
+Las skills genéricas salieron de sis-web (DEC-001), pero desde DEC-003
+son de este repo: se mejoran acá y no se sincronizan con sis-web, salvo
+que Franco lo pida. Lo propio de Peroncitos sigue sin ir adentro de una
+skill genérica: va a `CLAUDE.md` o a `convenciones-tecnicas`.

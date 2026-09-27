@@ -1,12 +1,13 @@
 # BUG-CARGA-001 — La app muestra "No hay planes" cuando la carga falla
 
-> **Estado:** Fase 1 EN PRODUCCIÓN (2026-09-25) — servidor versión 22 del deployment de prod, front commit `a8faf0c` en GitHub Pages. Verificado en prod: 500 con `codigo` (E-E9C351) y carga completa de la app en Chrome sin errores. Fase 2 pendiente de datos reales (esperar la próxima falla y leer `doPost [E-XXXXXX]` en Ejecuciones).
+> **Estado:** CERRADO (2026-09-27). Fase 1 en producción desde el 25/09 (servidor v22, front `a8faf0c`). Fase 2: causa raíz encontrada en `clasp logs` (autorización OAuth vencida, ver "Revisión de logs del 2026-09-27") y ya resuelta el 25/09; sin errores de carga desde entonces. Cerrado con el OK de Franco.
 >
 > | Condición de cierre | Estado |
 > |---|---|
 > | Código entregado (Bob + Jay) | ✅ 2026-09-25 |
 > | Aprobación explícita de Duck | ✅ 2026-09-25 — APTO, ver "Resultados de Duck" |
-> | Paul verificó criterios originales | ✅ 1–6 cumplidos en test; falta confirmar en prod tras el deploy |
+> | Paul verificó criterios originales | ✅ 1–6 cumplidos en test; en prod, sin errores de carga desde el deploy (logs del 27/09) |
+> | OK de Franco | ✅ 2026-09-27 |
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
 > **Datos sensibles:** sí, tangencialmente — los mensajes de error y el log no pueden exponer tokens de sesión, emails ni IDs de planilla/Drive.
 
@@ -129,6 +130,51 @@ atrás a f4 → instantáneo (ya precargada).
 
 Con la fase 1 en producción, la próxima falla deja el motivo en Ejecuciones.
 Bob la diagnostica y se agrega acá.
+
+### Revisión de logs del 2026-09-27
+
+Fuente: `clasp logs --json` con el perfil por defecto de clasp (el perfil
+`duck` da "Insufficient Permission" para logs). Devuelve las 100 entradas
+más recientes del proyecto de Cloud `nuestrosplanes-507721`, que comparten
+prod y test; cubren del 16/09 al 27/09. Los mensajes de `Logger.log`
+**sí** aparecen ahí, aunque no se vean en el panel de Ejecuciones.
+
+**Qué muestran (hora UTC):**
+
+| Fecha | Origen | Mensaje | Veces |
+|---|---|---|---|
+| 20/09 02h → 25/09 18h | Web App de prod | `Error en doPost: Exception: No tienes permiso para llamar a SpreadsheetApp.openById` | 30, en ráfagas de 3 o 6 (una carga = 3 pedidos) |
+| 20/09 03h | trigger `purgarSesiones` | el mismo error de permisos | 1 |
+| 25/09 19h en adelante (v22) | Web App de prod | ningún `doPost [E-…]` de carga | 0 |
+| 27/09 00:28 | Web App de prod | `validarSesion: sesión vencida` ×3 (sesión de 15 días que venció; el front vuelve al login) | 3 |
+| 27/09 03:03 | trigger `purgarSesiones` | `0 fila(s) borrada(s)`, sin error | 1 |
+
+Los `doPost [E-…]` de los días 25 que no son de la Web App vienen de
+`probarBUGCARGA001` en test (stack en `Tests:1471`), no de usuarios.
+
+**Causa raíz (con alta probabilidad):** la autorización del dueño del
+script se había perdido para el scope de Sheets. La Web App corre como el
+dueño (`executeAs: USER_DEPLOYING`), así que cada `SpreadsheetApp.openById`
+fallaba con 500. Las cargas de "No hay planes" del 19–24/09 son esas
+ráfagas de 3 errores. El trigger semanal falló por el mismo motivo.
+Coincide con el hallazgo 3: la app OAuth estaba en modo "Prueba", donde
+Google vence la autorización a los 7 días. El proyecto de Cloud se vinculó
+alrededor del 11–13/09 y los errores empiezan el 20/09. Desde que se pasó
+la app a "En producción" y se re-autorizó (25/09) no hubo ni un error de
+permisos, y `purgarSesiones` volvió a correr bien el 27/09.
+
+**Qué no se pudo confirmar:** que la vinculación haya sido exactamente 7
+días antes (no está en la bitácora con hora), y por qué algunas cargas del
+mismo período andaban (F5 funcionaba). Lo más probable es que la
+autorización se renovara de a ratos al abrir el editor, pero no está
+medido.
+
+**Hallazgo 2 cerrado:** `purgarSesiones` terminó sin error el 27/09 00:03
+(hora Argentina).
+
+**Qué sigue:** no hay arreglo de código pendiente. Si vuelve a aparecer el
+cartel de error, se lee su código con `clasp logs` (perfil por defecto).
+Cerrado con el OK de Franco el 2026-09-27.
 
 ## Nota de alcance del deploy
 

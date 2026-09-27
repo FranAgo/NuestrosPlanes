@@ -28,3 +28,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: opción 2. El criterio de cada nivel está en `CLAUDE.md`, sección "Nivel de control según el tamaño del cambio".
 - Motivo: el proceso completo sigue donde el riesgo lo justifica (features, seguridad, modelo de datos, deploy a prod); un fix de una línea o un cambio de copy no necesita la opinión de los 7.
 - Reabrir si: un ajuste tratado como liviano termina en un bug en producción que el proceso completo hubiera atajado.
+
+## DEC-003 — Las skills de Peroncitos se mejoran acá; se deja de sincronizar con sis-web
+- Fecha: 2026-09-27
+- Estado: Aceptada
+- Contexto: la validación A/B (BL-014) encontró que `hjay-verificacion-visual` y `hjulia-revision-cambio` asumen una base con SDK y reglas (Firestore) y propuso mejoras genéricas (BL-020). DEC-001 dejó las skills genéricas como copias de sis-web, que se traían de nuevo a mano cuando sis-web las mejoraba (su condición de "Reabrir si").
+- Opciones consideradas: (1) mejorarlas en sis-web y traerlas; (2) mejorarlas en Peroncitos y llevarlas después a sis-web; (3) mejorarlas en Peroncitos y dejar de sincronizar.
+- Decisión: opción 3, pedida por Franco ("mejoralas acá; ya no tocamos sis-web a menos que indique lo contrario"). Desde ahora las skills de `.claude/skills/` son de este repo y evolucionan acá. DEC-001 sigue vigente en lo demás (estructura y datos en `docs/`).
+- Motivo: Franco no quiere tocar sis-web desde este proyecto, y mantener dos copias en sincronía a mano no paga para una app de dos personas.
+- Reabrir si: Franco pide volver a traer o a llevar skills entre sis-web y Peroncitos.

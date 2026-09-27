@@ -5,8 +5,8 @@
 // probarDATA002()  — verifica REQ-DATA-002 contra Google Sheets REAL, sobre una
 //                    planilla scratch que la propia función crea y borra.
 //
-// Uso (Roy):  clasp push -f -P .clasp-test.json
-//             clasp run probarDATA002 -P .clasp-test.json
+// Uso (Roy):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//             clasp run probarDATA002 -P .clasp-test.json -u duck
 //
 // Devuelve un objeto JSON { req, total, ok, fail, veredicto, detalles, notas }
 // para poder leer el resultado desde la terminal sin abrir el editor.
