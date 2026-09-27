@@ -35,7 +35,10 @@
       --radius-lg:    16px;
       --radius-xl:    20px;
       --radius-full:  9999px;
-      --transition:   all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      /* Solo lo que cambian los estados (:hover, .active, .visible…) de quienes
+         la usan. Una propiedad nueva que tenga que animarse se suma acá. */
+      --transition:   color 0.22s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+                      border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     *, *::before, *::after {
@@ -413,6 +416,15 @@
     .form-group textarea:focus {
       border-color: var(--copper-dim);
       background: #1A1612;
+    }
+
+    /* El outline:none de arriba necesita un reemplazo que se vea: el borde
+       cobre tenue solo no alcanza con teclado. */
+    .form-group input:focus-visible,
+    .form-group select:focus-visible,
+    .form-group textarea:focus-visible {
+      outline: 1px solid var(--copper);
+      outline-offset: 1px;
     }
 
     .form-group textarea {
@@ -1385,6 +1397,11 @@
       cursor: none;
     }
 
+    #crop-zoom-input:focus-visible {
+      outline: 1px solid var(--copper);
+      outline-offset: 6px;
+    }
+
     #crop-zoom-input::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
@@ -1643,6 +1660,25 @@
       .login-card  { padding: 2rem 1.5rem; }
       .carrusel-imagen-wrap { aspect-ratio: 1 / 1; }
     }
+
+    /* ====================================================
+       MOVIMIENTO REDUCIDO
+       Se apaga todo lo decorativo (latido, halo, brillo, chispas, ripple,
+       entradas, hover de la tarjeta, scroll suave). Los spinners siguen:
+       informan que algo está cargando. En JS: estrellas fijas, sin chispas
+       y halo del cursor sin demora (menosMovimiento()).
+    ==================================================== */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .spinner, .carrusel-spinner { animation-iteration-count: infinite !important; }
+      .spinner          { animation-duration: 0.7s !important; }
+      .carrusel-spinner { animation-duration: 900ms !important; }
+    }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -1813,19 +1849,19 @@
       </div>
 
       <div class="form-group">
-        <label>Título *</label>
+        <label for="plan-titulo-input">Título *</label>
         <input type="text" id="plan-titulo-input" placeholder="¿Qué quieren hacer?" />
       </div>
       <div class="form-group">
-        <label>Categoría (opcional)</label>
+        <label for="plan-categoria-select">Categoría (opcional)</label>
         <select id="plan-categoria-select"></select>
       </div>
       <div class="form-group">
-        <label>Fecha programada *</label>
+        <label for="plan-fecha-programada">Fecha programada *</label>
         <input type="date" id="plan-fecha-programada" />
       </div>
       <div class="form-group">
-        <label>Fecha de vencimiento (opcional)</label>
+        <label for="plan-fecha-vencimiento">Fecha de vencimiento (opcional)</label>
         <input type="date" id="plan-fecha-vencimiento" />
       </div>
 
@@ -1900,7 +1936,7 @@
       </div>
 
       <div class="form-group">
-        <label>Nombre *</label>
+        <label for="cat-nombre-input">Nombre *</label>
         <input type="text" id="cat-nombre-input" placeholder="Ej: Salidas, Viajes, Casa..." />
       </div>
       <div class="form-group">
@@ -1942,7 +1978,7 @@
         <p class="crop-hint">Arrastrá para mover · Scroll o slider para zoom</p>
         <div class="crop-zoom-row">
           <span class="crop-zoom-label">Zoom</span>
-          <input type="range" id="crop-zoom-input" min="1" max="3" step="0.01" value="1" />
+          <input type="range" id="crop-zoom-input" aria-label="Zoom de la foto" min="1" max="3" step="0.01" value="1" />
         </div>
       </div>
 
@@ -2026,6 +2062,9 @@
     // chequeo el dot/halo quedaban plantados como un adorno fijo en pantalla
     // (top-left) en cualquier teléfono.
     const tieneMouseReal = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    // Se consulta en cada uso (no una vez al cargar): el usuario puede
+    // cambiar la preferencia del sistema con la página abierta.
+    const menosMovimiento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (tieneMouseReal) {
       document.addEventListener('mousemove', e => {
@@ -2039,8 +2078,9 @@
       });
 
       (function animateHalo() {
-        haloX += (dotX - haloX) * 0.12;
-        haloY += (dotY - haloY) * 0.12;
+        const k = menosMovimiento() ? 1 : 0.12;
+        haloX += (dotX - haloX) * k;
+        haloY += (dotY - haloY) * k;
         cursorHalo.style.left = haloX + 'px';
         cursorHalo.style.top  = haloY + 'px';
         requestAnimationFrame(animateHalo);
@@ -2053,6 +2093,7 @@
     const SPARK_COLORS = ['#B8783A', '#D4A060', '#EDE0CC', '#C9603A', '#F0C88A'];
 
     function spawnSparks(cx, cy, count) {
+      if (menosMovimiento()) return;
       for (let i = 0; i < count; i++) {
         const s     = document.createElement('div');
         s.className = 'spark';
@@ -2121,7 +2162,8 @@
           ctx.fillStyle = 'rgba(237,224,204,' + alpha + ')';
           ctx.fill();
         });
-        requestAnimationFrame(draw);
+        // Con movimiento reducido queda el primer cuadro, fijo.
+        if (!menosMovimiento()) requestAnimationFrame(draw);
       }
       draw();
     }

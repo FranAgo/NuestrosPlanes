@@ -168,11 +168,10 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
 
 ### BL-018 — Deudas de UI que dejó a la vista `docs/DESIGN.md`
-- Estado: En curso — hecha la parte chica (2026-09-27, cuarta sesión; falta push): `color-scheme: dark`, `type="button"` en los 20 botones que no lo tenían y `aria-label` con el título del plan en editar/eliminar de la tarjeta. Quedan: `prefers-reduced-motion`, `--transition: all`, `for` en los `<label>` y `:focus-visible` en los campos.
+- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión; la parte chica ya está en `main`, el resto falta push)
 - Prioridad: Baja
 - Origen: armado de `docs/DESIGN.md` (BL-012), 2026-09-27
-- Nota: falta `color-scheme: dark` (el calendario nativo de `<input type="date">` puede salir claro); no hay bloque `prefers-reduced-motion`; `--transition` es `all`; los `<label>` no tienen `for`; los botones de la tarjeta de plan no tienen `aria-label` ni `type="button"`. Detalle en DESIGN.md, "Deudas conocidas".
-
+- Nota: falta `color-scheme: dark` (el calendario nativo de `<input type="date">` puede salir claro); no hay bloque `prefers-reduced-motion`; `--transition` es `all`; los `<label>` no tienen `for`; los botones de la tarjeta de plan no tienen `aria-label` ni `type="button"`. Detalle en DESIGN.md, "Deudas conocidas". *(2026-09-27: primera parte en `main` (a95c10d): `color-scheme`, `type="button"`, `aria-label`. Segunda: `--transition` con propiedades nombradas; bloque `prefers-reduced-motion` (spinners siguen) y `menosMovimiento()` en JS (estrellas fijas, sin chispas, halo sin demora); `for` en los 5 labels de campo y `aria-label` en el zoom; `:focus-visible` en campos y zoom. Lo que quedó afuera va a BL-022.)*
 ### BL-019 — Nada avisa si la autorización del Apps Script vuelve a vencer
 - Estado: Propuesto
 - Prioridad: Baja
@@ -199,3 +198,11 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   Verificado en 127.0.0.1 con `fetch` simulado: logout manual, 3 pedidos
   con 401 a la vez (1 sola descarga de página, mensaje visible) y
   `sessionStorage` bloqueado (recarga igual, sin mensaje).)*
+
+## Sesión 2026-09-27 (4)
+
+### BL-022 — Los colores de categoría no se eligen con el teclado
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: cierre de BL-018 (2026-09-27)
+- Nota: `renderColorOptions` pinta cada color como `<div class="color-option" onclick>`: sin foco, sin rol ni nombre para un lector de pantalla, y de 26px (menos de 44 de área táctil en el teléfono). Pasarlos a `<button type="button" aria-label="Color …" aria-pressed>` (o radios) dentro de un grupo con nombre ("Color"), con área táctil de 44. Ojo: `.color-option` está en `CLICKABLE_SEL` del cursor propio y `selectColor` recorre los `.color-option` por clase.

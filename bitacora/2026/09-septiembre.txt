@@ -2440,3 +2440,15 @@ Cambios:
 - docs/backlog.md — BL-018 en curso: hecha la parte chica, queda el resto.
 Sin cambios en Code.gs.
 ========================================================
+
+========================================================
+2026-09-27 20:43 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — BL-018 (resto): --transition nombra sus propiedades (color, background-color, border-color, opacity, transform: las que cambian los estados de quienes la usan) en vez de all. Bloque @media (prefers-reduced-motion: reduce) al final del <style>: apaga animaciones y transiciones y el scroll suave; .spinner y .carrusel-spinner siguen girando. En JS, menosMovimiento() (consultado en cada uso): estrellas del login fijas (primer cuadro), sin chispas al click, halo del cursor sin demora. for en los 5 <label> de campo (Fotos y Color rotulan grupos, quedan igual) y aria-label en el zoom del recorte. :focus-visible (outline cobre 1px) en los campos de .form-group y en el zoom, que tenían outline:none sin reemplazo. Verificado en el Browser pane (127.0.0.1, fetch simulado): transition-property con las 5 propiedades; click en un label enfoca su campo; Shift+Tab con outline cobre visible; con las reglas del bloque aplicadas, latido/halo/tarjeta en 0.01ms y spinners en 0.7s/0.9s infinitos, scroll auto; con matchMedia forzado, initStars no agenda cuadros (control sin forzar: sí) y spawnSparks no crea chispas (sin forzar: 10); consola sin errores. No se pudo emular la preferencia real del sistema desde el Browser pane.
+- docs/DESIGN.md — transiciones y movimiento reducido; deudas conocidas: queda BL-022.
+- docs/backlog.md — BL-018 hecho (falta push de la segunda parte); nuevo BL-022 (colores de categoría sin teclado ni área táctil).
+Sin cambios en Code.gs.
+========================================================

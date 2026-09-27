@@ -153,8 +153,16 @@ máximo es 500).
 - **Sombras:** ninguna. La elevación se marca con borde cobre y
   `translateY(-2px)` en hover.
 - **Transiciones:** `var(--transition)` (0.22s con curva estándar) en
-  controles y tarjetas; 200ms en la imagen del carrusel. Entradas con
-  `slideUp` (0.3s) y `fadeIn` (0.4–0.6s).
+  controles y tarjetas. Nombra sus propiedades (`color`,
+  `background-color`, `border-color`, `opacity`, `transform`): si un
+  estado nuevo cambia otra, se suma a la variable. 200ms en la imagen del
+  carrusel. Entradas con `slideUp` (0.3s) y `fadeIn` (0.4–0.6s).
+- **Movimiento reducido:** con `prefers-reduced-motion: reduce`, un bloque
+  al final del `<style>` apaga animaciones y transiciones salvo los
+  spinners (`.spinner`, `.carrusel-spinner`); en JS, `menosMovimiento()`
+  deja las estrellas fijas, saca las chispas y el halo del cursor sigue sin
+  demora. Un spinner nuevo se suma a la excepción; una animación JS nueva
+  consulta `menosMovimiento()`.
 - **Decoración de marca:** una línea de 1px con degradé cobre en el borde
   superior de `.modal` y `.login-card` (`::before`), el corazón que late
   (`heartbeat`), las chispas al hacer click y el brillo de las tarjetas en
@@ -280,16 +288,14 @@ Cosas que el código hace distinto del criterio de `hjay-identidad-visual`.
 Lo nuevo no las copia. Arreglar lo existente es aparte (backlog), no se
 hace de paso.
 
-- `--transition` es `all 0.22s …`: se anima cualquier propiedad. Una
-  transición nueva nombra sus propiedades.
-- No hay bloque `prefers-reduced-motion`: latido, chispas, brillo y
-  skeletons siempre se mueven. Una animación nueva conviene que ya venga
-  apagable.
-- Los `<label>` no tienen `for`. Un campo nuevo sí lo lleva.
-  (`color-scheme: dark` y el `aria-label`/`type="button"` de los botones
-  ya se saldaron en BL-018, 2026-09-27.)
-- `.form-group input` saca el `outline` y marca el foco solo con el borde
-  cobre tenue, sin `:focus-visible` propio.
+- Los círculos de color del modal de categoría (`.color-option`) son
+  `<div>` con `onclick`: no se eligen con el teclado ni los anuncia un
+  lector de pantalla, y miden 26px (menos de 44 de área táctil). BL-022.
+- Lo que listaba BL-018 (`--transition: all`, sin movimiento reducido,
+  `<label>` sin `for`, campos sin `:focus-visible`, `color-scheme`,
+  botones sin `type`/`aria-label`) se saldó el 2026-09-27. Un campo nuevo
+  lleva `for`; su foco con teclado es el outline cobre de 1px de
+  `.form-group`.
 
 ## No hacer
 
