@@ -8,6 +8,14 @@ que ese procedimiento necesita saber de este proyecto.
 `preview_start` con `static` (`.claude/launch.json`: `http-server -p 5173
 -c-1`, sin caché). La app es `index.html` en la raíz.
 
+Si el Browser pane muestra `chrome-error://` con el server arriba (curl a
+`localhost:5173` da 200), es que el navegador fue por `::1` y
+`http-server` escucha solo IPv4: navegar a `http://127.0.0.1:5173/`. Es
+otro origen, con su propio `localStorage` (sin la sesión real de
+`localhost`) y sin login de Google (no está en los orígenes OAuth): sirve
+para pruebas con `fetch` simulado, no para login real. Pasó el
+2026-09-27 (BL-016).
+
 ## 2. `localhost` pega al Apps Script de PRODUCCIÓN
 
 **Qué cuidar:** `SCRIPT_URL` en `index.html` es el Web App de prod, sin

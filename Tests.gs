@@ -1481,3 +1481,114 @@ function probarBUGCARGA001() {
   R.nota('Códigos generados en esta corrida (buscarlos en Ejecuciones): ' + codigos.join(', '));
   return R.finalizar();
 }
+
+// ============================================================
+// probarBL015() — BL-015: sacar a alguien de Usuarios corta sus sesiones
+// abiertas. Todo entra por doPost() (el chequeo vive en el router, después
+// de validarSesion), con sesiones reales de crearSesion().
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarBL015 -P .clasp-test.json -u duck
+//
+// Crea su planilla scratch y la borra al terminar. Limpia las claves de
+// CacheService que genera (sesion:*, sesion-ok:*, hoja:<scratch>:*).
+// La demora real de una baja hecha a mano (caché de Usuarios, 30 s) no se
+// prueba esperando: el test invalida el caché como lo haría ese TTL.
+// ============================================================
+function probarBL015() {
+  const R = nuevoReporte('BL-015');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarBL015 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+
+    setupSheets();
+    const mias = ['Usuarios', 'Categorias', 'Planes', 'Archivos', 'Sesiones', 'Auditoria'];
+    ss.getSheets().forEach(sh => {
+      if (mias.indexOf(sh.getName()) === -1) ss.deleteSheet(sh);
+    });
+    const usuarios = getSheet(SHEETS.USUARIOS);
+    usuarios.appendRow(['usr_fran', 'Fran', 'fran@test.local', 'sub-fran', '', '']);
+    usuarios.appendRow(['usr_noe',  'Noe',  'noe@test.local',  'sub-noe',  '', '']);
+    usuarios.appendRow(['usr_ex',   'Ex',   'ex@test.local',   'sub-ex',   '', '']);
+    SpreadsheetApp.flush();
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const sesion = userId => {
+      const t = crearSesion(userId);
+      sesionesCreadas.push(t.split('.')[0]);
+      return t;
+    };
+    const pedir = (action, token) => parseResp(doPost({
+      postData: { contents: JSON.stringify({ action: action, sessionToken: token }) },
+    }));
+    const bajaYRefrescar = () => { SpreadsheetApp.flush(); invalidarCacheHoja(SHEETS.USUARIOS); };
+
+    // Caso permitido: usuario en la lista blanca.
+    const tFran = sesion('usr_fran');
+    R.eq('P1 · usuario habilitado -> getCategorias 200', pedir('getCategorias', tFran).status, 200);
+
+    // Baja borrando la fila, con la sesión ya validada (fast-path de 90 s cargado).
+    const tNoe = sesion('usr_noe');
+    R.eq('D1 · antes de la baja -> 200', pedir('getPlanes', tNoe).status, 200);
+    const filaNoe = filasDe(SHEETS.USUARIOS).findIndex(f => f[0] === 'usr_noe');
+    usuarios.deleteRow(filaNoe + 2);
+    bajaYRefrescar();
+    const r1 = pedir('getPlanes', tNoe);
+    R.eq('D1 · fila borrada -> 401', r1.status, 401);
+    R.eq('D1 · mensaje genérico, sin pista de la baja', r1.error, 'Sesión inválida o expirada.');
+    R.eq('D1 · segundo pedido (fast-path cargado) -> 401', pedir('getCategorias', tNoe).status, 401);
+    R.eq('D1 · getUser también -> 401', pedir('getUser', tNoe).status, 401);
+    R.eq('D1 · logout de una cuenta dada de baja sigue respondiendo 200',
+         pedir('logout', tNoe).status, 200);
+
+    // Baja vaciando el email (el login ya no la dejaría entrar).
+    const tEx = sesion('usr_ex');
+    R.eq('D2 · antes de vaciar el email -> 200', pedir('getCategorias', tEx).status, 200);
+    const filaEx = filasDe(SHEETS.USUARIOS).findIndex(f => f[0] === 'usr_ex');
+    usuarios.getRange(filaEx + 2, col(SHEETS.USUARIOS, 'email') + 1).setValue('');
+    bajaYRefrescar();
+    R.eq('D2 · email vacío -> 401', pedir('getCategorias', tEx).status, 401);
+
+    // Sesión de un usuario que nunca estuvo en Usuarios.
+    const tFantasma = sesion('usr_fantasma');
+    R.eq('D3 · usuario sin fila -> 401', pedir('getCategorias', tFantasma).status, 401);
+
+    // El resto sigue andando: la baja de uno no toca al otro.
+    R.eq('P2 · el usuario habilitado sigue con 200', pedir('getPlanes', tFran).status, 200);
+
+    // Comportamiento documentado (fuera de alcance): si la fila vuelve, la
+    // sesión que no venció vuelve a andar. No se revoca en Sesiones.
+    usuarios.getRange(filaEx + 2, col(SHEETS.USUARIOS, 'email') + 1).setValue('ex@test.local');
+    bajaYRefrescar();
+    R.eq('N1 · re-alta: la sesión sin vencer vuelve a andar (esperado, ver BL-015)',
+         pedir('getCategorias', tEx).status, 200);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) {
+        claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      }
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try {
+        DriveApp.getFileById(scratchId).setTrashed(true);
+      } catch (e) {
+        R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e);
+      }
+    }
+  }
+
+  return R.finalizar();
+}

@@ -2277,9 +2277,13 @@
       } catch (e) { return null; }
     }
 
+    // BL-016: cerrar sesión borra también las fotos y avatares guardados. Si
+    // no, en un dispositivo compartido quedaban hasta 150 fotos como data URL
+    // en localStorage, legibles desde DevTools sin sesión (Ley 25.326).
     function clearSession() {
       try { localStorage.removeItem('cp_session'); } catch (e) { /* ignorado */ }
       state.session = null;
+      borrarImageCache();
     }
 
     // ====================================================
@@ -2474,6 +2478,8 @@
     // Drive tiene que poder reintentarse en la próxima carga, no quedar
     // marcado como roto para siempre en localStorage.
     function guardarImageCachePersistido() {
+      // Un lote que resolvió después del logout no vuelve a escribir (BL-016).
+      if (!state.session) return;
       try {
         const entradas = [...avatarCache.entries()].filter(([, url]) => !!url);
         const recientes = entradas.slice(-IMAGE_CACHE_MAX_ENTRADAS);
@@ -2488,6 +2494,13 @@
           localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(Object.fromEntries(mitad)));
         } catch (e2) { /* sin persistencia, se sigue en memoria nomás */ }
       }
+    }
+
+    // Logout (BL-016): memoria, localStorage y pedidos de fotos en vuelo.
+    function borrarImageCache() {
+      archivosEnCurso.forEach(({ controller }) => controller.abort());
+      avatarCache.clear();
+      try { localStorage.removeItem(IMAGE_CACHE_KEY); } catch (e) { /* ignorado */ }
     }
 
     // Lectura sincrónica del cache. Devuelve null si todavía no se resolvió
@@ -2507,6 +2520,7 @@
 
       try {
         const data = await api('getArchivos', { archivoIds: idsFaltantes });
+        if (!state.session) return;  // se cerró la sesión mientras volvía (BL-016)
         const porId = new Map((data.status === 200 ? data.archivos || [] : []).map(a => [a.archivoId, a]));
         idsFaltantes.forEach(id => {
           const a   = porId.get(id);
@@ -2516,6 +2530,7 @@
           avatarCache.set(id, url || null);
         });
       } catch {
+        if (!state.session) return;
         idsFaltantes.forEach(id => avatarCache.set(id, null));
       }
       guardarImageCachePersistido();
@@ -2580,7 +2595,7 @@
           const url = data.status === 200
             ? safeImageUrl(`data:${data.mimeType};base64,${data.base64}`)
             : '';
-          if (url) avatarCache.set(archivoId, url);
+          if (url && state.session) avatarCache.set(archivoId, url);
         } catch {
           // Fallo o pedido cancelado: no se cachea, para poder reintentar después.
         } finally {
@@ -3860,7 +3875,10 @@
     (async function boot() {
       initStars();
       initGoogleAuth();
-      loadImageCachePersistido();
+      // Sin sesión guardada, las fotos que hayan quedado de antes (versiones
+      // previas a BL-016 no las borraban) se borran en vez de cargarse.
+      if (loadSession()) loadImageCachePersistido();
+      else borrarImageCache();
       // Reintento por si la librería GSI todavía no cargó al arrancar.
       let tries = 0;
       const gsiTimer = setInterval(() => {

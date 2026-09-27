@@ -41,13 +41,20 @@ puede llamar a `doPost` con cualquier parámetro.
 - Token opaco `<session_id>.<secreto>`; la hoja `Sesiones` guarda
   `HMAC-SHA256(secreto, SESSION_SECRET)`, nunca el secreto. Comparación
   en tiempo constante. Expiración absoluta de 15 días, revocable.
-- `validarSesion` mira `Sesiones`, no `Usuarios`: sacar a alguien de la
-  lista blanca no corta sus sesiones abiertas. Para cortarlas hoy hay que
-  marcar sus filas de `Sesiones` como `revocada` (y esperar el caché de
-  90 s). La matriz de acceso lleva la fila "cuenta dada de baja con sesión
-  todavía válida".
-- Al cerrar sesión, el front borra `cp_session` pero no `cp_image_cache`
-  (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`.
+- `validarSesion` mira `Sesiones`, no `Usuarios`. La lista blanca la
+  vuelve a chequear el router (`usuarioHabilitado`, después de
+  `validarSesion`): sacar la fila de alguien o vaciar su email corta sus
+  sesiones en hasta 30 s (caché de `Usuarios`). No va dentro de
+  `validarSesion` porque el fast-path y el puente devuelven `userId` sin
+  leer hojas. Si la fila vuelve, una sesión sin vencer vuelve a andar.
+  Test: `probarBL015` (BL-015). La matriz de acceso lleva la fila "cuenta
+  dada de baja con sesión todavía válida".
+- Al cerrar sesión (manual o por 401) el front borra `cp_session`,
+  `cp_image_cache` y `avatarCache` (`borrarImageCache`, BL-016). Todo lo
+  que escriba en `localStorage` datos del usuario tiene que borrarse ahí
+  también, y no volver a escribirse si un pedido resuelve después del
+  logout (chequear `state.session` al volver). El DOM de la app oculta
+  sigue con datos hasta cerrar la pestaña (BL-021).
 - El puente anti-carrera de `CacheService` (`validarDesdePuente`) guarda
   el hash, no el token, y solo se consulta si la hoja respondió "no
   está", nunca si falló. El logout lo borra siempre. Ver

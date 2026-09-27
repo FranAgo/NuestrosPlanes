@@ -2387,3 +2387,19 @@ Cambios:
   4 rondas.
 Sin cambios de logica de la app (check-sintaxis OK): no hay deploy.
 ========================================================
+
+========================================================
+2026-09-27 20:04 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- Code.gs — BL-015: el router de doPost, después de validarSesion, corta con 401 las sesiones de un usuario que ya no está en la lista blanca (usuarioHabilitado: fila en Usuarios con email). Demora aceptada: caché de Usuarios, 30 s. Comentario de alta/baja de usuarios actualizado.
+- Tests.gs — probarBL015 (12 checks, entra por doPost). Contra el Code.gs viejo: 6/12 FAIL (muerde). Con el nuevo: 12/12. Regresión en test: BUGLOGIN001B 38/38, DATA002 70/70, BUGCARGA001 9/9, MEDIA001 22/22, MEDIA002 43/43 (43 también con el Code.gs viejo; el 48 del REQ-PERF-003 es de una versión anterior de la suite).
+- index.html — BL-016: cerrar sesión (manual o por 401) borra cp_image_cache, avatarCache y aborta pedidos de fotos en vuelo; un lote que resuelve después del logout no vuelve a escribir; el arranque sin sesión borra fotos que quedaron de versiones anteriores. Verificado en el Browser pane (127.0.0.1, fetch simulado, sin tocar prod): 4 casos OK, consola limpia.
+- docs/backlog.md — BL-015 y BL-016 hechos en código (falta deploy); nuevo BL-021 (DOM de la app con datos después del logout).
+- .claude/skills/convenciones-tecnicas/seguridad.md — sesión: chequeo de lista blanca en el router y borrado de datos locales al cerrar sesión.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — preview que falla por ::1: usar 127.0.0.1.
+- Proyecto de TEST (Apps Script) actualizado con clasp push.
+- DEPLOY A PRODUCCIÓN (con OK de Franco): se comparó el Code.gs de prod (clasp pull a carpeta aparte) contra HEAD: idénticos, el push llevó solo BL-015. clasp push -f, clasp version (v23), clasp redeploy de la implementación del front (...LxD0d) a @23. Verificado sin escribir: getCategorias con token inválido -> 401 "Sesión inválida o expirada."; clasp deployments muestra @23. No se pudieron leer los logs de prod (clasp logs bloqueado por el filtro de permisos de Claude Code); camino feliz cubierto por probarBL015 P1/P2 en test.
+========================================================

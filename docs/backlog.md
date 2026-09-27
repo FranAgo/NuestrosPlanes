@@ -150,13 +150,13 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27 (2)
 
 ### BL-015 — Sacar a alguien de `Usuarios` no corta sus sesiones
-- Estado: Propuesto
-- Prioridad: Sin definir
+- Estado: Hecho — en producción desde el 2026-09-27 (Web App @23)
+- Prioridad: Alta (seguridad)
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano en el código
-- Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance). *(2026-09-27, A/B de BL-020, verificado a mano: el chequeo va en el router de `doPost`, después de `validarSesion`, porque el camino rápido de 90 s y el puente devuelven `userId` sin pasar por la hoja; `Usuarios` tiene caché de 30 s, que es la demora aceptada. Ojo: `probarBUGLOGIN001B` crea sesiones de `usr_fran` sin fila en `Usuarios`; sus casos positivos por `doPost` se rompen con el chequeo y hay que sembrar la fila.)*
+- Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance). *(2026-09-27, A/B de BL-020, verificado a mano: el chequeo va en el router de `doPost`, después de `validarSesion`, porque el camino rápido de 90 s y el puente devuelven `userId` sin pasar por la hoja; `Usuarios` tiene caché de 30 s, que es la demora aceptada. Ojo: `probarBUGLOGIN001B` crea sesiones de `usr_fran` sin fila en `Usuarios`; sus casos positivos por `doPost` se rompen con el chequeo y hay que sembrar la fila.)* *(2026-09-27, implementado: `usuarioHabilitado()` en el router de `doPost` — fila presente y con email. Test `probarBL015` (12 checks) falla 6/12 contra el `Code.gs` viejo y pasa 12/12 con el nuevo. La advertencia sobre `probarBUGLOGIN001B` no aplicaba: sus casos llaman a `validarSesion` directo, no a `doPost`, y siguió 38/38. Fuera de alcance: si la fila vuelve a aparecer, una sesión que no venció vuelve a andar (no se revoca en `Sesiones`); lo documenta el caso N1 del test.)*
 
 ### BL-016 — Las fotos quedan en el navegador después de cerrar sesión
-- Estado: Propuesto
+- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, tercera sesión); falta push a `main`
 - Prioridad: Baja
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
 - Nota: `clearSession()` borra `cp_session` pero no `cp_image_cache` (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`. En un dispositivo compartido se pueden leer desde DevTools sin sesión (Ley 25.326).
@@ -184,3 +184,11 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Prioridad: Media
 - Origen: validación A/B de BL-014 (2026-09-27)
 - Nota: `hjay-verificacion-visual` y `hjulia-revision-cambio` asumen una base con SDK y reglas (Firestore). Cambios mínimos propuestos, todos genéricos: "la capa que decide (regla de la base o handler del servidor)", anular escrituras "en la capa más baja por la que salen todas (el SDK, o `fetch`)", la fila "cuenta dada de baja con sesión válida" en la matriz, alturas bajas y teclado virtual cuando el síntoma es vertical, reclamos desde un teléfono (sin F12), y que "anda" en el servidor lo prueban los tests. Decidido (DEC-003): se editan acá y no se lleva nada a sis-web. Queda para otra sesión: aplicar los cambios con el proceso de `docs/skills/METODOLOGIA.md` y volver a correr A/B.
+
+## Sesión 2026-09-27 (3)
+
+### BL-021 — Después del logout, el DOM de la app sigue con los datos
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: búsqueda de variantes de BL-016 (2026-09-27)
+- Nota: `forceLogout()` oculta `#app-screen` pero no vacía lo que ya se pintó (planes, categorías, miniaturas de fotos recientes, carrusel) ni `state.planes`/`state.categorias`/`fotosRecientes`/`carruselFotos`. Dura mientras la pestaña siga abierta (cerrarla lo borra, a diferencia de `localStorage`). Opción simple: recargar la página después del logout, pasando el mensaje de "sesión expirada" por `sessionStorage`.

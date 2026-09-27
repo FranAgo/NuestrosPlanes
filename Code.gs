@@ -170,6 +170,16 @@ function doPost(e) {
       const sesion = validarSesion(body.sessionToken);
       if (sesion.error) return respond(401, { error: sesion.error });
 
+      // BL-015: validarSesion mira solo Sesiones. Si a alguien lo sacaron de
+      // la lista blanca, su sesión seguiría viva hasta vencer (15 días). Va
+      // acá y no dentro de validarSesion porque el fast-path de 90 s y el
+      // puente devuelven userId sin tocar ninguna hoja. Usuarios se lee con
+      // caché de 30 s: esa es la demora aceptada entre la baja y el corte.
+      if (!usuarioHabilitado(sesion.userId)) {
+        Logger.log('doPost: sesión de un usuario fuera de la lista blanca (' + sesion.userId + ').');
+        return respond(401, { error: 'Sesión inválida o expirada.' });
+      }
+
       // La identidad del request sale de la sesión, nunca del body.
       // getUser es la excepción: ahí body.userId es el usuario objetivo a
       // consultar (las dos personas se ven entre sí). El resto de los
@@ -1373,6 +1383,23 @@ function userExists(userId) {
   return false;
 }
 
+// Sigue en la lista blanca: tiene fila en Usuarios y con email cargado (el
+// login exige las dos cosas, así que vaciar el email también es una baja).
+// Usa el caché de getDatosHoja: una baja hecha a mano en la hoja tarda hasta
+// CACHE_HOJA_TTL_SEC en cortar las sesiones abiertas (BL-015).
+function usuarioHabilitado(userId) {
+  if (!userId) return false;
+  const data   = getDatosHoja(SHEETS.USUARIOS);
+  const h      = data[0];
+  const iId    = h.indexOf('usuario_id');
+  const iEmail = h.indexOf('email');
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] !== userId) continue;
+    return String(data[i][iEmail] || '').trim() !== '';
+  }
+  return false;
+}
+
 // ------------------------------------------------------------
 // IDs
 // ------------------------------------------------------------
@@ -2235,4 +2262,5 @@ function setupConfig() {
 //   usuario_id | nombre_display | email | google_sub | foto_url
 // Para agregar a alguien: fila nueva con su email + agregarlo como
 // usuario de prueba en la pantalla de consentimiento de Google Cloud.
-// Para darlo de baja: borrar su fila.
+// Para darlo de baja: borrar su fila. Sus sesiones abiertas dejan de andar
+// en hasta 30 s (caché de Usuarios, ver usuarioHabilitado / BL-015).
