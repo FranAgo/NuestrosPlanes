@@ -50,7 +50,12 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Prioridad: Sin definir
 - Origen: REQ-DATA-001 (2026-09-08), repetido sin arrancar en varias sesiones
 - Nota: rol admin + hoja Config + endpoint setDriveRootFolder + panel de
-  administración. Nunca se empezó a implementar.
+  administración. Nunca se empezó a implementar. *(2026-09-27, A/B de
+  BL-020: `docs/modelo-datos.md` mueve `DRIVE_FOLDER_ID` de Script
+  Properties a la hoja `Config`, y `convenciones-tecnicas/seguridad.md`
+  dice que los IDs viven en Script Properties. Decidirlo con un ADR al
+  retomar. El rol se lee en el handler en cada pedido: el caché de sesión
+  solo guarda el `userId`.)*
 
 ### BL-004 — Reemplazar los glifos de UI restantes por SVG
 - Estado: Propuesto
@@ -137,7 +142,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: juntar en un solo archivo las superficies ya revisadas (REQ-SEC-001/002, REQ-DATA-002, BUG-LOGIN-001), los hallazgos abiertos (BL-005, BL-006) y el criterio acordado. Hoy está repartido entre los REQ.
 
 ### BL-014 — Validar las skills traídas de sis-web con escenarios de Peroncitos
-- Estado: En curso (2026-09-27: A/B corridos para `hjulia-revision-cambio` y `hjay-verificacion-visual`, resultado en `docs/skills/INVENTARIO.md`; los cambios siguen en BL-020)
+- Estado: Hecho para `hjulia-revision-cambio` y `hjay-verificacion-visual` (2026-09-27, cerrado con BL-020). Las demás skills traídas de sis-web siguen sin pasada propia (ver `docs/skills/INVENTARIO.md`); se validan cuando les toque su pasada.
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). La metodología pide probar cada skill con un subagente limpio ("Claude B") y al menos 3 escenarios; las copias no se probaron sobre este proyecto.
 - Nota: sobre todo `hjulia-revision-cambio` (piensa en reglas de base de datos; acá la capa que decide es `Code.gs`) y `hjay-verificacion-visual` (con el preview local que pega a prod). Registrar el resultado en `docs/skills/INVENTARIO.md`.
@@ -148,7 +153,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Estado: Propuesto
 - Prioridad: Sin definir
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano en el código
-- Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance).
+- Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance). *(2026-09-27, A/B de BL-020, verificado a mano: el chequeo va en el router de `doPost`, después de `validarSesion`, porque el camino rápido de 90 s y el puente devuelven `userId` sin pasar por la hoja; `Usuarios` tiene caché de 30 s, que es la demora aceptada. Ojo: `probarBUGLOGIN001B` crea sesiones de `usr_fran` sin fila en `Usuarios`; sus casos positivos por `doPost` se rompen con el chequeo y hay que sembrar la fila.)*
 
 ### BL-016 — Las fotos quedan en el navegador después de cerrar sesión
 - Estado: Propuesto
@@ -175,7 +180,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: del 20 al 25/09 la Web App respondió 500 por permisos y nadie se enteró hasta que Franco vio la pantalla vacía. Con la app OAuth en "En producción" no debería repetirse, pero hoy solo se detecta mirando `clasp logs`. Evaluar una alerta de Cloud Logging por "No tienes permiso".
 
 ### BL-020 — Mejoras genéricas a dos skills traídas de sis-web
-- Estado: Priorizado
+- Estado: Hecho (2026-09-27, segunda sesión del día: cambios aplicados y validados en 4 rondas de Claude B, detalle en `docs/skills/INVENTARIO.md`)
 - Prioridad: Media
 - Origen: validación A/B de BL-014 (2026-09-27)
 - Nota: `hjay-verificacion-visual` y `hjulia-revision-cambio` asumen una base con SDK y reglas (Firestore). Cambios mínimos propuestos, todos genéricos: "la capa que decide (regla de la base o handler del servidor)", anular escrituras "en la capa más baja por la que salen todas (el SDK, o `fetch`)", la fila "cuenta dada de baja con sesión válida" en la matriz, alturas bajas y teclado virtual cuando el síntoma es vertical, reclamos desde un teléfono (sin F12), y que "anda" en el servidor lo prueban los tests. Decidido (DEC-003): se editan acá y no se lleva nada a sis-web. Queda para otra sesión: aplicar los cambios con el proceso de `docs/skills/METODOLOGIA.md` y volver a correr A/B.

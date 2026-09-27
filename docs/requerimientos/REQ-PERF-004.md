@@ -80,3 +80,20 @@ Necesita, antes de tocar código:
 No tiene todavía Objetivo detallado, criterios de aceptación ni riesgos —
 eso se escribe recién cuando Paul lo formalice para implementación, con
 Gary ya habiendo definido el esquema.
+
+## Notas de la revisión de seguridad (2026-09-27, A/B de BL-020)
+
+Salieron al probar `hjulia-revision-cambio` con este REQ como escenario.
+Verificadas a mano; son cuidados para cuando se implemente, no hallazgos:
+
+- `appsscript.json` del repo tiene `"dependencies": {}`: el servicio
+  avanzado Drive (necesario para `thumbnailLink`) no está declarado. Hay
+  que sumarlo al manifiesto, y el manifiesto viaja en cada `clasp push`
+  (test y prod).
+- Hipótesis: si el handler nuevo copia el patrón de log de `getArchivo`
+  (`Logger.log(... + err.toString())`, `Code.gs:1445`), un error de
+  `UrlFetchApp` podría llevar el `thumbnailLink` a los logs. Loguear un
+  mensaje fijo, sin el texto de la excepción. Se confirma forzando un
+  error de fetch en test y leyendo `clasp logs --json`.
+- Un test de bloqueo contra el código viejo no muerde (la acción no
+  existe, da 400): el mutante es poner `getMiniatura` en `publicActions`.

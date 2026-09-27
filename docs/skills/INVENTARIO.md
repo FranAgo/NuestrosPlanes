@@ -13,9 +13,9 @@ actualización: 2026-09-27 (validación A/B de dos herramientas, BL-014).
 | `hpaul-triage` | Herramienta | Paul | sis-web, tal cual | Sin pasada propia. La regla de Peroncitos "hallazgo sobre REQ existente → al REQ" vive en `CLAUDE.md`, no en la herramienta |
 | `jay-engineer-frontend` | Persona | Jay | sis-web, tal cual | Sin pasada propia |
 | `hjay-identidad-visual` | Herramienta | Jay | sis-web, tal cual | Sin pasada propia |
-| `hjay-verificacion-visual` | Herramienta | Jay | sis-web, tal cual | Validada A/B el 2026-09-27 (ver abajo) |
+| `hjay-verificacion-visual` | Herramienta | Jay | sis-web, editada acá (DEC-003) | Validada A/B y mejorada el 2026-09-27 (BL-020, ver abajo) |
 | `julia-engineer-appsec` | Persona | Julia | sis-web, tal cual | Sin pasada propia |
-| `hjulia-revision-cambio` | Herramienta | Julia | sis-web, tal cual | Validada A/B el 2026-09-27 (ver abajo) |
+| `hjulia-revision-cambio` | Herramienta | Julia | sis-web, editada acá (DEC-003) | Validada A/B y mejorada el 2026-09-27 (BL-020, ver abajo) |
 | `duck-engineer-qa-testing` | Persona | Duck | sis-web, tal cual | Sin pasada propia |
 | `bob-engineer-backend` | Persona | Bob | sis-web (igual a la anterior de Peroncitos) | Sin pasada propia |
 | `gary-engineer-dba` | Persona | Gary | sis-web, con el contexto de datos generalizado (ya no dice "facturación, clientes, empleados") | Sin pasada propia |
@@ -61,6 +61,43 @@ más importante salió de contrastar: **los dos siguieron un consejo roto de
 Peroncitos se corrigieron en `convenciones-tecnicas` (`seguridad.md`,
 `verificacion-navegador.md`). Las mejoras genéricas a las herramientas
 quedan en BL-020 (se editan acá, DEC-003).
+
+## Mejoras de BL-020 (2026-09-27)
+
+Cuatro rondas, todas con subagentes de solo lectura y hallazgos
+verificados a mano antes de usarlos:
+
+1. **Vieja contra nueva**, 3 escenarios reales por skill (Jay: reclamo
+   desde el celular, buscador nuevo, pantalla de error; Julia: BL-015,
+   `deleteArchivo`, BL-016). La vieja de Jay no tenía qué hacer con un
+   reclamo vertical desde el teléfono y hablaba de un "SDK" que acá no
+   existe; la nueva lo cubrió. La nueva de Julia armó sola la fila "dada
+   de baja", entró por `doPost` y encontró que `probarBUGLOGIN001B` se
+   rompería con el chequeo de BL-015 (anotado en BL-015).
+2. **Faltas que marcaron las dos versiones** (se aplicaron solo las
+   genéricas): cambio chico con comportamiento, datos que quedan en el
+   cliente, cachés de sesión como variantes, el "muerde" de una acción
+   nueva, caso denegado sin cuenta de prueba, `input type=file`, contar
+   pedidos, dónde está el `DESIGN.md`.
+3. **Escenarios nuevos** (Jay: tarjetas apretadas, botón "Quitar", color
+   de un chip; Julia: `getMiniatura`, BL-005, BL-003). Encontró un error
+   real: la skill decía que `scrollWidth` no ve lo recortado por
+   `overflow:hidden`, y el del propio contenedor sí lo cuenta. También los
+   cortes implícitos de `auto-fill`/`minmax`, los selectores compartidos,
+   la minimización de logs, el manifiesto en el deploy. Hallazgos del
+   proyecto a REQ-PERF-004 y BL-003.
+4. **Solo errores y contradicciones**, sobre las versiones finales:
+   "las reglas no filtran" y "tardan en propagarse" eran de Firestore
+   presentados como generales; "por encima del ancho máximo da lo mismo"
+   tenía excepciones; `tieneMouseReal` se calcula una vez al cargar y
+   choca con "cambiá de ancho sin recargar" (aviso en la skill y en
+   `verificacion-navegador.md`); quedaban "en este repo" y "portal".
+
+Resultado: las dos siguen genéricas (grep sin nombres de este stack) y
+por debajo de 500 líneas (198 y 225). Aprendizaje para la metodología:
+cada ronda con escenarios nuevos siguió encontrando algo, pero la cuarta
+(solo errores, sin pedir faltantes) es el corte que evita que la skill
+crezca sin fin.
 
 ## Referencias cruzadas
 

@@ -53,6 +53,15 @@ Hoy hay un solo corte de ancho: `@media (max-width: 600px)` (probar 600 y
 601). Confirmarlo con grep de `@media` antes de confiar en esto. La app se
 usa en el teléfono: 375 siempre entra en la lista de anchos.
 
+Si el síntoma es un modal que no entra o un botón tapado abajo, el caso
+ya pasó: ver `pantallas-y-visibilidad.md` ("Un modal no puede ser más
+alto que la pantalla").
+
+`tieneMouseReal` (`index.html`, el cursor propio) se calcula una sola
+vez al cargar: si la página se cargó con emulación móvil, pasar a 1366
+sin recargar no prende el cursor. Para verificar el hover, cargar en
+escritorio y recién ahí armar el estado simulado.
+
 Con la emulación de móvil, `(hover: hover) and (pointer: fine)` da falso:
 desaparecen el cursor propio y los efectos de hover. El hover se verifica
 a 1366 o más.

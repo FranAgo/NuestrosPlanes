@@ -2343,3 +2343,47 @@ Cambios:
 - docs/skills/INVENTARIO.md — seccion "Relacion con sis-web" segun
   DEC-003.
 ========================================================
+
+========================================================
+2026-09-27 18:15 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+BL-020: mejoras genericas a dos skills, validadas con Claude B en 4
+rondas (subagentes de solo lectura, hallazgos verificados a mano).
+
+Cambios:
+- .claude/skills/hjay-verificacion-visual/SKILL.md -- anular escrituras
+  en la capa mas baja (cliente de la base o fetch); alturas bajas,
+  teclado virtual y barras del telefono cuando el sintoma es vertical;
+  reclamo desde un telefono (sin consola); respuestas simuladas no
+  prueban el servidor; cambio chico con comportamiento; selectores
+  compartidos; DESIGN.md en raiz o docs/ y se actualiza si el cambio lo
+  modifica; cortes implicitos de auto-fill/minmax/flex-wrap; correccion
+  de scrollWidth con overflow:hidden; area tactil y hover en telefono;
+  input type=file; contar pedidos y doble click; lo calculado una vez al
+  cargar (matchMedia) al cambiar de ancho sin recargar.
+- .claude/skills/hjulia-revision-cambio/SKILL.md -- "la capa que decide"
+  (regla de la base o handler del servidor); fila "cuenta dada de baja con
+  sesion" en la matriz; cachés de sesion como variantes y demora aceptada;
+  proporcion para datos que quedan en el cliente y para minimizar logs;
+  columnas que no aplican; errores y logs como salida; tests por la misma
+  puerta que la interfaz (y que hacer si no se puede); "muerde" para una
+  accion nueva y para una funcion pura; version vieja solo a test;
+  manifiesto/scopes en el deploy; caso permitido que escribe datos reales;
+  lo de Firestore (reglas que no filtran, propagacion) marcado como propio
+  del motor.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md --
+  remite a pantallas-y-visibilidad.md para el modal alto; tieneMouseReal
+  se calcula al cargar (cargar en escritorio para verificar hover).
+- docs/requerimientos/REQ-PERF-004.md -- notas de seguridad para cuando se
+  implemente: falta el servicio avanzado Drive en appsscript.json,
+  hipotesis de thumbnailLink en logs via err.toString(), mutante para el
+  test de bloqueo.
+- docs/backlog.md -- BL-020 Hecho; BL-014 Hecho para estas dos skills;
+  nota en BL-015 (donde va el chequeo, probarBUGLOGIN001B sin fila en
+  Usuarios) y en BL-003 (Config contra Script Properties).
+- docs/skills/INVENTARIO.md -- estado de las dos skills y resumen de las
+  4 rondas.
+Sin cambios de logica de la app (check-sintaxis OK): no hay deploy.
+========================================================
