@@ -21,7 +21,7 @@ completo en REQ-PERF-003, sección "Alcance — fuera de este REQ".
 ## Enfoque propuesto (a validar con el equipo antes de implementar)
 
 **Actualización 2026-09-16 — diagnóstico de `thumbnailLink` (ver también
-[BACKLOG.md, BL-011](../../skills/hpaul-backlog/BACKLOG.md)):** se probó,
+[backlog.md, BL-011](../backlog.md)):** se probó,
 contra el proyecto de test, el campo `thumbnailLink` de la API de Drive v3
 (Servicio Avanzado) — a diferencia de `DriveApp.getThumbnail()` (descartado
 en REQ-PERF-003, no sirve para fotos subidas), `thumbnailLink` **sí

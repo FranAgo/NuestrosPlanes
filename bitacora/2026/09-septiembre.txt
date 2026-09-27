@@ -2232,3 +2232,55 @@ Cambios:
 - docs/requerimientos/BUG-CARGA-001.md -- estado en produccion y
   hallazgos 2 y 3.
 ========================================================
+
+========================================================
+2026-09-27 17:13 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+Gestion: Paul organiza, Duck revisa. Skills reemplazadas por las de sis-web.
+--------------------------------------------------------
+Franco pidio reemplazar las skills del proyecto por las de sis-web
+(C:\0002-SIS-WEBS\0001-sis-web) y traer todo lo util de ese proyecto.
+En sis-web no se toco nada: solo se copio y se leyo. Decisiones: DEC-001
+(estructura de skills y datos en docs/) y DEC-002 (dos niveles de
+control), elegidas por Franco.
+
+Cambios:
+- .claude/skills/ -- nuevo. Copiadas de sis-web: los 7 ingenieros,
+  hpaul-triage, hpaul-decision-log, hjay-identidad-visual,
+  hjay-verificacion-visual (nueva), hjulia-revision-cambio (nueva).
+  Gary con el contexto de datos generalizado (decia "facturacion,
+  clientes, empleados", que es de InSIS).
+- .claude/skills/convenciones-tecnicas/ -- nuevo, PROPIO de Peroncitos
+  (el de sis-web es de InSIS y no se copio). 6 temas armados con bugs
+  reales de la bitacora de septiembre y la memoria de Claude:
+  apps-script-clasp, sheets-concurrencia, pantallas-y-visibilidad,
+  red-y-archivos-cliente, seguridad, verificacion-navegador. Cada nombre
+  de funcion citado se verifico contra el codigo.
+- skills/ -- eliminada (reemplazada por .claude/skills/; queda en git).
+- docs/backlog.md -- nuevo, migrado desde skills/hpaul-backlog/BACKLOG.md
+  al formato por sesion (solo cambian los niveles de encabezado).
+  Nuevos: BL-012 (DESIGN.md), BL-013 (seguimiento de seguridad), BL-014
+  (validar las skills copiadas con escenarios de Peroncitos).
+- docs/decisiones.md -- nuevo, formato ADR (reemplaza la plantilla vacia
+  de skills/hpaul-decisiones-producto). DEC-001 y DEC-002.
+- docs/skills/METODOLOGIA.md -- copiada de sis-web, con una nota de origen.
+- docs/skills/INVENTARIO.md -- nuevo, estado de cada skill en Peroncitos.
+- check-sintaxis.js -- nuevo, adaptado de sis-web: compila el JS inline de
+  index.html, Code.gs y Tests.gs sin ejecutarlos. Probado: pasa sobre el
+  codigo actual y falla (exit 1) sobre una copia rota a proposito.
+- CLAUDE.md -- se mantienen commit/push y bitacora; se suman deploy a prod
+  con aprobacion explicita, contexto y registros, arquitectura y trampas,
+  dos niveles de control, equipo y checklist de cierre de sesion.
+- README.md -- estructura del repo actualizada (.claude/skills, docs,
+  check-sintaxis.js).
+- docs/requerimientos/REQ-PERF-004.md -- link al backlog corregido a la
+  ruta nueva.
+- .claude/settings.local.json (no versionado) -- skillOverrides que apagan
+  en este proyecto las copias viejas anthropic-skills:* de la cuenta.
+
+Revision (Duck): nombres de las 13 skills iguales a sus carpetas, links
+del catalogo OK, check-sintaxis OK. Revision de seguridad de paso: todo
+HTML armado con datos pasa por escapeHtml/safeId/safeColor segun el
+contexto, sin hallazgos. Sin cambios de codigo de la app: no hay deploy.
+========================================================

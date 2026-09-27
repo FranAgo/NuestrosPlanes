@@ -1,24 +1,19 @@
----
-name: hpaul-backlog
----
-
-
 # Backlog — ideas sin formalizar
 
-Etapa previa a un REQ. Ver skill backlog-triage para cuándo agregar,
-actualizar o promover un ítem.
+Lo que falta decidir o construir y todavía no es un REQ. Datos del proyecto
+que mantiene la skill `hpaul-triage` (ahí están el formato, los estados y
+cuándo escribir). Hasta el 2026-09-27 este archivo vivía en
+`skills/hpaul-backlog/BACKLOG.md` (ver DEC-001).
 
-Formato por ítem:
-
-## [ID] — [Título breve]
-- Estado: Propuesto / Priorizado / En curso / Formalizado como REQ-XXX / Descartado
-- Prioridad: Alta / Media / Baja / Sin definir
-- Origen: sesión o contexto donde surgió (fecha)
-- Nota: descripción breve — esto NO es un REQ, no necesita Objetivo/Alcance/Criterios todavía
+Regla propia de Peroncitos: un hallazgo sobre un REQ que ya existe en
+`docs/requerimientos/REQ-XXX.md` se escribe en ese REQ, no acá. Acá, como
+mucho, una referencia cruzada (ver `CLAUDE.md`).
 
 ---
 
-Ítems consolidados el 2026-09-16 desde la bitácora de sesiones anteriores
+## Sesión 2026-09-16
+
+Ítems consolidados ese día desde la bitácora de sesiones anteriores
 (vivían dispersos en prosa, nunca se habían volcado acá). Cada uno se
 verificó contra el código actual antes de agregarlo — varios ítems viejos
 de la bitácora ya estaban resueltos y no se incluyen (nav-tab/filter-chip
@@ -27,8 +22,10 @@ ya son `<button>`, `confirm()` nativo ya se reemplazó por modal propio,
 ya usan `newId()`, trigger de `purgarSesiones()` ya verificado en prod,
 carpeta de Drive ya compartida con Noelia, hallazgo de `revocarSesion()` en
 ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
+Migrados el 2026-09-27 al formato por sesión de `hpaul-triage` (solo cambió
+el nivel de los encabezados; el contenido de cada ítem es el original).
 
-## BL-001 — Endpoint único de carga inicial
+### BL-001 — Endpoint único de carga inicial
 - Estado: Propuesto
 - Prioridad: Sin definir
 - Origen: REQ-PERF-001 (2026-09-15), reconfirmado fuera de alcance en REQ-PERF-002
@@ -39,21 +36,21 @@ ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
   a sentirse lento, retomar acá. Requiere diseño de Bob + revisión de costo
   del lado del servidor de Gary.
 
-## BL-002 — Test automatizado permanente para getArchivos (batch)
+### BL-002 — Test automatizado permanente para getArchivos (batch)
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: REQ-PERF-001 (2026-09-15)
 - Nota: hoy solo tiene el smoke que corrió Duck una vez; no quedó como test
   permanente en Tests.gs.
 
-## BL-003 — REQ-ADMIN-001: rol admin + panel
+### BL-003 — REQ-ADMIN-001: rol admin + panel
 - Estado: Propuesto
 - Prioridad: Sin definir
 - Origen: REQ-DATA-001 (2026-09-08), repetido sin arrancar en varias sesiones
 - Nota: rol admin + hoja Config + endpoint setDriveRootFolder + panel de
   administración. Nunca se empezó a implementar.
 
-## BL-004 — Reemplazar los glifos de UI restantes por SVG
+### BL-004 — Reemplazar los glifos de UI restantes por SVG
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: REQ-AUTH-001 (2026-09-05), mayormente resuelto en sesiones
@@ -63,7 +60,7 @@ ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
   de foto con error en la grilla de subida. El corazón "♡" del `<title>` es
   identidad de marca y no aplica acá.
 
-## BL-005 — Enmascarar también el dominio en enmascararEmail()
+### BL-005 — Enmascarar también el dominio en enmascararEmail()
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: revisión de Julia en REQ-DATA-002 (2026-09-10)
@@ -71,14 +68,14 @@ ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
   el dominio completo queda expuesto en el log de Auditoria para
   `login_denegado`.
 
-## BL-006 — Purga/retención del log de Auditoría
+### BL-006 — Purga/retención del log de Auditoría
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: REQ-DATA-002 (2026-09-10), marcado como fuera de alcance
 - Nota: la hoja Auditoria crece sin límite. Falta definir política de
   retención/purga — candidato a REQ futuro bajo Ley 25.326.
 
-## BL-007 — REQ-MEDIA-003 candidato: navegación por época / "recuerdos"
+### BL-007 — REQ-MEDIA-003 candidato: navegación por época / "recuerdos"
 - Estado: Propuesto
 - Prioridad: Sin definir (pedido explícito de Franco, sin fecha)
 - Origen: REQ-MEDIA-002 (2026-09-14), anotado explícitamente por Franco
@@ -88,28 +85,28 @@ ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
   mostrar, con qué cadencia). Se retoma cuando REQ-MEDIA-001/002 estén
   asentados en producción (ya lo están).
 
-## BL-008 — Límite de cantidad/tamaño de fotos por tarea
+### BL-008 — Límite de cantidad/tamaño de fotos por tarea
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: REQ-MEDIA-002 (2026-09-14)
 - Nota: hoy no hay tope de cuántas fotos (ni cuánto peso total) se pueden
   subir a una misma tarea.
 
-## BL-009 — Editar o borrar una foto individual ya subida
+### BL-009 — Editar o borrar una foto individual ya subida
 - Estado: Propuesto
 - Prioridad: Sin definir
 - Origen: REQ-MEDIA-002 (2026-09-14)
 - Nota: el modelo de datos ya soporta `estado='eliminado'` en Archivos,
   pero no hay UI para borrar (ni editar) una foto puntual una vez subida.
 
-## BL-010 — Reordenar fotos dentro de una tarea
+### BL-010 — Reordenar fotos dentro de una tarea
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: REQ-MEDIA-002 (2026-09-14)
 - Nota: las fotos se muestran en el orden en que se subieron, sin forma de
   reordenarlas.
 
-## BL-011 — REQ-PERF-004: miniatura de Drive para la card de "fotos recientes"
+### BL-011 — REQ-PERF-004: miniatura de Drive para la card de "fotos recientes"
 - Estado: Propuesto (diagnóstico técnico ya hecho, ver REQ-PERF-004.md)
 - Prioridad: Sin definir
 - Origen: REQ-PERF-003 (2026-09-15); diagnóstico de `thumbnailLink` corrido
@@ -120,3 +117,23 @@ ventana fría ya corregido, tests ya viven versionados en `Tests.gs`).
   inmediato (594 bytes a 220px vs. el original completo). Falta: Bob lo
   implementa con fallback al blob completo, Julia confirma el criterio de
   privacidad del proxy (nunca exponer la URL de Google al cliente).
+
+## Sesión 2026-09-27
+
+### BL-012 — `docs/DESIGN.md` de Nuestros Planes
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: reemplazo de skills por las de sis-web (DEC-001). Jay y `hjay-identidad-visual` usan el `DESIGN.md` del proyecto "si tiene uno"; en sis-web salió de extraer del código colores, tipografía y componentes.
+- Nota: extraer de `index.html` el sistema de diseño real (tokens de color, radios, tipografía, botones, modales, excepciones) para que los cambios visuales tengan una referencia escrita. Lo mantiene Jay.
+
+### BL-013 — Documento de seguimiento de seguridad
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: reemplazo de skills por las de sis-web (DEC-001). La persona de Julia lee y actualiza "el documento de seguimiento de seguridad del proyecto" si existe (en sis-web, `docs/seguridad/revision-insis.md`).
+- Nota: juntar en un solo archivo las superficies ya revisadas (REQ-SEC-001/002, REQ-DATA-002, BUG-LOGIN-001), los hallazgos abiertos (BL-005, BL-006) y el criterio acordado. Hoy está repartido entre los REQ.
+
+### BL-014 — Validar las skills traídas de sis-web con escenarios de Peroncitos
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: reemplazo de skills por las de sis-web (DEC-001). La metodología pide probar cada skill con un subagente limpio ("Claude B") y al menos 3 escenarios; las copias no se probaron sobre este proyecto.
+- Nota: sobre todo `hjulia-revision-cambio` (piensa en reglas de base de datos; acá la capa que decide es `Code.gs`) y `hjay-verificacion-visual` (con el preview local que pega a prod). Registrar el resultado en `docs/skills/INVENTARIO.md`.

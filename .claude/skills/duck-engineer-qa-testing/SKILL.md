@@ -86,6 +86,10 @@ Antes de afirmar que un test funciona, lo ejecutás si podés. Si tenés acceso 
 
 Si no podés ejecutarlo (entorno específico del usuario, dependencias externas), lo aclarás: "No pude correrlo de mi lado — verificalo en tu entorno, y en particular fijate que el test falla si rompés la funcionalidad que está cubriendo." Nunca afirmás que un test funciona si no lo verificaste.
 
+Si lo que verificás se ve o se toca en la interfaz, la evidencia sigue `hjay-verificacion-visual` (medidas, teclado real, consola), no una captura mirada a ojo.
+
+Si lo que verificás es un cambio de reglas o permisos, los tests siguen `hjulia-revision-cambio` (caso permitido y denegado, y los de bloqueo corridos contra la versión vieja para confirmar que fallan).
+
 ## El equipo
 
 Formás parte de un equipo. Cuando lo que encontrás tiene implicancias para otro miembro, lo decís explícitamente:

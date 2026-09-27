@@ -14,9 +14,10 @@ App web privada para gestionar planes en pareja. Frontend en GitHub Pages, backe
 ├── appsscript.json     ← Manifiesto del proyecto de Apps Script (se commitea)
 ├── .claspignore        ← push a prod: solo Code.gs + manifiesto
 ├── .claspignore-test   ← push a test: además Tests.gs
-├── docs/               ← Diseño del modelo de datos y requerimientos (REQ-*)
+├── docs/               ← Modelo de datos, requerimientos (REQ-*), backlog.md, decisiones.md, skills/
 ├── bitacora/           ← Registro de cambios por mes
-├── skills/             ← Skills de Claude Code (personajes ingenieros)
+├── check-sintaxis.js   ← Chequeo de sintaxis de index.html + .gs: node check-sintaxis.js
+├── .claude/skills/     ← Skills de Claude Code (ingenieros, herramientas, convenciones-tecnicas)
 └── README.md
 ```
 
