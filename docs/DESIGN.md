@@ -176,8 +176,9 @@ usa solo "Eliminar" en la fila de categoría. La confirmación de borrado
 nuevo pasa por `#modal-confirm`.
 
 **Botón de solo icono:** `class="btn-icon"` con SVG de 15px y
-`aria-label` (los de los modales lo tienen; los de la tarjeta de plan
-tienen solo `title`, ver "Deudas conocidas").
+`aria-label`. En la tarjeta de plan, el `aria-label` lleva el título
+del plan ("Editar …", "Eliminar …") para distinguir una tarjeta de otra.
+Todo `<button>` lleva `type="button"` (BL-018).
 
 **Botón de completar:** `.btn-completar` (verde) en la tarjeta de un plan
 pendiente. Cuando está completado se reemplaza por `.completado-label`
@@ -223,8 +224,9 @@ dentro (`max-height:100%; overflow-y:auto`). Mostrar y ocultar: ver
 `convenciones-tecnicas`, tema pantallas y visibilidad.
 
 **Estado vacío:** `.empty-state` con una frase en DM Serif itálica ("No
-hay planes aquí todavía.") y un adorno arriba (`.empty-icon`, hoy un glifo,
-ver "Iconos").
+hay planes aquí todavía.") y un adorno arriba: `.empty-icon`, un SVG de
+línea de 2rem, cobre al 35% (estrella de cuatro puntas en planes, rombo en
+categorías).
 
 **Carga:** `.spinner` (14px, cobre) en botones y miniaturas; skeletons
 con el brillo `skeletonShimmer` (`.skeleton-card`, card de fotos con
@@ -247,9 +249,9 @@ cobre tenue; sin foto, muestra la inicial en cobre.
   0.9–1 y tamaño fijo en el atributo. No se copian para un icono nuevo.
 - No hay un set central: cada SVG está pegado donde se usa. Si un icono
   nuevo se repite en varios lugares, se define una vez como constante.
-- **Glifos que quedan (BL-004):** `✦` (vacío de planes,
-  `index.html:2953`), `◇` (vacío de categorías, `index.html:3353`) y `✕`
-  (overlay de foto con error, `index.html:3086`). No se suman glifos
+- **Sin glifos como iconos** desde BL-004 (2026-09-27): los `✦`, `◇` y
+  `✕` que quedaban son SVG (estado vacío y overlay de foto con error, que
+  usa la misma cruz que cerrar sesión, a 1rem). No se suman glifos
   nuevos. La flecha `→` de "Ver recuerdos →" es texto, no un icono.
 - El `♡` del `<title>` es parte del nombre de la marca: no aplica.
 
@@ -283,11 +285,9 @@ hace de paso.
 - No hay bloque `prefers-reduced-motion`: latido, chispas, brillo y
   skeletons siempre se mueven. Una animación nueva conviene que ya venga
   apagable.
-- Falta `color-scheme: dark`: el calendario nativo de los
-  `<input type="date">` puede salir claro.
-- Los `<label>` no tienen `for`, y los botones de la tarjeta (editar,
-  eliminar) no tienen `aria-label` ni `type="button"`. Un campo o botón
-  nuevo sí los lleva.
+- Los `<label>` no tienen `for`. Un campo nuevo sí lo lleva.
+  (`color-scheme: dark` y el `aria-label`/`type="button"` de los botones
+  ya se saldaron en BL-018, 2026-09-27.)
 - `.form-group input` saca el `outline` y marca el foco solo con el borde
   cobre tenue, sin `:focus-visible` propio.
 
@@ -306,5 +306,6 @@ Lo mantiene Jay. Se actualiza en el mismo cambio que agrega o cambia algo
 de este archivo (una variable de `:root`, un componente con clase propia,
 un corte de pantalla, un icono repetido que pasa a constante, una deuda
 que se salda). Para revisar que siga vigente: comparar `:root`, los
-`@media` y las clases de la hoja de estilos contra este archivo, y contar
-glifos con `grep -n "✦\|◇\|✕" index.html`.
+`@media` y las clases de la hoja de estilos contra este archivo, y confirmar
+que no volvieron glifos con `grep -n "✦\|◇\|✕" index.html` (tiene que dar
+vacío).

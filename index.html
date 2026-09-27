@@ -12,6 +12,7 @@
        VARIABLES Y RESET
     ==================================================== */
     :root {
+      color-scheme: dark; /* controles nativos (calendario del input date, scrollbars) en oscuro */
       --bg:           #0E0C0A;
       --bg-card:      #161310;
       --bg-header:    #100E0B;
@@ -966,10 +967,18 @@
     }
 
     .empty-state .empty-icon {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
       display: block;
+      width: 2rem;
+      height: 2rem;
+      margin: 0 auto 1rem;
+      color: var(--copper);
       opacity: 0.35;
+    }
+
+    .empty-state .empty-icon svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
     .empty-state p {
@@ -1440,7 +1449,11 @@
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 1rem;
+    }
+
+    .plan-foto-overlay svg {
+      width: 1rem;
+      height: 1rem;
     }
 
     .plan-foto-item.subiendo .plan-foto-overlay {
@@ -1700,7 +1713,7 @@
           <div class="avatar" id="header-avatar"></div>
           <span id="header-nombre" style="font-size:0.82rem; font-weight:400; color:var(--text-soft)"></span>
         </div>
-        <button class="btn-icon" id="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <button type="button" class="btn-icon" id="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1730,7 +1743,7 @@
             <h2>Nuestros Planes</h2>
             <p class="section-header-sub">lo que queremos vivir juntos</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-nuevo-plan">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-nuevo-plan">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Nuevo Plan
           </button>
@@ -1750,7 +1763,7 @@
       <div id="tab-categorias" style="display:none">
         <div class="section-header">
           <h2>Categorías</h2>
-          <button class="btn btn-primary btn-sm" id="btn-nueva-categoria">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-nueva-categoria">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Nueva
           </button>
@@ -1794,7 +1807,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-plan-title">Nuevo Plan</h3>
-        <button class="btn-icon" id="btn-close-modal-plan" aria-label="Cerrar">
+        <button type="button" class="btn-icon" id="btn-close-modal-plan" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1835,8 +1848,8 @@
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="btn-cancel-plan">Cancelar</button>
-        <button class="btn btn-primary" id="btn-save-plan">Guardar</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancel-plan">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-save-plan">Guardar</button>
       </div>
       <div class="error-msg" id="plan-error"></div>
     </div>
@@ -1849,7 +1862,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3>Nuestros recuerdos</h3>
-        <button class="btn-icon" id="btn-close-modal-carrusel" aria-label="Cerrar">
+        <button type="button" class="btn-icon" id="btn-close-modal-carrusel" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1881,7 +1894,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-categoria-title">Nueva Categoría</h3>
-        <button class="btn-icon" id="btn-close-modal-cat" aria-label="Cerrar">
+        <button type="button" class="btn-icon" id="btn-close-modal-cat" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1896,8 +1909,8 @@
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="btn-cancel-cat">Cancelar</button>
-        <button class="btn btn-primary" id="btn-save-cat">Guardar</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancel-cat">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-save-cat">Guardar</button>
       </div>
       <div class="error-msg" id="cat-error"></div>
     </div>
@@ -1910,7 +1923,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3>Mi foto de perfil</h3>
-        <button class="btn-icon" id="btn-close-modal-foto" aria-label="Cerrar">
+        <button type="button" class="btn-icon" id="btn-close-modal-foto" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1918,7 +1931,7 @@
       <!-- Sección: previsualización de foto actual -->
       <div class="foto-perfil-preview" id="foto-preview-section">
         <div class="foto-preview-avatar" id="foto-preview-avatar"></div>
-        <button class="btn btn-secondary btn-sm" id="btn-abrir-selector-foto">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-abrir-selector-foto">
           Cambiar foto
         </button>
       </div>
@@ -1936,8 +1949,8 @@
       <div class="error-msg" id="foto-modal-error"></div>
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="btn-cancelar-foto">Cancelar</button>
-        <button class="btn btn-primary" id="btn-aplicar-foto" style="display:none">Aplicar</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancelar-foto">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-aplicar-foto" style="display:none">Aplicar</button>
       </div>
     </div>
   </div>
@@ -1949,7 +1962,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-confirm-title">Confirmar</h3>
-        <button class="btn-icon" id="btn-close-modal-confirm" aria-label="Cerrar">
+        <button type="button" class="btn-icon" id="btn-close-modal-confirm" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -1957,8 +1970,8 @@
       <p class="modal-confirm-msg" id="modal-confirm-msg"></p>
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="btn-cancel-confirm">Cancelar</button>
-        <button class="btn btn-primary" id="btn-accept-confirm">Eliminar</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancel-confirm">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-accept-confirm">Eliminar</button>
       </div>
     </div>
   </div>
@@ -2853,12 +2866,27 @@
     // en el logout manual como cuando el backend responde 401 (sesión vencida o
     // revocada). Reentrante: si varios requests responden 401 a la vez, solo el
     // primero rehace la pantalla; los demás solo refrescan el mensaje.
+    //
+    // BL-021: si había una sesión, en vez de solo ocultar la app se recarga la
+    // página. Así no quedan en el DOM (ni en state, modales o pedidos en
+    // vuelo) planes, categorías ni fotos de la sesión cerrada. El mensaje pasa
+    // por sessionStorage y lo muestra el arranque. replace a la URL sin '#' (no
+    // reload): no deja entrada en el historial y un '#' en la URL no lo vuelve
+    // una navegación de fragmento sin recarga.
+    let recargandoPorLogout = false;
     function forceLogout(mensaje) {
+      if (recargandoPorLogout) return;
       const yaEnLogin = loginScreen.style.display === 'flex';
 
       if (state.session) {
         clearSession();
         state.users = {};
+        recargandoPorLogout = true;
+        try {
+          if (mensaje) sessionStorage.setItem('cp_logout_msg', mensaje);
+        } catch (e) { /* sin sessionStorage se recarga igual, sin el mensaje */ }
+        location.replace(location.pathname + location.search);
+        return;
       }
 
       if (!yaEnLogin) {
@@ -2965,7 +2993,7 @@
       if (planes.length === 0) {
         grid.innerHTML = `
           <div class="empty-state" style="grid-column:1/-1">
-            <span class="empty-icon" style="font-family: serif; font-style: italic; font-size:2rem; color:var(--copper); opacity:0.35;">✦</span>
+            <span class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c.6 4.6 3.9 8.4 9 9-5.1.6-8.4 4.4-9 9-.6-4.6-3.9-8.4-9-9 5.1-.6 8.4-4.4 9-9z"/></svg></span>
             <p>No hay planes aquí todavía.</p>
           </div>`;
         return;
@@ -2994,15 +3022,15 @@
 
         const actions = plan.estado === 'completado'
           ? `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`
-          : `<button class="btn-completar" onclick="completarPlan('${pid}')">Marcar completado</button>
-             <button class="btn-icon" onclick="editarPlan('${pid}')" title="Editar">
-               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          : `<button type="button" class="btn-completar" onclick="completarPlan('${pid}')">Marcar completado</button>
+             <button type="button" class="btn-icon" onclick="editarPlan('${pid}')" title="Editar" aria-label="Editar ${escapeHtml(plan.titulo)}">
+               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                  <path d="M2 10.5L3.5 9 9.5 3l1.5 1.5L5 10.5l-2 .5-.5-.5z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M8.5 3l1.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
                </svg>
              </button>
-             <button class="btn-icon" onclick="eliminarPlan('${pid}')" title="Eliminar">
-               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+             <button type="button" class="btn-icon" onclick="eliminarPlan('${pid}')" title="Eliminar" aria-label="Eliminar ${escapeHtml(plan.titulo)}">
+               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                  <path d="M2.5 4h9M5.5 4V2.5h3V4M5.5 6.5v4M8.5 6.5v4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M3.5 4l.5 7.5h6l.5-7.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                </svg>
@@ -3098,7 +3126,7 @@
       grid.innerHTML = planFotosSeleccion.map(f => {
         let overlay = '';
         if (f.estado === 'subiendo') overlay = '<div class="plan-foto-overlay"><span class="spinner"></span></div>';
-        if (f.estado === 'error')    overlay = `<div class="plan-foto-overlay" title="${escapeHtml(f.error || '')}">✕</div>`;
+        if (f.estado === 'error')    overlay = `<div class="plan-foto-overlay" title="${escapeHtml(f.error || '')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></div>`;
         return `<div class="plan-foto-item ${f.estado}">
           <img src="${f.previewUrl}" alt="" />
           ${overlay}
@@ -3365,7 +3393,7 @@
       if (state.categorias.length === 0) {
         list.innerHTML = `
           <div class="empty-state">
-            <span class="empty-icon" style="font-family: serif; font-style: italic; font-size:2rem; color:var(--copper); opacity:0.35;">◇</span>
+            <span class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg></span>
             <p>Todavía no hay categorías.</p>
           </div>`;
         return;
@@ -3378,8 +3406,8 @@
           <div class="categoria-color-dot" style="background:${safeColor(cat.colorHex)}"></div>
           <div class="categoria-nombre">${escapeHtml(cat.nombre)}</div>
           <div class="categoria-actions">
-            <button class="btn btn-secondary btn-sm" onclick="editarCategoria('${cid}')">Editar</button>
-            <button class="btn btn-danger" onclick="eliminarCategoria('${cid}')">Eliminar</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="editarCategoria('${cid}')">Editar</button>
+            <button type="button" class="btn btn-danger" onclick="eliminarCategoria('${cid}')">Eliminar</button>
           </div>
         </div>`;
       }).join('');
@@ -3879,6 +3907,16 @@
       // previas a BL-016 no las borraban) se borran en vez de cargarse.
       if (loadSession()) loadImageCachePersistido();
       else borrarImageCache();
+      // Mensaje que dejó forceLogout antes de recargar (BL-021), una sola vez.
+      try {
+        const msgLogout = sessionStorage.getItem('cp_logout_msg');
+        sessionStorage.removeItem('cp_logout_msg');
+        if (msgLogout) {
+          const errorEl = document.getElementById('login-error');
+          errorEl.textContent = msgLogout;
+          errorEl.classList.add('visible');
+        }
+      } catch (e) { /* sin sessionStorage no hay mensaje */ }
       // Reintento por si la librería GSI todavía no cargó al arrancar.
       let tries = 0;
       const gsiTimer = setInterval(() => {

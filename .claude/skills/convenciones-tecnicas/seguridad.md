@@ -53,8 +53,10 @@ puede llamar a `doPost` con cualquier parámetro.
   `cp_image_cache` y `avatarCache` (`borrarImageCache`, BL-016). Todo lo
   que escriba en `localStorage` datos del usuario tiene que borrarse ahí
   también, y no volver a escribirse si un pedido resuelve después del
-  logout (chequear `state.session` al volver). El DOM de la app oculta
-  sigue con datos hasta cerrar la pestaña (BL-021).
+  logout (chequear `state.session` al volver). Después, `forceLogout`
+  recarga la página (`location.replace`, BL-021) para no dejar datos en
+  el DOM ni en `state`; lo que tenga que sobrevivir a esa recarga (el
+  mensaje de sesión expirada) pasa por `sessionStorage`.
 - El puente anti-carrera de `CacheService` (`validarDesdePuente`) guarda
   el hash, no el token, y solo se consulta si la hoja respondió "no
   está", nunca si falló. El logout lo borra siempre. Ver

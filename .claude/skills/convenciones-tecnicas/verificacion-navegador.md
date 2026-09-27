@@ -52,6 +52,12 @@ exista el stub, vuelve 401 y `forceLogout` borra todo. Si antes hubo un
 login real, `cp_session` ya tiene una sesión verdadera: una recarga sin
 stub habla con prod como esa persona.
 
+Desde BL-021, cualquier 401 (o el botón de cerrar sesión) con una
+sesión armada recarga la página: se pierden el stub y el estado. Para
+seguir probando después, volver a armar todo. Para ver qué quedó, marcar
+la página vieja (`window.__marca = 1`) y chequear que la nueva no la
+tiene.
+
 `cp_image_cache` (fotos en `localStorage`) puede tapar lo que devuelve el
 stub para un `archivoId` que ya estaba cacheado: usar ids que no existan.
 

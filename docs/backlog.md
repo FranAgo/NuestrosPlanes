@@ -58,7 +58,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   solo guarda el `userId`.)*
 
 ### BL-004 — Reemplazar los glifos de UI restantes por SVG
-- Estado: Propuesto
+- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión); falta push a `main`
 - Prioridad: Baja
 - Origen: REQ-AUTH-001 (2026-09-05), mayormente resuelto en sesiones
   posteriores
@@ -156,7 +156,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: `validarSesion` (`Code.gs`) consulta `Sesiones` y nunca `Usuarios`. Una cuenta dada de baja sigue entrando hasta que vence su sesión (15 días) o se revoca a mano. Hoy, con dos personas, lo mitiga marcar sus filas de `Sesiones` como `revocada`. Opciones: chequear la lista blanca en cada pedido (cuesta una lectura de hoja) o una función "revocar todas las sesiones de X" (REQ-SEC-001 lo dejó fuera de alcance). *(2026-09-27, A/B de BL-020, verificado a mano: el chequeo va en el router de `doPost`, después de `validarSesion`, porque el camino rápido de 90 s y el puente devuelven `userId` sin pasar por la hoja; `Usuarios` tiene caché de 30 s, que es la demora aceptada. Ojo: `probarBUGLOGIN001B` crea sesiones de `usr_fran` sin fila en `Usuarios`; sus casos positivos por `doPost` se rompen con el chequeo y hay que sembrar la fila.)* *(2026-09-27, implementado: `usuarioHabilitado()` en el router de `doPost` — fila presente y con email. Test `probarBL015` (12 checks) falla 6/12 contra el `Code.gs` viejo y pasa 12/12 con el nuevo. La advertencia sobre `probarBUGLOGIN001B` no aplicaba: sus casos llaman a `validarSesion` directo, no a `doPost`, y siguió 38/38. Fuera de alcance: si la fila vuelve a aparecer, una sesión que no venció vuelve a andar (no se revoca en `Sesiones`); lo documenta el caso N1 del test.)*
 
 ### BL-016 — Las fotos quedan en el navegador después de cerrar sesión
-- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, tercera sesión); falta push a `main`
+- Estado: Hecho — en `main` (GitHub Pages) desde el 2026-09-27 (commit afe9cbf)
 - Prioridad: Baja
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
 - Nota: `clearSession()` borra `cp_session` pero no `cp_image_cache` (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`. En un dispositivo compartido se pueden leer desde DevTools sin sesión (Ley 25.326).
@@ -168,7 +168,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
 
 ### BL-018 — Deudas de UI que dejó a la vista `docs/DESIGN.md`
-- Estado: Propuesto
+- Estado: En curso — hecha la parte chica (2026-09-27, cuarta sesión; falta push): `color-scheme: dark`, `type="button"` en los 20 botones que no lo tenían y `aria-label` con el título del plan en editar/eliminar de la tarjeta. Quedan: `prefers-reduced-motion`, `--transition: all`, `for` en los `<label>` y `:focus-visible` en los campos.
 - Prioridad: Baja
 - Origen: armado de `docs/DESIGN.md` (BL-012), 2026-09-27
 - Nota: falta `color-scheme: dark` (el calendario nativo de `<input type="date">` puede salir claro); no hay bloque `prefers-reduced-motion`; `--transition` es `all`; los `<label>` no tienen `for`; los botones de la tarjeta de plan no tienen `aria-label` ni `type="button"`. Detalle en DESIGN.md, "Deudas conocidas".
@@ -188,7 +188,14 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27 (3)
 
 ### BL-021 — Después del logout, el DOM de la app sigue con los datos
-- Estado: Propuesto
+- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión); falta push a `main`
 - Prioridad: Baja
 - Origen: búsqueda de variantes de BL-016 (2026-09-27)
 - Nota: `forceLogout()` oculta `#app-screen` pero no vacía lo que ya se pintó (planes, categorías, miniaturas de fotos recientes, carrusel) ni `state.planes`/`state.categorias`/`fotosRecientes`/`carruselFotos`. Dura mientras la pestaña siga abierta (cerrarla lo borra, a diferencia de `localStorage`). Opción simple: recargar la página después del logout, pasando el mensaje de "sesión expirada" por `sessionStorage`.
+  *(2026-09-27, implementado: si había sesión, `forceLogout()` guarda el
+  mensaje en `sessionStorage` (`cp_logout_msg`) y hace
+  `location.replace(pathname + search)`; el arranque lo muestra una vez y
+  lo borra. Una bandera evita recargas repetidas con varios 401 juntos.
+  Verificado en 127.0.0.1 con `fetch` simulado: logout manual, 3 pedidos
+  con 401 a la vez (1 sola descarga de página, mensaje visible) y
+  `sessionStorage` bloqueado (recarga igual, sin mensaje).)*

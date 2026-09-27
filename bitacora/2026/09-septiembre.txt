@@ -2403,3 +2403,40 @@ Cambios:
 - Proyecto de TEST (Apps Script) actualizado con clasp push.
 - DEPLOY A PRODUCCIÓN (con OK de Franco): se comparó el Code.gs de prod (clasp pull a carpeta aparte) contra HEAD: idénticos, el push llevó solo BL-015. clasp push -f, clasp version (v23), clasp redeploy de la implementación del front (...LxD0d) a @23. Verificado sin escribir: getCategorias con token inválido -> 401 "Sesión inválida o expirada."; clasp deployments muestra @23. No se pudieron leer los logs de prod (clasp logs bloqueado por el filtro de permisos de Claude Code); camino feliz cubierto por probarBL015 P1/P2 en test.
 ========================================================
+
+========================================================
+2026-09-27 20:29 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — BL-021: con sesión activa, forceLogout (logout manual o 401) guarda el mensaje en sessionStorage (cp_logout_msg) y recarga con location.replace(pathname + search), así no quedan planes, categorías ni fotos en el DOM ni en state. Una bandera evita recargas repetidas si llegan varios 401 juntos. El arranque muestra el mensaje una sola vez y lo borra. Verificado en el Browser pane (127.0.0.1, fetch simulado, sin tocar prod): logout manual con '#' en la URL (recarga, sin datos, sin entrada nueva en el historial), 3 pedidos con 401 juntos (una sola descarga, "Tu sesión expiró" visible) y sessionStorage bloqueado (recarga igual, sin mensaje).
+- docs/backlog.md — BL-021 hecho en código (falta push); BL-016 figuraba "falta push" pero ya estaba en main (afe9cbf).
+- .claude/skills/convenciones-tecnicas/seguridad.md — el logout recarga la página; lo que sobrevive pasa por sessionStorage.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — un 401 o el logout con estado simulado recarga la página y se pierde el stub.
+Sin cambios en Code.gs: no hay deploy de Apps Script. El push a main publica en GitHub Pages (prod).
+========================================================
+
+========================================================
+2026-09-27 20:34 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — BL-004: los últimos glifos usados como iconos pasan a SVG de línea (24x24, currentColor, aria-hidden). Estado vacío de planes (✦ -> estrella de cuatro puntas) y de categorías (◇ -> rombo): los estilos inline pasan a .empty-icon (2rem, cobre, opacidad 0.35). Overlay de foto con error (✕ -> la misma cruz que cerrar sesión, 1rem). Verificado en el Browser pane (127.0.0.1, fetch simulado): los dos iconos de estado vacío miden 32x32, color #B8783A al 35%, centrados; la cruz mide 16x16, en rojo (--red-venc), centrada, con su title; consola sin errores.
+- docs/DESIGN.md — estado vacío e iconos sin glifos; el grep de mantenimiento tiene que dar vacío.
+- docs/backlog.md — BL-004 hecho en código (falta push).
+Sin cambios en Code.gs.
+========================================================
+
+========================================================
+2026-09-27 20:38 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — BL-018 (parte chica): color-scheme: dark en :root (el calendario nativo del input date y los controles salen en oscuro); type="button" en los 20 <button> que no lo tenían (no hay <form>, sin cambio de comportamiento); en la tarjeta de plan, editar/eliminar con aria-label "Editar/Eliminar <título>" (escapeHtml, atributo entre comillas dobles) y SVG con aria-hidden. Verificado en el Browser pane (127.0.0.1, fetch simulado): colorScheme dark en html y en el input date; 0 botones sin type; título con comillas y <b> queda como texto en el aria-label, sin inyectar; clicks reales en editar (abre el modal con el título) y eliminar (abre la confirmación, cancelado sin pedidos de escritura); consola sin errores.
+- docs/DESIGN.md — botón de solo icono y deudas conocidas actualizadas.
+- docs/backlog.md — BL-018 en curso: hecha la parte chica, queda el resto.
+Sin cambios en Code.gs.
+========================================================
