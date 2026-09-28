@@ -251,6 +251,14 @@ Cada fila lleva una `.foto-pill` con texto: *Lista para subir* (neutra),
 *Error* (rojo, con el motivo en su propia línea). Sin colores nuevos. Subir
 pide confirmación en `#modal-subir-fotos` (DEC-007).
 
+**Recuerdos (REQ-MEDIA-003):** la card del dashboard
+(`.fotos-recientes-card`, `role="button"` con Enter/Espacio) muestra un solo
+grupo: `.fotos-recientes-grupo` en mayúsculas chicas (cobre con
+`.is-destacado` para "En este día", muted para los otros) y una línea que
+se corta con `…`. En el modal, `.recuerdos-chip` (mismo aspecto que
+`.filter-chip`, activo con `aria-pressed="true"`, no con `.active`) y
+`.carrusel-contador` ("2 de 5") debajo de la leyenda.
+
 **Avatar:** `.avatar` (30px, 72px con `.avatar-lg`), círculo con borde
 cobre tenue; sin foto, muestra la inicial en cobre.
 

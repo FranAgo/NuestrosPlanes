@@ -85,7 +85,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   retención/purga — candidato a REQ futuro bajo Ley 25.326.
 
 ### BL-007 — REQ-MEDIA-003 candidato: navegación por época / "recuerdos"
-- Estado: Propuesto
+- Estado: En curso — formalizado como REQ-MEDIA-003 (2026-09-28), con alcance y ubicación (opción A) aprobados por Franco
 - Prioridad: Sin definir (pedido explícito de Franco, sin fecha)
 - Origen: REQ-MEDIA-002 (2026-09-14), anotado explícitamente por Franco
 - Nota: no mostrar solo lo más reciente en el carrusel, sino también fotos
@@ -162,7 +162,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: `clearSession()` borra `cp_session` pero no `cp_image_cache` (hasta 150 fotos como data URL en `localStorage`) ni `avatarCache`. En un dispositivo compartido se pueden leer desde DevTools sin sesión (Ley 25.326).
 
 ### BL-017 — ¿Las fotos de un plan eliminado siguen en "recuerdos"?
-- Estado: Propuesto
+- Estado: En curso — Franco decidió el 2026-09-28 que no se muestran; entra en REQ-MEDIA-003 (solo el filtro de lectura; pasar las fotos a `archivado` al borrar la tarea, como dice `docs/modelo-datos.md`, sigue pendiente)
 - Prioridad: Sin definir
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
 - Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
@@ -260,3 +260,17 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Baja
 - Origen: REQ-MEDIA-005 (2026-09-28)
 - Nota: "Cambiar fecha" está solo en el visor que se abre desde las fotos de una tarea. En el carrusel de recuerdos (la card de fotos recientes) no aparece. Si se quiere ahí también, el endpoint `setFechaFoto` ya sirve; falta que `getRecentPlanPhotos` devuelva `fechaOrigen` y mostrar el control. Se cruza con BL-027 (visor a pantalla completa).
+
+## Sesión 2026-09-28 (3)
+
+### BL-029 — Versionado de la app
+- Estado: En curso — criterio aprobado por Franco el 2026-09-28 (DEC-009); se aplica por primera vez con REQ-MEDIA-003 (`1.1.0`)
+- Prioridad: Sin definir
+- Origen: pregunta de Franco durante REQ-MEDIA-003 (2026-09-28): "¿estamos llevando un versionado de la app?"
+- Nota: hoy no hay número de versión. El servidor tiene las versiones de deploy de Apps Script (@27) y el front solo tiene commits en `main`: no hay forma de saber qué versión tiene abierta cada teléfono. Propuesta de Roy y Paul, basada en lo que se usa en la industria: (1) SemVer `MAYOR.MENOR.PARCHE` para la app entera (front y servidor juntos): MENOR = un REQ nuevo, PARCHE = un bug o un ajuste, MAYOR = un cambio incompatible (migración de hojas que obliga a actualizar los dos lados). Arranca en `1.0.0` = lo que está hoy en prod. (2) Una constante `APP_VERSION` en `index.html` y en `Code.gs`, visible en el perfil. (3) Un tag anotado de git `vX.Y.Z` en cada salida a prod, y la misma versión en la descripción del deploy de Apps Script, para que se correspondan. (4) Un `CHANGELOG.md` en formato Keep a Changelog, en castellano y para Franco y Noelia (qué cambió para ellos); la bitácora sigue siendo el registro técnico. Etapa 2, aparte: que el servidor devuelva su versión y el front avise "hay una versión nueva, recargá" si no coincide (se cruza con REQ-SYNC-001 y BL-001).
+
+### BL-030 — Miniaturas de "Ya subidas" que siguen quedando en "Sin vista previa"
+- Estado: Propuesto (se investiga al cerrar REQ-MEDIA-003, pedido de Franco)
+- Prioridad: Media
+- Origen: Franco (2026-09-28), después del fix de miniaturas de a 3 con reintento (2a1a038): "mejoró, al abrir una imagen carga la vista previa, pero sigue habiendo varias que no cargan".
+- Nota: pasa en "Ya subidas" (modal de la tarea) **sin abrir el visor**, así que la hipótesis de que el visor cancela los pedidos (`abortFetchesExcepto`) no alcanza a explicarlo. Datos: `getArchivo` devuelve la foto entera en base64 (no hay miniatura, ver BL-011/REQ-PERF-004); cada miniatura se reintenta una sola vez a los 800 ms y después queda fija hasta reabrir la tarea; `api()` no tiene timeout propio. `clasp logs` de la sesión no mostró errores de lectura en la Web App (no concluyente: parecían corridas de test). Primer paso: reproducir en el navegador contra prod en modo solo lectura y mirar qué responde cada `getArchivo` que falla (status, error, tiempo).

@@ -2292,3 +2292,199 @@ function probarMEDIA005() {
 
   return R.finalizar();
 }
+
+
+// ============================================================
+// probarMEDIA003() — REQ-MEDIA-003: recuerdos en tres grupos (en este día,
+// nuevas, de otro momento). Parte 1: armarRecuerdos() pura, con "hoy" a
+// elección para los bordes (31, 29/02, cambio de día). Parte 2: getRecuerdos
+// de punta a punta por doPost, con planilla scratch y RELOJ_OVERRIDE.
+// Uso: clasp run probarMEDIA003 -P .clasp-test.json -u duck
+// ============================================================
+
+function probarMEDIA003() {
+  const R = nuevoReporte('REQ-MEDIA-003');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const relojAnterior = RELOJ_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    // ---------- Parte 1: armarRecuerdos() ----------
+    const f = (id, planId, fecha, subida) => ({ archivoId: id, planId: planId, fecha: fecha, fechaSubida: subida || '2025-01-01T15:00:00.000Z' });
+    const grupo = (grupos, tipo) => (grupos.filter(g => g.tipo === tipo)[0] || { fotos: [] }).fotos.map(x => x.archivoId);
+    const HOY = '2026-10-13';
+
+    // C1 — subida hoy con captura de hace un año: en este día, no nuevas.
+    let g = armarRecuerdos([f('a1', 'p1', '2025-10-13', '2026-10-13T15:00:00.000Z')], HOY);
+    R.eq('C1 · captura de hace un año subida hoy -> en este día', JSON.stringify(grupo(g, 'en_este_dia')), '["a1"]');
+    R.eq('C1 · y no en nuevas', grupo(g, 'nuevas').length, 0);
+
+    // C2 — ventana de nuevas: 7 días contando hoy, en hora Argentina.
+    g = armarRecuerdos([
+      f('n0', 'p1', '2026-10-13', '2026-10-13T15:00:00.000Z'),
+      f('n6', 'p1', '2026-10-07', '2026-10-07T15:00:00.000Z'),  // hace 6 días
+      f('n7', 'p1', '2026-10-06', '2026-10-06T15:00:00.000Z'),  // hace 7 días
+      f('nTz', 'p1', '2026-10-06', '2026-10-07T02:00:00.000Z'), // 06/10 23:00 en Argentina
+      f('n10', 'p1', '2026-10-03', '2026-10-03T15:00:00.000Z'), // hace 10 días
+    ], HOY);
+    R.eq('C2 · nuevas = hoy y hace 6 días, la foto más nueva primero', JSON.stringify(grupo(g, 'nuevas')), '["n0","n6"]');
+    R.check('C2 · subida 06/10 23:00 hora Argentina (07/10 en UTC) no es nueva', grupo(g, 'nuevas').indexOf('nTz') === -1);
+    R.check('C2 · subida hace 10 días no es nueva', grupo(g, 'nuevas').indexOf('n10') === -1);
+
+    // C3 — años antes que meses.
+    g = armarRecuerdos([f('y1', 'p1', '2025-10-13'), f('y2', 'p2', '2024-10-13'), f('m1', 'p3', '2026-09-13')], HOY);
+    R.eq('C3 · con fotos de años anteriores, esas (la más reciente primero)', JSON.stringify(grupo(g, 'en_este_dia')), '["y1","y2"]');
+    g = armarRecuerdos([f('m1', 'p3', '2026-09-13'), f('m2', 'p4', '2026-08-13'), f('x', 'p5', '2026-09-12')], HOY);
+    R.eq('C3 · sin años anteriores, mismo día de meses anteriores', JSON.stringify(grupo(g, 'en_este_dia')), '["m1","m2"]');
+    g = armarRecuerdos([f('hoy', 'p1', '2026-10-13')], HOY);
+    R.eq('C3 · una foto de hoy no es "en este día"', grupo(g, 'en_este_dia').length, 0);
+
+    // C4 — bordes de calendario.
+    g = armarRecuerdos([f('s30', 'p1', '2026-09-30'), f('a31', 'p2', '2026-08-31')], '2026-10-31');
+    R.eq('C4 · el 31, solo meses con 31', JSON.stringify(grupo(g, 'en_este_dia')), '["a31"]');
+    g = armarRecuerdos([f('f28', 'p1', '2027-02-28'), f('f29', 'p2', '2024-02-29')], '2028-02-29');
+    R.eq('C4 · el 29/02 coincide con el 29/02 de otro año', JSON.stringify(grupo(g, 'en_este_dia')), '["f29"]');
+    g = armarRecuerdos([f('f29', 'p2', '2024-02-29')], '2027-03-01');
+    R.eq('C4 · un 29/02 no aparece el 01/03', grupo(g, 'en_este_dia').length, 0);
+
+    // C5 — de otro momento.
+    const viejas = [
+      f('v1', 'pA', '2026-09-01'), f('v2', 'pA', '2026-08-30'),
+      f('v3', 'pB', '2026-09-05'),
+      f('v4', 'pC', '2026-09-20'),
+      f('v5', 'pD', '2026-09-28'), // hace 15 días: entra
+      f('v6', 'pE', '2026-09-29'), // hace 14 días: no entra
+      f('v7', 'pF', '2025-10-13'), // es "en este día"
+      f('v8', 'pF', '2025-10-14'), // misma tarea que la de en este día
+    ];
+    const g1 = armarRecuerdos(viejas, HOY);
+    R.eq('C5 · dos pedidos del mismo día -> la misma tarea',
+         JSON.stringify(grupo(g1, 'de_otro_momento')), JSON.stringify(grupo(armarRecuerdos(viejas, HOY), 'de_otro_momento')));
+    const otroHoy = g1.filter(x => x.tipo === 'de_otro_momento')[0];
+    const planesOtro = otroHoy ? otroHoy.fotos.map(x => x.planId) : [];
+    R.check('C5 · es una sola tarea', planesOtro.length > 0 && planesOtro.every(p => p === planesOtro[0]));
+    R.check('C5 · de las que tienen fotos de hace más de 14 días (pA, pB, pC, pD) — salió ' + planesOtro[0],
+            ['pA', 'pB', 'pC', 'pD'].indexOf(planesOtro[0]) !== -1);
+    const elegidas = {};
+    let nuncaRepite = true;
+    for (let d = 0; d < 20; d++) {
+      const gd = armarRecuerdos(viejas, sumarDiasFecha(HOY, d));
+      const go = gd.filter(x => x.tipo === 'de_otro_momento')[0];
+      const pe = {};
+      (gd.filter(x => x.tipo === 'en_este_dia')[0] || { fotos: [] }).fotos.forEach(x => { pe[x.planId] = true; });
+      if (go) {
+        elegidas[go.fotos[0].planId] = true;
+        if (pe[go.fotos[0].planId]) nuncaRepite = false;
+      }
+    }
+    R.check('C5 · en 20 días cambia de tarea (' + Object.keys(elegidas).join(',') + ')', Object.keys(elegidas).length > 1);
+    R.check('C5 · nunca repite la tarea de en este día', nuncaRepite);
+    const gA = armarRecuerdos([f('v1', 'pA', '2026-09-01'), f('v2', 'pA', '2026-08-30'), f('v9', 'pA', '2026-10-10')], HOY);
+    R.eq('C5 · trae las fotos de la tarea, la más vieja primero', JSON.stringify(grupo(gA, 'de_otro_momento')), '["v2","v1","v9"]');
+
+    // C6 — ninguna foto en dos grupos, y tope de 20.
+    let dup = false;
+    for (let d = 0; d < 40; d++) {
+      const dia = sumarDiasFecha(HOY, d);
+      const vistos = {};
+      armarRecuerdos(viejas.concat([f('nn', 'pA', '2026-09-01', dia + 'T15:00:00.000Z')]), dia)
+        .forEach(x => x.fotos.forEach(y => { if (vistos[y.archivoId]) dup = true; vistos[y.archivoId] = true; }));
+    }
+    R.check('C6 · ninguna foto en dos grupos (40 días distintos)', !dup);
+    const muchas = [];
+    for (let i = 0; i < 25; i++) muchas.push(f('mm' + i, 'pX', '2026-10-1' + (i % 3), '2026-10-12T15:00:00.000Z'));
+    R.eq('C6 · tope de 20 por grupo', grupo(armarRecuerdos(muchas, HOY), 'nuevas').length, 20);
+    R.eq('C6 · sin fotos -> sin grupos', armarRecuerdos([], HOY).length, 0);
+
+    // ---------- Parte 2: getRecuerdos por doPost ----------
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA003 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    ss.setSpreadsheetTimeZone(TZ_APP);
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+    RELOJ_OVERRIDE = '2026-10-13T15:00:00Z'; // mar 13/10, 12:00 hora Argentina
+
+    const crear = titulo => parseResp(handleCreatePlan({
+      titulo: titulo, categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-09-01',
+    })).planId;
+    // insertArchivo pone fecha_subida = ahora; acá se pisa con la que pide el caso.
+    const foto = (planId, fecha, subida, estado) => {
+      const id = insertArchivo({
+        ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto', fechaContenido: fecha, fechaOrigen: 'captura',
+        driveFileId: 'fake-drive-media003-' + planId, mimeType: 'image/jpeg', tamanoBytes: 1,
+        subidoPor: 'usr_noe', estado: estado || 'activo',
+      });
+      const sh = getSheet(SHEETS.ARCHIVOS);
+      const data = sh.getDataRange().getValues();
+      const c = data[0].indexOf('fecha_subida');
+      for (let i = 1; i < data.length; i++) if (data[i][0] === id) sh.getRange(i + 1, c + 1).setValue(subida);
+      return id;
+    };
+
+    const pAnio   = crear('Aniversario');
+    const pNueva  = crear('Cena de ayer');
+    const pVieja  = crear('Feria de agosto');
+    const pBorrar = crear('Tarea borrada');
+    const aAnio   = foto(pAnio, '2025-10-13', '2026-10-13T14:00:00.000Z');
+    const aNueva  = foto(pNueva, '2026-10-12', '2026-10-12T23:00:00.000Z');
+    const aVieja  = foto(pVieja, '2026-08-20', '2026-08-21T15:00:00.000Z');
+    const aElim   = foto(pNueva, '2026-10-12', '2026-10-12T23:00:00.000Z', 'eliminado');
+    const aBorr1  = foto(pBorrar, '2025-10-13', '2026-10-13T14:00:00.000Z');
+    const aBorr2  = foto(pBorrar, '2026-10-12', '2026-10-12T23:00:00.000Z');
+    const aBorr3  = foto(pBorrar, '2026-08-01', '2026-08-01T15:00:00.000Z');
+    parseResp(handleDeletePlan({ planId: pBorrar, authUserId: 'usr_fran' }));
+    SpreadsheetApp.flush();
+
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+
+    R.eq('C8 · getRecuerdos sin sesión -> 401', pedir({ action: 'getRecuerdos' }).status, 401);
+    R.eq('C8 · getRecuerdos con token falso -> 401', pedir({ action: 'getRecuerdos', sessionToken: 'ses_x.yyyy' }).status, 401);
+    const r = pedir({ action: 'getRecuerdos', sessionToken: t });
+    R.eq('E2E · con sesión -> 200', r.status, 200);
+    R.eq('E2E · hoy en hora Argentina', r.hoy, '2026-10-13');
+    R.eq('E2E · grupos en orden de prioridad', JSON.stringify((r.grupos || []).map(x => x.tipo)),
+         '["en_este_dia","nuevas","de_otro_momento"]');
+    const ids = tipo => ((r.grupos || []).filter(x => x.tipo === tipo)[0] || { fotos: [] }).fotos.map(x => x.archivoId);
+    R.eq('E2E · en este día = la del aniversario', JSON.stringify(ids('en_este_dia')), JSON.stringify([aAnio]));
+    R.eq('E2E · nuevas = la de ayer', JSON.stringify(ids('nuevas')), JSON.stringify([aNueva]));
+    R.eq('E2E · de otro momento = la feria', JSON.stringify(ids('de_otro_momento')), JSON.stringify([aVieja]));
+    const todas = [].concat(ids('en_este_dia'), ids('nuevas'), ids('de_otro_momento'));
+    R.check('C7 · ninguna foto de la tarea eliminada (BL-017)', [aBorr1, aBorr2, aBorr3].every(x => todas.indexOf(x) === -1));
+    R.check('C7 · ni la foto con estado eliminado', todas.indexOf(aElim) === -1);
+    const fAnio = (r.grupos || [])[0] && r.grupos[0].fotos[0];
+    R.check('E2E · cada foto trae título, categoría, tarea y fecha',
+            !!fAnio && fAnio.tituloPlan === 'Aniversario' && fAnio.categoriaNombre === 'Mantenimiento' &&
+            fAnio.fecha === '2025-10-13' && fAnio.planId === pAnio);
+    const texto = JSON.stringify(r);
+    R.check('S · no expone el ID de Drive', texto.indexOf('fake-drive') === -1 && texto.toLowerCase().indexOf('drive') === -1);
+
+    // Cambio de día: 9 días después, la de ayer ya no es nueva.
+    RELOJ_OVERRIDE = '2026-10-21T15:00:00Z';
+    const r2 = pedir({ action: 'getRecuerdos', sessionToken: t });
+    R.check('E2E · 9 días después la de ayer ya no es nueva',
+            r2.status === 200 && (r2.grupos || []).every(x => x.tipo !== 'nuevas'));
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    RELOJ_OVERRIDE = relojAnterior;
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}

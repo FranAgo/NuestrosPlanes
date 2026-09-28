@@ -2609,3 +2609,19 @@ Cambios:
 - PRODUCCIÓN, REQ-MEDIA-005 (cada paso con OK de Franco): clasp push -f (Code.gs); clasp run setupSheets -u duck (sin errores, log "Hojas creadas/actualizadas" 12:13Z; agrega Planes.fecha_fin y Archivos.fecha_origen); clasp version (v27); clasp redeploy ...LxD0d -V 27. Smoke sin escritura: setFechaFoto y getFotosPlan con token inválido -> 401. Rollback: redeploy -V 26.
 - docs/requerimientos/REQ-MEDIA-005.md — estado: servidor en prod @27, front con el push.
 ========================================================
+
+========================================================
+2026-09-28 09:58 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-MEDIA-003.md (nuevo) — recuerdos en tres grupos (en este día, nuevas, de otro momento); Franco eligió opción A del mockup (una sola card) y que las fotos de tareas eliminadas no se muestren (cierra BL-017 en lectura).
+- Code.gs — endpoint getRecuerdos (lectura, con sesión) + armarRecuerdos() pura, sumarDiasFecha, hashTexto (semilla del día para "de otro momento"); APP_VERSION = '1.1.0'. getRecentPlanPhotos queda igual.
+- Tests.gs — probarMEDIA003: 33/33 en test (bordes 31 y 29/02, ventana de nuevas en hora Argentina, semilla diaria, sin duplicados, tope 20, tarea eliminada, 401 por doPost, sin ID de Drive). Regresión probarMEDIA004 21/21.
+- index.html — card con el grupo principal ("En este día" en cobre) y "Hace …"; modal con chips por grupo (aria-pressed) y contador "N de M"; card con role=button y Enter/Espacio; APP_VERSION visible en Mi perfil. Verificado en 127.0.0.1 con fetch simulado a 375 y 1366.
+- PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v28, "v1.1.0 REQ-MEDIA-003"); clasp redeploy ...LxD0d -V 28. Smoke sin escritura: getRecuerdos sin sesión -> 401. El caso con sesión no se pudo probar en prod (no había sesión en localhost; clasp run no serializa TextOutput); cubierto por probarMEDIA003 en test. Rollback: redeploy -V 27.
+- docs/decisiones.md — DEC-009 versionado (SemVer único, APP_VERSION, tag vX.Y.Z, CHANGELOG). CHANGELOG.md (nuevo) con 1.0.0 y 1.1.0.
+- docs/backlog.md — BL-007 y BL-017 en curso (REQ-MEDIA-003); BL-029 versionado (DEC-009); BL-030 miniaturas de "Ya subidas" que siguen sin cargar, sin abrir el visor.
+- docs/DESIGN.md — componentes de recuerdos (card por grupo, .recuerdos-chip, .carrusel-contador).
+========================================================

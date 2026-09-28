@@ -760,7 +760,7 @@
       margin-bottom: 1.5rem;
     }
 
-    .filter-chip {
+    .filter-chip, .recuerdos-chip {
       padding: 0.3rem 0.85rem;
       border-radius: var(--radius-sm);
       font-family: inherit;
@@ -776,7 +776,9 @@
     }
 
     .filter-chip:hover,
-    .filter-chip.active {
+    .filter-chip.active,
+    .recuerdos-chip:hover,
+    .recuerdos-chip[aria-pressed="true"] {
       border-color: var(--copper-dim);
       color: var(--copper);
     }
@@ -1221,6 +1223,16 @@
       border: 0.5px solid var(--border);
       padding: 2rem;
       max-width: 420px;
+    }
+
+    /* DEC-009: versión de la app, para saber qué tiene abierto cada teléfono. */
+    .app-version {
+      max-width: 420px;
+      margin-top: 0.8rem;
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
     }
 
     .perfil-header {
@@ -1973,12 +1985,45 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
     }
+
+    /* REQ-MEDIA-003: qué grupo de recuerdos muestra la card. */
+    .fotos-recientes-grupo {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .fotos-recientes-grupo:empty { display: none; }
+    .fotos-recientes-grupo.is-destacado { color: var(--copper); }
 
     .fotos-recientes-count {
       font-size: 0.85rem;
       color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+
+    .recuerdos-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .recuerdos-chips[hidden] { display: none; }
+
+    .carrusel-contador {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .carrusel-contador:empty { display: none; }
 
     .fotos-recientes-link {
       font-size: 0.72rem;
@@ -2220,9 +2265,10 @@
       <!-- TAB: PLANES -->
       <div id="tab-planes">
         <!-- Carrusel de recuerdos — REQ-MEDIA-002 -->
-        <div class="fotos-recientes-card" id="fotos-recientes-card" hidden>
+        <div class="fotos-recientes-card" id="fotos-recientes-card" role="button" tabindex="0" hidden>
           <div class="fotos-recientes-thumbs" id="fotos-recientes-thumbs"></div>
           <div class="fotos-recientes-text">
+            <span class="fotos-recientes-grupo" id="fotos-recientes-grupo"></span>
             <span class="fotos-recientes-count" id="fotos-recientes-count"></span>
             <span class="fotos-recientes-link">Ver recuerdos →</span>
           </div>
@@ -2285,6 +2331,7 @@
           </p>
           <div class="error-msg" id="perfil-error" style="margin-top:1rem"></div>
         </div>
+        <p class="app-version" id="app-version"></p>
       </div>
 
     </main>
@@ -2374,6 +2421,9 @@
         </button>
       </div>
 
+      <!-- REQ-MEDIA-003: un chip por grupo de recuerdos. Oculto en las fotos de una tarea. -->
+      <div class="recuerdos-chips" id="recuerdos-chips" role="group" aria-label="Qué recuerdos ver" hidden></div>
+
       <div class="carrusel-viewer">
         <button type="button" class="btn-icon carrusel-nav" id="btn-carrusel-prev" aria-label="Foto anterior">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
@@ -2391,6 +2441,7 @@
         </button>
       </div>
       <div class="carrusel-caption" id="carrusel-caption"></div>
+      <div class="carrusel-contador" id="carrusel-contador"></div>
       <!-- REQ-MEDIA-005: solo al abrir las fotos desde una tarea. -->
       <div class="carrusel-fecha" id="carrusel-fecha" hidden>
         <span class="carrusel-fecha-origen" id="carrusel-fecha-origen"></span>
@@ -2522,7 +2573,12 @@
     // ====================================================
     // CONFIG
     // ====================================================
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
+    // DEC-009: versión de la app entera (front y servidor). Se sube junto con
+    // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
+    const APP_VERSION = '1.1.0';
+    document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
+
+    const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
 
     // Client ID de Google OAuth. NO es un secreto: está pensado para vivir en el frontend.
     // Tiene que ser el mismo que OAUTH_CLIENT_ID en el backend (Script Properties).
@@ -3222,15 +3278,32 @@
       card.hidden = false;
     }
 
+    // REQ-MEDIA-003: los recuerdos vienen en grupos armados por el servidor
+    // (getRecuerdos), en orden de prioridad. La card muestra el primero; el
+    // modal, todos. `hoy` es el del servidor (hora Argentina), para que el
+    // "Hace …" no dependa del reloj del teléfono.
+    let recuerdos     = { hoy: null, grupos: [] };
+    let carruselGrupo = null; // tipo del grupo que recorre el visor de recuerdos
+
+    const NOMBRE_GRUPO_RECUERDOS = {
+      en_este_dia:     'En este día',
+      nuevas:          'Nuevas',
+      de_otro_momento: 'De otro momento',
+    };
+
     async function loadFotosRecientes() {
       try {
-        const data = await apiLectura('getRecentPlanPhotos', { limit: 5 });
-        fotosRecientes = data.status === 200 ? (data.fotos || []) : [];
+        const data = await apiLectura('getRecuerdos');
+        recuerdos = data.status === 200
+          ? { hoy: data.hoy || null, grupos: (data.grupos || []).filter(g => NOMBRE_GRUPO_RECUERDOS[g.tipo] && (g.fotos || []).length) }
+          : { hoy: null, grupos: [] };
+        fotosRecientes = recuerdos.grupos.length ? recuerdos.grupos[0].fotos.slice(0, 3) : [];
         // Las fotos no tapan la app si fallan (BUG-CARGA-001 criterio 2),
         // pero el motivo queda en consola en vez de perderse.
         if (data.status !== 200) console.error('[fotos recientes] ' + motivoDeFallo('las fotos', data));
       } catch (e) {
         console.error('[fotos recientes] ' + motivoDeFallo('las fotos', e));
+        recuerdos = { hoy: null, grupos: [] };
         fotosRecientes = [];
       }
       await renderFotosRecientesCard();
@@ -3254,21 +3327,72 @@
         return src ? `<div class="fotos-recientes-thumb"><img src="${src}" alt="" /></div>` : '';
       }).join('');
 
-      const n = fotosRecientes.length;
-      document.getElementById('fotos-recientes-count').textContent =
-        `${n} foto${n === 1 ? '' : 's'} nueva${n === 1 ? '' : 's'}`;
+      const grupo = recuerdos.grupos[0];
+      const etiqueta = document.getElementById('fotos-recientes-grupo');
+      etiqueta.textContent = NOMBRE_GRUPO_RECUERDOS[grupo.tipo];
+      etiqueta.classList.toggle('is-destacado', grupo.tipo === 'en_este_dia');
+      document.getElementById('fotos-recientes-count').textContent = textoCardRecuerdos(grupo);
 
       fotosRecientesListo = true;
       card.classList.remove('is-loading');
       card.hidden = false;
     }
 
-    async function openModalCarrusel() {
+    // Texto de la card: "4 fotos nuevas" o "Hace 1 mes · <tarea>".
+    function textoCardRecuerdos(grupo) {
+      const n = grupo.fotos.length;
+      if (grupo.tipo === 'nuevas') return `${textoFotos(n)} nueva${n === 1 ? '' : 's'}`;
+      const foto = grupo.fotos[0];
+      return [textoHace(foto.fecha, recuerdos.hoy), foto.tituloPlan || textoFotos(n)].filter(Boolean).join(' · ');
+    }
+
+    // "Hoy", "Ayer", "Hace N días/semanas/meses/años", redondeado hacia abajo.
+    // Meses y años por calendario (13/09 -> 13/10 es "Hace 1 mes"). Fechas
+    // 'AAAA-MM-DD' como día de calendario, sin zona horaria.
+    function textoHace(fecha, hoy) {
+      if (!fecha || !hoy) return '';
+      const [fa, fm, fd] = fecha.split('-').map(Number);
+      const [ha, hm, hd] = hoy.split('-').map(Number);
+      const dias = Math.round((Date.UTC(ha, hm - 1, hd) - Date.UTC(fa, fm - 1, fd)) / 86400000);
+      if (dias < 0) return '';
+      if (dias === 0) return 'Hoy';
+      if (dias === 1) return 'Ayer';
+      const meses = (ha - fa) * 12 + (hm - fm) - (hd < fd ? 1 : 0);
+      const plural = (n, uno, varios) => `Hace ${n} ${n === 1 ? uno : varios}`;
+      if (meses >= 12) return plural(Math.floor(meses / 12), 'año', 'años');
+      if (meses >= 1)  return plural(meses, 'mes', 'meses');
+      if (dias >= 7)   return plural(Math.floor(dias / 7), 'semana', 'semanas');
+      return plural(dias, 'día', 'días');
+    }
+
+    function pintarChipsRecuerdos() {
+      const cont = document.getElementById('recuerdos-chips');
+      cont.hidden = carruselDeTarea || recuerdos.grupos.length === 0;
+      if (cont.hidden) { cont.innerHTML = ''; return; }
+      cont.innerHTML = recuerdos.grupos.map(g =>
+        `<button type="button" class="recuerdos-chip" data-grupo="${safeId(g.tipo)}" aria-pressed="${g.tipo === carruselGrupo}">` +
+        `${escapeHtml(NOMBRE_GRUPO_RECUERDOS[g.tipo])} · ${g.fotos.length}</button>`
+      ).join('');
+    }
+
+    function elegirGrupoRecuerdos(tipo) {
+      const grupo = recuerdos.grupos.find(g => g.tipo === tipo) || recuerdos.grupos[0];
+      if (!grupo) return false;
+      carruselGrupo = grupo.tipo;
+      carruselFotos = grupo.fotos;
+      carruselIndex = 0;
+      pintarChipsRecuerdos();
+      renderCarruselFoto();
+      return true;
+    }
+
+    async function openModalCarrusel(tipo) {
       const modal = document.getElementById('modal-carrusel');
       document.getElementById('carrusel-titulo').textContent = 'Nuestros recuerdos';
       carruselDeTarea = false;
       carruselEditandoFecha = false;
       pintarFechaVisor();
+      pintarChipsRecuerdos();
       modal.classList.add('visible');
 
       const imagen = document.getElementById('carrusel-imagen');
@@ -3276,21 +3400,13 @@
       imagen.removeAttribute('src');
       document.getElementById('carrusel-loader').classList.remove('is-hidden');
       document.getElementById('carrusel-caption').textContent = '';
+      document.getElementById('carrusel-contador').textContent = '';
 
-      try {
-        const data = await api('getRecentPlanPhotos', { limit: 20 });
-        carruselFotos = data.status === 200 ? (data.fotos || []) : [];
-      } catch {
-        carruselFotos = [];
-      }
-
-      if (carruselFotos.length === 0) {
-        closeModalCarrusel();
-        return;
-      }
-
-      carruselIndex = 0;
-      renderCarruselFoto();
+      // Los grupos ya vienen de la carga de la card; solo se piden acá si
+      // esa carga falló.
+      if (recuerdos.grupos.length === 0) await loadFotosRecientes();
+      if (!modal.classList.contains('visible')) return; // se cerró mientras cargaba
+      if (!elegirGrupoRecuerdos(tipo)) closeModalCarrusel();
     }
 
     function closeModalCarrusel() {
@@ -3367,9 +3483,12 @@
 
       const partes = [
         foto.tituloPlan || null,
-        foto.categoriaNombre || null,
+        carruselDeTarea ? null : (textoHace(foto.fecha, recuerdos.hoy) || null),
         foto.fecha ? formatDateDisplay(foto.fecha) : null,
+        foto.categoriaNombre || null,
       ].filter(Boolean);
+      document.getElementById('carrusel-contador').textContent =
+        carruselFotos.length > 1 ? `${indiceSolicitado + 1} de ${carruselFotos.length}` : '';
 
       if (src) {
         imagen.classList.remove('is-loaded');
@@ -3486,7 +3605,19 @@
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelarFechaVisor(); }
     });
 
-    document.getElementById('fotos-recientes-card').addEventListener('click', openModalCarrusel);
+    const cardRecuerdos = document.getElementById('fotos-recientes-card');
+    const abrirDesdeCard = () => {
+      if (cardRecuerdos.classList.contains('is-loading')) return;
+      openModalCarrusel(recuerdos.grupos[0] && recuerdos.grupos[0].tipo);
+    };
+    cardRecuerdos.addEventListener('click', abrirDesdeCard);
+    cardRecuerdos.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDesdeCard(); }
+    });
+    document.getElementById('recuerdos-chips').addEventListener('click', e => {
+      const chip = e.target.closest('.recuerdos-chip');
+      if (chip && chip.dataset.grupo !== carruselGrupo) elegirGrupoRecuerdos(chip.dataset.grupo);
+    });
     document.getElementById('btn-close-modal-carrusel').addEventListener('click', closeModalCarrusel);
     document.getElementById('modal-carrusel').addEventListener('click', (e) => {
       if (e.target === document.getElementById('modal-carrusel')) closeModalCarrusel();
@@ -4099,6 +4230,7 @@
       if (!carruselFotos[indice]) return;
       carruselIndex = indice;
       carruselDeTarea = true;
+      pintarChipsRecuerdos();
       document.getElementById('carrusel-titulo').textContent = plan ? plan.titulo : 'Fotos de la tarea';
       const imagen = document.getElementById('carrusel-imagen');
       imagen.classList.remove('is-loaded');

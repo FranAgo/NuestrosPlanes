@@ -237,6 +237,7 @@ function doPost(e) {
       // Fotos de tareas (REQ-MEDIA-002)
       case 'uploadPlanPhotos':    return handleUploadPlanPhotos(body);
       case 'getRecentPlanPhotos': return handleGetRecentPlanPhotos(body);
+      case 'getRecuerdos':        return handleGetRecuerdos(body);
       case 'getFotosPlan':        return handleGetFotosPlan(body);
       case 'setFechaFoto':        return handleSetFechaFoto(body);
 
@@ -1560,6 +1561,10 @@ function respond(statusCode, data) {
 // en ISO UTC a propósito (docs/modelo-datos.md).
 const TZ_APP = 'America/Argentina/Buenos_Aires';
 
+// DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
+// y en la descripción del `clasp version` de cada salida a prod.
+const APP_VERSION = '1.1.0';
+
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
 // que un request del Web App no puede verlo (mismo patrón que
@@ -2015,6 +2020,150 @@ function handleGetRecentPlanPhotos(body) {
   });
 
   return respond(200, { fotos: resultado });
+}
+
+// REQ-MEDIA-003: recuerdos en tres grupos (en este día, nuevas, de otro
+// momento) en vez de solo las últimas subidas. Ambos usuarios ven todo. Las
+// fotos de una tarea eliminada no aparecen (BL-017). Nunca devuelve
+// drive_file_id: las imágenes se piden después por getArchivos.
+const RECUERDOS_MAX_POR_GRUPO   = 20;
+const RECUERDOS_DIAS_NUEVAS     = 7;  // subidas hoy y los 6 días anteriores
+const RECUERDOS_DIAS_OTRO_MOMENTO = 14; // "de otro momento" = foto de hace más de esto
+
+function handleGetRecuerdos(body) {
+  const planesData = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const hp    = planesData[0];
+  const iPId  = hp.indexOf('plan_id');
+  const iPTit = hp.indexOf('titulo');
+  const iPCat = hp.indexOf('categoria_id');
+  const iPEst = hp.indexOf('estado');
+  const planesPorId = {};
+  for (let i = 1; i < planesData.length; i++) {
+    const r = planesData[i];
+    if (iPEst !== -1 && r[iPEst] === 'eliminado') continue;
+    planesPorId[r[iPId]] = { titulo: r[iPTit], categoriaId: r[iPCat] || null };
+  }
+
+  const categoriasData = getSheet(SHEETS.CATEGORIAS).getDataRange().getValues();
+  const hc    = categoriasData[0];
+  const iCId  = hc.indexOf('categoria_id');
+  const iCNom = hc.indexOf('nombre');
+  const categoriasPorId = {};
+  for (let i = 1; i < categoriasData.length; i++) {
+    categoriasPorId[categoriasData[i][iCId]] = categoriasData[i][iCNom];
+  }
+
+  const archivosData = getSheet(SHEETS.ARCHIVOS).getDataRange().getValues();
+  const ha       = archivosData[0];
+  const iOwnerT  = ha.indexOf('owner_tipo');
+  const iOwnerId = ha.indexOf('owner_id');
+  const iProp    = ha.indexOf('proposito');
+  const iEstado  = ha.indexOf('estado');
+  const iArcId   = ha.indexOf('archivo_id');
+  const iFSub    = ha.indexOf('fecha_subida');
+  const iFCon    = ha.indexOf('fecha_contenido');
+
+  const fotos = [];
+  for (let i = 1; i < archivosData.length; i++) {
+    const r = archivosData[i];
+    if (r[iOwnerT] !== 'plan' || r[iProp] !== 'adjunto' || r[iEstado] !== 'activo') continue;
+    if (!planesPorId[r[iOwnerId]]) continue; // tarea eliminada o inexistente
+    const fecha = formatDate(r[iFCon]);
+    if (!esFechaDia(fecha)) continue;
+    const sub = r[iFSub];
+    fotos.push({
+      archivoId:   r[iArcId],
+      planId:      r[iOwnerId],
+      fecha:       fecha,
+      fechaSubida: sub instanceof Date ? sub.toISOString() : String(sub || ''),
+    });
+  }
+
+  const hoy = fechaDiaArgentina();
+  const grupos = armarRecuerdos(fotos, hoy).map(g => ({
+    tipo: g.tipo,
+    fotos: g.fotos.map(f => {
+      const plan = planesPorId[f.planId];
+      return {
+        archivoId:       f.archivoId,
+        planId:          f.planId,
+        tituloPlan:      plan.titulo || null,
+        categoriaNombre: plan.categoriaId ? (categoriasPorId[plan.categoriaId] || null) : null,
+        fecha:           f.fecha,
+      };
+    }),
+  }));
+
+  return respond(200, { hoy: hoy, grupos: grupos });
+}
+
+// Selección pura (sin hojas), para poder probar los casos borde con un "hoy"
+// cualquiera. `fotos`: [{ archivoId, planId, fecha 'AAAA-MM-DD', fechaSubida
+// ISO UTC }] ya filtradas. Devuelve solo los grupos con fotos, en orden de
+// prioridad; una foto no aparece en dos grupos.
+function armarRecuerdos(fotos, hoy) {
+  const usadas = {};
+  const tope = lista => lista.slice(0, RECUERDOS_MAX_POR_GRUPO);
+  const masNuevaPrimero = (a, b) =>
+    a.fecha !== b.fecha ? (a.fecha < b.fecha ? 1 : -1) : (a.fechaSubida < b.fechaSubida ? 1 : -1);
+  const masViejaPrimero = (a, b) =>
+    a.fecha !== b.fecha ? (a.fecha < b.fecha ? -1 : 1) : (a.fechaSubida < b.fechaSubida ? -1 : 1);
+
+  // En este día: mismo día y mes en años anteriores; si no hay, mismo día
+  // del mes en meses anteriores. Comparación de texto: un 31 o un 29/02 solo
+  // coinciden con un día que existe con ese número.
+  const mesDia = hoy.slice(5);
+  const dia    = hoy.slice(8);
+  let enEsteDia = fotos.filter(f => f.fecha.slice(5) === mesDia && f.fecha < hoy);
+  if (enEsteDia.length === 0) {
+    enEsteDia = fotos.filter(f => f.fecha.slice(8) === dia && f.fecha < hoy);
+  }
+  enEsteDia = tope(enEsteDia.sort(masNuevaPrimero));
+  enEsteDia.forEach(f => { usadas[f.archivoId] = true; });
+
+  // Nuevas: subidas en los últimos días (día de subida en hora Argentina).
+  const desde = sumarDiasFecha(hoy, -(RECUERDOS_DIAS_NUEVAS - 1));
+  const nuevas = tope(fotos.filter(f => {
+    if (usadas[f.archivoId] || !f.fechaSubida) return false;
+    const inst = new Date(f.fechaSubida);
+    return !isNaN(inst.getTime()) && fechaDiaArgentina(inst) >= desde;
+  }).sort(masNuevaPrimero));
+  nuevas.forEach(f => { usadas[f.archivoId] = true; });
+
+  // De otro momento: una tarea con fotos viejas, elegida con una semilla del
+  // día, para que sea la misma para los dos durante todo el día.
+  const limiteViejas = sumarDiasFecha(hoy, -(RECUERDOS_DIAS_OTRO_MOMENTO + 1));
+  const planesEnEsteDia = {};
+  enEsteDia.forEach(f => { planesEnEsteDia[f.planId] = true; });
+  const candidatos = {};
+  fotos.forEach(f => {
+    if (!usadas[f.archivoId] && !planesEnEsteDia[f.planId] && f.fecha <= limiteViejas) candidatos[f.planId] = true;
+  });
+  const planIds = Object.keys(candidatos).sort();
+  let deOtroMomento = [];
+  if (planIds.length) {
+    const elegido = planIds[hashTexto(hoy) % planIds.length];
+    deOtroMomento = tope(fotos.filter(f => f.planId === elegido && !usadas[f.archivoId]).sort(masViejaPrimero));
+  }
+
+  return [
+    { tipo: 'en_este_dia',     fotos: enEsteDia },
+    { tipo: 'nuevas',          fotos: nuevas },
+    { tipo: 'de_otro_momento', fotos: deOtroMomento },
+  ].filter(g => g.fotos.length > 0);
+}
+
+// 'AAAA-MM-DD' + n días, en calendario (sin zona horaria).
+function sumarDiasFecha(fecha, n) {
+  const [a, m, d] = fecha.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// Hash chico y estable de un texto (djb2), para elegir con semilla.
+function hashTexto(texto) {
+  let h = 5381;
+  for (let i = 0; i < texto.length; i++) h = ((h * 33) ^ texto.charCodeAt(i)) >>> 0;
+  return h;
 }
 
 // REQ-MEDIA-004: las fotos activas de una tarea, para el bloque "Ya subidas"

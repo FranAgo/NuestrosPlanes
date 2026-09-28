@@ -82,3 +82,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A y A (Franco, 2026-09-28, después de probar el prototipo interactivo de Jay).
 - Motivo: con los dos campos a la vista se entiende sin descubrir nada que una tarea puede durar varios días. Ver la fecha antes de subir avisa en el momento de una foto sin fecha de captura (iPhone al compartir, capturas de pantalla), cuando corregirla cuesta menos; en el visor queda para las que ya se subieron.
 - Reabrir si: el formulario queda apretado en el teléfono o casi nadie usa el día de fin.
+
+## DEC-009 — Versionado de la app: SemVer único, tag en cada salida y CHANGELOG para los usuarios
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: BL-029. Franco preguntó si llevábamos versionado. No había: el servidor tiene los números de deploy de Apps Script (@27) y el front solo commits en `main`, sin forma de saber qué versión tiene abierta cada teléfono ni qué front va con qué servidor.
+- Opciones consideradas: esquema: (A) SemVer `MAYOR.MENOR.PARCHE`; (B) CalVer (`2026.09`). Alcance: (1) una versión para toda la app; (2) una para el front y otra para el servidor.
+- Decisión: A + 1 (Franco, 2026-09-28, después de ver la investigación de Roy). MENOR = un REQ nuevo, PARCHE = un bug o ajuste, MAYOR = un cambio que obliga a actualizar front y servidor a la vez. Arranca en `1.0.0` = lo que está en prod hoy; REQ-MEDIA-003 sale como `1.1.0`. Constante `APP_VERSION` en `index.html` y `Code.gs`, visible en el perfil; tag anotado `vX.Y.Z` en git y la misma versión en la descripción del deploy de Apps Script; `CHANGELOG.md` en formato Keep a Changelog, en castellano y para Franco y Noelia (la bitácora sigue siendo el registro técnico).
+- Motivo: CalVer sirve cuando se publica en fechas fijas y acá se publica cuando algo está listo. Una sola versión evita tener que cruzar dos números para saber qué anda con qué, que es justo el problema que se quiere resolver.
+- Reabrir si: el front y el servidor empiezan a salir tan desacoplados que una sola versión deja de describir lo que está en prod.
