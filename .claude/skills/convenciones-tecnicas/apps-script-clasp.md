@@ -20,6 +20,11 @@ decidiera. Se descubrió recién en la sesión siguiente, bajando el
 **Además:** un cambio de esquema no termina con el push. Si el código
 nuevo espera columnas u hojas nuevas, hay que correr `setupSheets()` (y
 los backfill que correspondan) contra la planilla de ese ambiente.
+`clasp run setupSheets` ejecuta el código **subido** al proyecto (HEAD),
+no la versión desplegada: primero `clasp push`, después `setupSheets`,
+y recién después `version` + `redeploy`. Hacer el push sin `redeploy` no
+cambia lo que usa la app. (REQ-PLAN-001, 2026-09-28: el código de prod
+todavía era el de v24 y `setupSheets` no habría agregado nada.)
 
 ## Prod y test: allowlist y `redeploy`
 
@@ -76,3 +81,16 @@ run`; si no se puede, pedirle a Franco esos uno o dos clics.
 
 **Por qué:** una vez se tipeó "setupSheets" al principio de `Code.gs` y
 hubo que borrarlo a mano antes del autoguardado.
+
+## Los comandos de `clasp` a prod van sueltos, nunca encadenados
+
+**Qué cuidar:** las reglas de `.claude/settings.local.json`
+(`Bash(clasp push:*)`, etc.) solo reconocen un comando que empieza con
+`clasp …`. Algo como `cd "…" && clasp push -f | tail && clasp version …`
+no coincide con ninguna regla, y el filtro del modo automático lo frena
+como deploy a producción. Correr `clasp push -f`, `clasp version "…"` y
+`clasp redeploy …` como tres comandos separados, sin `cd` (el directorio
+de trabajo ya es el repo), sin `&&` y sin `|`.
+
+**Por qué:** deploy de BUG-FECHA-001 (2026-09-27): el comando encadenado
+quedó bloqueado; los tres sueltos pasaron sin problema.

@@ -55,3 +55,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A + 2 (Franco, 2026-09-27, después de ver el ejemplo del viaje a Tandil).
 - Motivo: con subcarpetas, corregir la fecha de una foto o cambiar el día de inicio o de fin obligaría a mover o renombrar cosas en Drive, y la app no usa Drive para agrupar. La fecha de inicio hace que el nombre no dependa de quién subió primero ni de cuándo, y deja los viajes en el mes en que empezaron.
 - Reabrir si: alguien empieza a usar Drive directamente para mirar las fotos por día y el nombre del archivo no le alcanza.
+
+## DEC-006 — El acuerdo para cerrar una tarea se muestra en la tarjeta, con una fila por persona
+- Fecha: 2026-09-27
+- Estado: Aceptada
+- Contexto: REQ-PLAN-001 pide que cada uno dé su acuerdo para cerrar una tarea y que los dos vean el estado de los dos. Había que decidir dónde y cómo se ve.
+- Opciones consideradas: (A) en la tarjeta: fila con los avatares y "Franco está de acuerdo · Noelia todavía no", botón "Estoy de acuerdo" y "Completar" deshabilitado con el motivo; (B) un solo botón que avanza ("Estoy de acuerdo" → "Esperando a Noelia" → "Completar tarea"), con "1 de 2"; (C) en la tarjeta solo la pill y los avatares, y el acuerdo adentro del modal de la tarea.
+- Decisión: A (Franco, 2026-09-27, después de ver el mockup interactivo de Jay).
+- Motivo: con dos personas, tener todo a la vista cuesta poco y cada uno ve sin abrir nada qué falta y de quién. B esconde quién está de acuerdo detrás de un número; C obliga a un toque más.
+- Reabrir si: la tarjeta queda demasiado cargada al sumar el conteo de fotos (REQ-MEDIA-004) o si en el teléfono la fila no entra a 375 px.

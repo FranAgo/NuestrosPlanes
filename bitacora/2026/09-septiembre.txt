@@ -2523,3 +2523,37 @@ Cambios (cierre de sesion):
 - .claude/skills/convenciones-tecnicas/SKILL.md — indice y palabras clave de los dos cuidados nuevos.
 - docs/backlog.md — estados corregidos segun git: BL-004, BL-018 y BL-021 ya estaban en main (a95c10d, 717653a); BL-012 ya commiteado (a4baa76), falta la revision de Franco.
 ========================================================
+
+========================================================
+2026-09-27 23:28 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- Code.gs — BUG-FECHA-001: TZ_APP, ahoraApp() + RELOJ_OVERRIDE (seam de reloj para tests) y fechaDiaArgentina(), forma única de obtener "hoy" en hora Argentina. Se usa para el nombre y mes de la carpeta de fotos de la tarea, el nombre del archivo y fecha_contenido (se pasa explícita a insertArchivo, que también usa fechaDiaArgentina por defecto). fecha_subida y Auditoria siguen en ISO UTC. formatDate() revisado y sin cambios (comentario con el porqué: Planes guarda medianoche UTC; leerla en hora AR la corría un día — lo frenó Duck antes de probar). Nueva corregirFechaContenidoArchivos(): corrección única, idempotente, no expuesta en doPost.
+- Tests.gs — probarBUGFECHA001 (21 checks: día AR de instantes, formatDate con planilla en hora AR, subida simulada el 30/09 22:30 -> fecha 30/09, carpeta Septiembre, archivo 0001-30-09-2026, corrección y segunda corrida sin cambios). probarMEDIA002: la fecha esperada de la carpeta usa fechaDiaArgentina().
+- Proyecto de TEST: clasp push. BUGFECHA001 21/21, MEDIA001 22/22, MEDIA002 43/43 (línea base 43 confirmada con el código viejo), DATA002 70/70, BUGLOGIN001B 38/38, BUGCARGA001 9/9, BL015 12/12.
+- DEPLOY A PRODUCCIÓN (con OK de Franco): clasp push -f, clasp version (v24), clasp redeploy ...LxD0d -V 24. Smoke sin escritura: getCategorias con token inválido -> 401. Rollback: redeploy -V 23.
+- CORRECCIÓN DE DATOS EN PROD (con OK puntual de Franco): corregirFechaContenidoArchivos -> 16 filas de Archivos corregidas un día para atrás (2 del 08/09, 7 del 16/09, 7 del 28/09 = las de Noelia). Segunda corrida: 0. Lista de IDs en BUG-FECHA-001.md.
+- docs/requerimientos/BUG-FECHA-001.md — estado CERRADO, resultados de tests, deploy y corrección.
+- docs/requerimientos/REQ-MEDIA-004.md — pedido de Franco: confirmar antes de la subida final de fotos (opciones A/B/C para mockup) y fotos elegidas que se pierden al cerrar el modal.
+- .claude/skills/convenciones-tecnicas/fechas.md — fechaDiaArgentina() como forma única de "hoy"; por qué formatDate() usa toISOString() a propósito.
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md — los clasp a prod van como comandos sueltos (encadenados con cd/&&/| los bloquea el modo automático).
+========================================================
+
+========================================================
+2026-09-28 00:06 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- REQ-PLAN-001 (acuerdo de los dos para cerrar una tarea + reabrir desde la app). Mockup interactivo con 3 variantes; Franco eligió la A (DEC-006).
+- Code.gs — Planes: columnas acuerdos_cierre, fecha_completado, completado_por. handleSetAcuerdoCierre (solo el propio acuerdo, por sesión), handleReopenPlan, completePlan con ACUERDO_PENDIENTE (409, con faltan y nombres) antes de FOTO_REQUERIDA y NO_PENDIENTE; completar vacía los acuerdos y registra fecha/usuario. getPlanes suma acuerdos, fechaCompletado, completadoPor y participantes. LockService en las tres escrituras. Auditoria: plan.acuerdo_dar/sacar, plan.completar, plan.reabrir ('acuerdos' agregado a AUDITORIA_DETALLE_CLAVES_OK).
+- Tests.gs — probarPLAN001 (44 checks; falla contra el Code.gs viejo). darAcuerdosDeLosDos() en las suites que completan tareas (DATA002, MEDIA002). DATA002: el conteo fijo de 13 columnas de Planes pasa a PLANES_HEADERS.length.
+- Proyecto de TEST: PLAN001 44/44, BUGFECHA001 21/21, MEDIA001 22/22, MEDIA002 43/43, DATA002 70/70, BUGLOGIN001B 38/38, BUGCARGA001 9/9, BL015 12/12.
+- index.html — variante A: pill de estado, fila de acuerdos con avatares y frase, "Estoy de acuerdo" (aria-pressed), "Completar" con aria-disabled + motivo, "Completada el DD/MM por X" y "Reabrir" con confirmación. Update optimista con reversión, un pedido a la vez por tarea, mensajes propios para 5xx, manejo de la carrera (el otro saca su acuerdo), foco devuelto tras el re-render, íconos agrupados para que bajen juntos. Verificado en 127.0.0.1 con fetch simulado: 375/600/601/1366, doble click, error, carrera, reabrir/cancelar, teclado, consola limpia.
+- docs/DESIGN.md — estados "Esperando acuerdo" y "Lista para cerrar" (cobre).
+- docs/decisiones.md — DEC-006. docs/requerimientos/REQ-PLAN-001.md — diseño elegido e implementación. docs/backlog.md — BL-026 (área táctil de los botones de la tarjeta).
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md — setupSheets corre el código subido (HEAD): push antes de setupSheets.
+- PRODUCCIÓN (cada paso con OK de Franco): clasp push -f (HEAD); clasp run setupSheets -u duck -> Planes con las 3 columnas nuevas al final, verificado leyendo el encabezado; clasp version (v25); clasp redeploy ...LxD0d -V 25. Smoke sin escritura: setAcuerdoCierre y reopenPlan con token inválido -> 401. Rollback: redeploy -V 24.
+========================================================

@@ -78,3 +78,27 @@ misma carpeta de Drive. **Sí.**
 ## Cómo lo resuelven otros (2026-09-27)
 
 Ver `docs/investigacion/2026-09-27-como-lo-resuelven-otros.md`. Suma al alcance: un error de red pasajero se reintenta solo una vez, sin mostrarlo, antes de pasar la foto a *Error*. Reintentar nunca vuelve a subir las fotos que ya están *Subida*.
+
+## Pedido de Franco (2026-09-27): confirmar antes de la subida final
+
+Franco propone que, con las fotos ya elegidas y antes de subirlas, la app
+pregunte si está seguro de avanzar. Hoy ya hay dos pasos: "Agregar foto"
+muestra la vista previa y "Subir fotos" las manda. Pero una vez subida, una
+foto **no se puede borrar desde la app** (BL-009). Eso hace que la subida
+sea irreversible, que es justo el caso en que `hjay-identidad-visual` pide
+confirmar ("confirmar lo destructivo; después, que se pueda deshacer").
+
+Opciones a mostrar en mockup antes de decidir (pedido de Franco: ver el
+mockup y después elegir):
+- **A. Confirmación en un paso aparte:** "¿Subir 3 fotos a *Cena de fin de
+  mes*? Después no se pueden borrar desde la app", con las miniaturas.
+- **B. El botón ya dice todo:** "Subir 3 fotos", con las pills "Lista para
+  subir", sin un modal extra. Menos fricción, pero no avisa que no se puede
+  deshacer.
+- **C. Sin confirmación, pero con deshacer:** unos segundos para cancelar
+  después de tocar "Subir", o implementar BL-009 (borrar una foto). Quita la
+  necesidad de confirmar.
+
+Relacionado: si se cierra el modal con fotos elegidas y sin subir, hoy se
+pierden sin aviso (mismo principio: "cerrar un formulario con datos sin
+guardar pregunta antes de descartar"). Entra en el alcance de este REQ.

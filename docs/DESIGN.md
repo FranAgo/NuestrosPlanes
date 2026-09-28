@@ -101,8 +101,10 @@ placeholders.
 |---|---|---|---|---|
 | Completado | `--green-ok` | `--green-ok-bg` (hover) | `rgba(106,170,128,0.4)` | `.btn-completar`, `.completado-label`, foto subida OK |
 | Vencido / error / eliminar | `--red-venc` | `--red-venc-bg` | `rgba(170,96,96,0.4)` | `.vencido-badge`, `.plan-card.vencido`, `.error-msg`, `.btn-danger`, foto con error |
+| Esperando acuerdo (REQ-PLAN-001) | `--copper` | — | `--copper-dim` | `.estado-pill.esperando`, `.btn-acuerdo` sin activar |
+| Lista para cerrar / mi acuerdo dado | `--bg` | `--copper` | `--copper` | `.estado-pill.lista`, `.btn-acuerdo[aria-pressed=true]` |
 
-No hay ámbar ni azul. Un estado nuevo que no sea ninguno de estos se
+No hay ámbar ni azul. El acuerdo para cerrar (REQ-PLAN-001, DEC-006) usa el cobre porque es una acción en curso, no un color nuevo; lo aprobó Franco en el mockup del 2026-09-27. Un estado nuevo que no sea ninguno de estos se
 pregunta antes de inventar un color.
 
 ### Colores de categoría

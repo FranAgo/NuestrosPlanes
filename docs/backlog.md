@@ -236,3 +236,11 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Origen: Franco (2026-09-27), después de BUG-FECHA-001
 - Nota: hoy `fecha_contenido` es el día de la subida. Opciones: la fecha en que se sacó la foto (EXIF), la fecha programada de la tarea o la de subida. Además, una tarea puede durar varios días y cada foto debería mostrar a qué día corresponde. BUG-FECHA-001 arregla solo el corrimiento UTC, no esta decisión.
   *(2026-09-27, investigación de Paul: Google Fotos ordena por la fecha de captura del EXIF (`DateTimeOriginal`). Si el archivo no la trae, usa la de subida, y el usuario la puede corregir a mano. Esa corrección vive en la base de Google Fotos, no en el archivo. Las apps de viaje (Polarsteps) agrupan las fotos por día o por "paso" dentro de un viaje de varios días. Hallazgo propio: la app recomprime cada foto con `canvas` antes de subirla (`index.html:3191`), y eso borra el EXIF. Por eso la fecha de captura hay que leerla en el navegador antes de comprimir, con un lector chico tipo ExifReader. Además, iOS a veces la saca al compartir. Propuesta: la fecha de la foto es la de captura; si no hay, la del día de subida en hora Argentina; en los dos casos se puede editar. La fecha programada no se usa como fecha de foto. Para tareas de varios días: una fecha de fin opcional en la tarea (la programada pasa a ser el inicio) y las fotos agrupadas por día ("Día 1 · sáb 27/09"). Falta que Franco decida; después se formaliza como REQ.)*
+
+## Sesión 2026-09-27 (6)
+
+### BL-026 — Área táctil de los botones de la tarjeta de tarea
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: verificación visual de REQ-PLAN-001 (2026-09-27)
+- Nota: "Estoy de acuerdo", "Completar", "Reabrir" y los íconos de editar y eliminar miden unos 29 px de alto a 375 px, menos que los 44 px que pide `hjay-verificacion-visual` para el dedo. Ya pasaba con "Marcar completado"; se dejó igual que los vecinos. Agrandar el área táctil (padding o `min-height: 44px` en móvil) sin cambiar cómo se ve en escritorio. Se cruza con BL-022.

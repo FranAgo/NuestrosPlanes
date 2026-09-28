@@ -125,7 +125,7 @@ function grupoSetup(R) {
   R.check('C1 · setupSheets idempotente en Categorias',
           headersDe('Categorias').length === catCols && catCols === 10);
   R.check('C1 · setupSheets idempotente en Planes',
-          headersDe('Planes').length === planCols && planCols === 13);
+          headersDe('Planes').length === planCols && planCols === PLANES_HEADERS.length);
 }
 
 // Criterio 3 — backfill deja Categorias en 'activa', no toca Planes.estado,
@@ -199,6 +199,7 @@ function grupoPlanesISO(R) {
     subidoPor: 'usr_fran', estado: 'activo',
   });
 
+  darAcuerdosDeLosDos(R._planCenar); // REQ-PLAN-001
   const comp = parseResp(handleCompletePlan({ planId: R._planCenar, authUserId: 'usr_noe' }));
   R.eq('C10 · completePlan -> 200', comp.status, 200);
   const fila2 = filaPorId('Planes', R._planCenar);
@@ -431,6 +432,14 @@ function filaPorId(nombreHoja, id) {
 
 function parseResp(textOutput) {
   return JSON.parse(textOutput.getContent());
+}
+
+// REQ-PLAN-001: completePlan exige el acuerdo de todos los habilitados. Las
+// suites que no son sobre el acuerdo lo dan de entrada con esta ayuda.
+function darAcuerdosDeLosDos(planId) {
+  ['usr_fran', 'usr_noe'].forEach(u => {
+    handleSetAcuerdoCierre({ planId: planId, deAcuerdo: true, authUserId: u });
+  });
 }
 
 
@@ -1209,6 +1218,7 @@ function grupoGateCompletarSinFoto(R) {
   if (crear.status !== 200) return null;
   const planId = crear.planId;
 
+  darAcuerdosDeLosDos(planId); // REQ-PLAN-001: sin acuerdo respondería ACUERDO_PENDIENTE antes
   const comp = parseResp(handleCompletePlan({ planId: planId, authUserId: 'usr_fran' }));
   R.eq('C1 · completePlan sin fotos -> 400', comp.status, 400);
   R.eq('C1 · completePlan sin fotos -> code FOTO_REQUERIDA', comp.code, 'FOTO_REQUERIDA');
@@ -1251,7 +1261,7 @@ function grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolder
   // Nombre y ubicación exactos esperados, calculados con los mismos helpers
   // que usa handleUploadPlanPhotos (Code.gs) — si alguno cambia de criterio
   // más adelante, este test lo va a notar solo.
-  const fechaHoyIso = new Date().toISOString().split('T')[0];
+  const fechaHoyIso = fechaDiaArgentina();
   const [anioEsperado, mesEsperado] = fechaHoyIso.split('-');
   const sufijoEsperado = planId.split('_').pop().slice(-6);
   const nombreEsperado = formatFechaDDMMAAAA(fechaHoyIso) + '-mantenimiento-arreglar-el-techo-' + sufijoEsperado;
@@ -1337,6 +1347,7 @@ function grupoEditarTituloNoRenombraCarpeta(R, contexto, driveFileIdsCreados) {
 // Criterio 3 — con al menos 1 foto activa, completePlan funciona igual que
 // antes de este REQ.
 function grupoCompletarConFoto(R, contexto) {
+  darAcuerdosDeLosDos(contexto.planId); // REQ-PLAN-001
   const comp = parseResp(handleCompletePlan({ planId: contexto.planId, authUserId: 'usr_noe' }));
   R.eq('C3 · completePlan con fotos -> 200', comp.status, 200);
   const fila = filaPorId('Planes', contexto.planId);
@@ -1587,6 +1598,294 @@ function probarBL015() {
       } catch (e) {
         R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e);
       }
+    }
+  }
+
+  return R.finalizar();
+}
+
+
+// ============================================================
+// probarBUGFECHA001() — BUG-FECHA-001: "hoy" en hora Argentina, no en UTC.
+// La planilla scratch se pone en hora Argentina, como la de prod, para
+// confirmar que formatDate() lee sin correrse las dos formas de fecha que
+// conviven en la hoja (ver su comentario en Code.gs). El reloj se fija con
+// RELOJ_OVERRIDE para simular una subida a las 22:30 del 30/09.
+// Uso: clasp run probarBUGFECHA001 -P .clasp-test.json -u duck
+// ============================================================
+function probarBUGFECHA001() {
+  const R = nuevoReporte('BUG-FECHA-001');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const relojAnterior = RELOJ_OVERRIDE;
+  let scratchId = null;
+  const driveFileIdsCreados = [];
+  const driveFolderIdsCreados = [];
+
+  try {
+    // A — el día de un instante, en hora Argentina.
+    R.eq('A · 28/09 01:30Z (27/09 22:30 AR) -> 2026-09-27',
+         fechaDiaArgentina(new Date('2026-09-28T01:30:00Z')), '2026-09-27');
+    R.eq('A · 27/09 15:00Z -> 2026-09-27',
+         fechaDiaArgentina(new Date('2026-09-27T15:00:00Z')), '2026-09-27');
+    R.eq('A · 01/10 01:30Z (30/09 22:30 AR) -> 2026-09-30',
+         fechaDiaArgentina(new Date('2026-10-01T01:30:00Z')), '2026-09-30');
+    R.eq('A · 01/10 03:00Z (01/10 00:00 AR) -> 2026-10-01',
+         fechaDiaArgentina(new Date('2026-10-01T03:00:00Z')), '2026-10-01');
+
+    const ss = SpreadsheetApp.create('SCRATCH probarBUGFECHA001 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    ss.setSpreadsheetTimeZone(TZ_APP);
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+
+    // B — formatDate() lee una fecha editada a mano sin correrla.
+    const hojaTmp = ss.insertSheet('tmp');
+    hojaTmp.getRange(1, 1).setValue('2026-10-01');
+    SpreadsheetApp.flush();
+    const nativa = hojaTmp.getRange(1, 1).getValue();
+    R.check('B · Sheets convirtió el texto en fecha nativa', nativa instanceof Date);
+    R.eq('B · formatDate(fecha editada a mano en la planilla) -> 2026-10-01', formatDate(nativa), '2026-10-01');
+    R.eq('B · formatDate(texto AAAA-MM-DD) sin cambios', formatDate('2026-10-01'), '2026-10-01');
+    ss.deleteSheet(hojaTmp);
+
+    // C — primera foto de una tarea subida el 30/09 a las 22:30 hora Argentina.
+    const crear = parseResp(handleCreatePlan({
+      titulo: 'Cena de fin de mes', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-09-30',
+    }));
+    R.eq('C setup · createPlan -> 200', crear.status, 200);
+    R.eq('C setup · fechaProgramada (medianoche UTC en la hoja) no se corre',
+         formatDate(filaPorId('Planes', crear.planId)[col('Planes', 'fecha_programada')]), '2026-09-30');
+
+    RELOJ_OVERRIDE = '2026-10-01T01:30:00Z';
+    const subida = parseResp(handleUploadPlanPhotos({
+      planId: crear.planId,
+      files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+      authUserId: 'usr_noe',
+    }));
+    RELOJ_OVERRIDE = relojAnterior;
+    R.eq('C · uploadPlanPhotos -> 200', subida.status, 200);
+
+    const carpetaId = filaPorId('Planes', crear.planId)[col('Planes', 'carpeta_fotos_drive_id')];
+    if (carpetaId) driveFolderIdsCreados.push(carpetaId);
+    if (subida.subidas && subida.subidas.length === 1) {
+      driveFileIdsCreados.push(subida.subidas[0].driveFileId);
+      const fila = filaPorId('Archivos', subida.subidas[0].archivoId);
+      R.eq('C1 · fecha_contenido es el día argentino (30/09), no el UTC (01/10)',
+           formatDate(fila[col('Archivos', 'fecha_contenido')]), '2026-09-30');
+      const nombre = DriveApp.getFileById(subida.subidas[0].driveFileId).getName();
+      R.check('C2 · el nombre del archivo lleva 30-09-2026 (' + nombre + ')', nombre.indexOf('0001-30-09-2026-') === 0);
+      R.check('C4 · fecha_subida sigue en ISO UTC con Z',
+              ISO_UTC.test(String(fila[col('Archivos', 'fecha_subida')])));
+    } else {
+      R.fail('C · la foto no se subió: ' + JSON.stringify(subida));
+    }
+
+    if (carpetaId) {
+      const carpeta = DriveApp.getFolderById(carpetaId);
+      R.check('C3 · la carpeta se llama 30-09-2026-… (' + carpeta.getName() + ')',
+              carpeta.getName().indexOf('30-09-2026-') === 0);
+      const mes = carpeta.getParents().next();
+      R.eq('C3 · la carpeta cuelga de Septiembre, no de Octubre', mes.getName(), 'Septiembre');
+      R.eq('C3 · y del año 2026', mes.getParents().next().getName(), '2026');
+    } else {
+      R.fail('C3 · no se cacheó la carpeta de la tarea');
+    }
+
+    // D — corrección de filas ya grabadas (criterios 6 y 7).
+    const archivos = getSheet(SHEETS.ARCHIVOS);
+    const filaArchivo = (id, subidaIso, contenido) => ARCHIVOS_HEADERS.map(c => {
+      switch (c) {
+        case 'archivo_id':      return id;
+        case 'owner_tipo':      return 'plan';
+        case 'owner_id':        return crear.planId;
+        case 'proposito':       return 'adjunto';
+        case 'fecha_contenido': return contenido;
+        case 'drive_file_id':   return 'drive_fake_' + id;
+        case 'fecha_subida':    return subidaIso;
+        case 'estado':          return 'activo';
+        default:                return '';
+      }
+    });
+    archivos.appendRow(filaArchivo('arc_noche',       '2026-09-28T01:30:00.000Z', '2026-09-28'));
+    archivos.appendRow(filaArchivo('arc_tarde',       '2026-09-27T15:00:00.000Z', '2026-09-27'));
+    archivos.appendRow(filaArchivo('arc_a_proposito', '2026-09-28T01:30:00.000Z', '2026-09-20'));
+    SpreadsheetApp.flush();
+
+    const contenidoDe = id => formatDate(filaPorId('Archivos', id)[col('Archivos', 'fecha_contenido')]);
+    const r1 = corregirFechaContenidoArchivos();
+    const idsCorregidos = r1.cambios.map(c => c.archivoId);
+    R.eq('C6 · la foto de las 22:30 pasa a 2026-09-27', contenidoDe('arc_noche'), '2026-09-27');
+    R.eq('C6 · la de las 12:00 AR no cambia', contenidoDe('arc_tarde'), '2026-09-27');
+    R.eq('C6 · una fecha puesta a propósito no se pisa', contenidoDe('arc_a_proposito'), '2026-09-20');
+    R.eq('C6 · solo se corrigió arc_noche', JSON.stringify(idsCorregidos), JSON.stringify(['arc_noche']));
+    R.eq('C7 · la segunda corrida no cambia nada', corregirFechaContenidoArchivos().corregidas, 0);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    RELOJ_OVERRIDE = relojAnterior;
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    driveFileIdsCreados.forEach(fileId => {
+      try { DriveApp.getFileById(fileId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive el archivo de prueba ' + fileId + ' — borralo a mano: ' + e); }
+    });
+    driveFolderIdsCreados.forEach(folderId => {
+      try { DriveApp.getFolderById(folderId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive la carpeta de prueba ' + folderId + ' — borrala a mano: ' + e); }
+    });
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}
+
+
+// ============================================================
+// probarPLAN001() — REQ-PLAN-001: cerrar una tarea requiere el acuerdo de
+// todos los habilitados, cada uno cambia solo el suyo, reabrir los borra.
+// Uso: clasp run probarPLAN001 -P .clasp-test.json -u duck
+// ============================================================
+function probarPLAN001() {
+  const R = nuevoReporte('REQ-PLAN-001');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarPLAN001 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const acuerdo = (planId, u, si) => parseResp(handleSetAcuerdoCierre({ planId: planId, deAcuerdo: si, authUserId: u }));
+    const completar = (planId, u) => parseResp(handleCompletePlan({ planId: planId, authUserId: u }));
+    const planDe = planId => parseResp(handleGetPlanes({})).planes.filter(p => p.planId === planId)[0];
+    const conFoto = planId => insertArchivo({
+      ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+      driveFileId: 'fake-drive-plan001', mimeType: 'image/png', tamanoBytes: 1,
+      subidoPor: 'usr_fran', estado: 'activo',
+    });
+    const crear = titulo => parseResp(handleCreatePlan({
+      titulo: titulo, categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+    })).planId;
+    const auditoria = accion => filasDe('Auditoria').filter(r => r[col('Auditoria', 'accion')] === accion);
+
+    // Esquema y lectura inicial.
+    R.check('S · Planes tiene acuerdos_cierre, fecha_completado y completado_por',
+            ['acuerdos_cierre', 'fecha_completado', 'completado_por'].every(c => col('Planes', c) !== -1));
+    const p1 = crear('Cena en el puerto');
+    conFoto(p1);
+    const g0 = parseResp(handleGetPlanes({}));
+    R.eq('S · getPlanes devuelve participantes', JSON.stringify(g0.participantes), JSON.stringify(['usr_fran', 'usr_noe']));
+    R.eq('S · una tarea nueva arranca sin acuerdos', JSON.stringify(planDe(p1).acuerdos), '[]');
+
+    // C1 / C6 — con un solo acuerdo no se cierra, aunque tenga foto.
+    R.eq('C1 · Franco da su acuerdo -> 200', acuerdo(p1, 'usr_fran', true).status, 200);
+    R.eq('C1 · getPlanes muestra el acuerdo de Franco', JSON.stringify(planDe(p1).acuerdos), JSON.stringify(['usr_fran']));
+    const c6 = completar(p1, 'usr_fran');
+    R.eq('C6 · completePlan con 1 de 2 -> 409', c6.status, 409);
+    R.eq('C6 · code ACUERDO_PENDIENTE', c6.code, 'ACUERDO_PENDIENTE');
+    R.eq('C6 · dice a quién le falta', c6.error, 'Falta que Noe esté de acuerdo para cerrar la tarea.');
+    R.eq('C6 · faltan = [usr_noe]', JSON.stringify(c6.faltan), JSON.stringify(['usr_noe']));
+    R.eq('C6 · la tarea sigue pendiente', filaPorId('Planes', p1)[col('Planes', 'estado')], 'pendiente');
+
+    // Idempotencia: dar el acuerdo dos veces no lo duplica ni audita de más.
+    acuerdo(p1, 'usr_fran', true);
+    R.eq('S · dar el acuerdo dos veces no lo duplica', filaPorId('Planes', p1)[col('Planes', 'acuerdos_cierre')], 'usr_fran');
+
+    // C3 — sacar el acuerdo.
+    R.eq('C3 · Franco saca su acuerdo -> 200', acuerdo(p1, 'usr_fran', false).status, 200);
+    R.eq('C3 · sin acuerdos', JSON.stringify(planDe(p1).acuerdos), '[]');
+    R.eq('C3 · sin nadie de acuerdo: faltan los dos', completar(p1, 'usr_noe').error,
+         'Falta que Fran y Noe estén de acuerdo para cerrar la tarea.');
+
+    // C2 / C5 — con los dos, se cierra y registra quién y cuándo.
+    acuerdo(p1, 'usr_fran', true);
+    acuerdo(p1, 'usr_noe', true);
+    R.eq('C2 · los dos de acuerdo', JSON.stringify(planDe(p1).acuerdos), JSON.stringify(['usr_fran', 'usr_noe']));
+    R.eq('C5 · completePlan con los dos y foto -> 200', completar(p1, 'usr_noe').status, 200);
+    const f5 = filaPorId('Planes', p1);
+    R.eq('C5 · estado completado', f5[col('Planes', 'estado')], 'completado');
+    R.eq('C5 · completado_por', f5[col('Planes', 'completado_por')], 'usr_noe');
+    R.check('C5 · fecha_completado en ISO UTC', ISO_UTC.test(String(f5[col('Planes', 'fecha_completado')])));
+    R.eq('C5 · al completar se vacían los acuerdos', f5[col('Planes', 'acuerdos_cierre')], '');
+    const g5 = planDe(p1);
+    R.eq('C5 · getPlanes expone completadoPor', g5.completadoPor, 'usr_noe');
+    R.check('C5 · getPlanes expone fechaCompletado', !!g5.fechaCompletado);
+    R.eq('S · completar de nuevo -> 409 NO_PENDIENTE', completar(p1, 'usr_fran').code, 'NO_PENDIENTE');
+    R.eq('S · dar acuerdo en una completada -> 409', acuerdo(p1, 'usr_fran', true).status, 409);
+
+    // C4 — los dos de acuerdo y sin fotos: FOTO_REQUERIDA, sigue pendiente.
+    const p2 = crear('Sin fotos');
+    acuerdo(p2, 'usr_fran', true);
+    acuerdo(p2, 'usr_noe', true);
+    const c4 = completar(p2, 'usr_fran');
+    R.eq('C4 · los dos y 0 fotos -> FOTO_REQUERIDA', c4.code, 'FOTO_REQUERIDA');
+    R.eq('C4 · sigue pendiente con los acuerdos', filaPorId('Planes', p2)[col('Planes', 'acuerdos_cierre')], 'usr_fran,usr_noe');
+
+    // C11 / C12 — reabrir.
+    R.eq('C12 · reabrir una pendiente -> 409 NO_COMPLETADA',
+         parseResp(handleReopenPlan({ planId: p2, authUserId: 'usr_fran' })).code, 'NO_COMPLETADA');
+    R.eq('C11 · reabrir la completada -> 200', parseResp(handleReopenPlan({ planId: p1, authUserId: 'usr_fran' })).status, 200);
+    const f11 = filaPorId('Planes', p1);
+    R.eq('C11 · vuelve a pendiente', f11[col('Planes', 'estado')], 'pendiente');
+    R.eq('C11 · sin acuerdos', f11[col('Planes', 'acuerdos_cierre')], '');
+    R.eq('C11 · la foto sigue activa', contarFotosActivasPlan(p1), 1);
+    R.eq('C11 · cerrarla de nuevo pide los acuerdos', completar(p1, 'usr_fran').code, 'ACUERDO_PENDIENTE');
+
+    // C8 — reabierta A MANO en la hoja: también arranca sin acuerdos.
+    acuerdo(p1, 'usr_fran', true);
+    acuerdo(p1, 'usr_noe', true);
+    completar(p1, 'usr_fran');
+    const planes = getSheet(SHEETS.PLANES);
+    const filaIdx = filasDe('Planes').findIndex(r => r[0] === p1) + 2;
+    planes.getRange(filaIdx, col('Planes', 'estado') + 1).setValue('pendiente');
+    SpreadsheetApp.flush();
+    R.eq('C8 · reabierta en la hoja: getPlanes sin acuerdos', JSON.stringify(planDe(p1).acuerdos), '[]');
+    R.eq('C8 · reabierta en la hoja: completar pide los acuerdos', completar(p1, 'usr_fran').code, 'ACUERDO_PENDIENTE');
+
+    // C9 / C11 — auditoría.
+    R.check('C9 · hay filas plan.acuerdo_dar', auditoria('plan.acuerdo_dar').length >= 4);
+    R.check('C9 · hay fila plan.acuerdo_sacar', auditoria('plan.acuerdo_sacar').length === 1);
+    R.check('C11 · hay fila plan.reabrir', auditoria('plan.reabrir').length === 1);
+    R.check('S · hay filas plan.completar', auditoria('plan.completar').length === 2);
+
+    // C7 — por doPost: la identidad sale de la sesión, no del body.
+    const p3 = crear('Identidad');
+    const tFran = crearSesion('usr_fran');
+    sesionesCreadas.push(tFran.split('.')[0]);
+    const pedir = (payload) => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    const r7 = pedir({ action: 'setAcuerdoCierre', sessionToken: tFran, planId: p3, deAcuerdo: true,
+                       userId: 'usr_noe', authUserId: 'usr_noe' });
+    R.eq('C7 · setAcuerdoCierre por doPost -> 200', r7.status, 200);
+    R.eq('C7 · pidiendo "como Noe" se registra el acuerdo de Fran',
+         filaPorId('Planes', p3)[col('Planes', 'acuerdos_cierre')], 'usr_fran');
+    R.eq('C7 · setAcuerdoCierre sin sesión -> 401',
+         pedir({ action: 'setAcuerdoCierre', planId: p3, deAcuerdo: true }).status, 401);
+    R.eq('C7 · reopenPlan sin sesión -> 401', pedir({ action: 'reopenPlan', planId: p3 }).status, 401);
+    R.eq('S · deAcuerdo que no es booleano -> 400',
+         pedir({ action: 'setAcuerdoCierre', sessionToken: tFran, planId: p3, deAcuerdo: 'si' }).status, 400);
+    R.eq('S · plan inexistente -> 404', acuerdo('plan_no_existe', 'usr_fran', true).status, 404);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
     }
   }
 

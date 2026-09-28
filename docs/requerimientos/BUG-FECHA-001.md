@@ -1,6 +1,8 @@
 # BUG-FECHA-001 — Las fotos subidas después de las 21 h quedan con la fecha del día siguiente
 
-> **Estado:** PROPUESTO (2026-09-27). Diagnóstico hecho, sin implementar.
+> **Estado:** CERRADO (2026-09-27). En producción (Web App @24) y corrección de datos corrida en prod, las dos con OK de Franco.
+> Tests en test: `probarBUGFECHA001` 21/21; sin regresión en MEDIA001 22/22, MEDIA002 43/43 (43 era la línea base, confirmado corriendo el código viejo), DATA002 70/70, BUGLOGIN001B 38/38, BUGCARGA001 9/9, BL015 12/12. Smoke en prod: `getCategorias` con token inválido → 401.
+> `formatDate()` se revisó y queda como estaba: en la hoja conviven fechas a medianoche UTC (Planes) y a medianoche de la planilla (texto o edición a mano), y `toISOString()` lee bien las dos con la planilla en hora Argentina. Leerlas en hora Argentina corría las de Planes al día anterior (lo detectó Duck antes de probar).
 > **Nivel:** ajuste puntual (DEC-002): fix acotado en `Code.gs`, sin cambio de contrato.
 > **Dueño técnico:** Bob · **DBA:** Gary (corrección de filas ya grabadas) · **QA:** Duck · **PM:** Paul
 > **Datos sensibles:** no directamente (fechas de fotos personales).
@@ -91,3 +93,24 @@ corregir, no el deploy), y la corrida lista cuántas filas cambió.
 | 3 | La primera foto de una tarea subida el 30/09 a las 22:00 crea la carpeta bajo `septiembre`, no `octubre`. |
 | 4 | `fecha_subida` sigue guardándose en ISO UTC con `Z`. |
 | 5 | Sin regresión: `probarMEDIA001`, `probarMEDIA002` y `probarDATA002` en verde. |
+
+## Corrección corrida en prod (2026-09-27, con OK de Franco)
+
+`clasp run corregirFechaContenidoArchivos -u duck` contra prod: **16 filas**
+corregidas, todas un día para atrás: 2 del 08/09 → 07/09, 7 del 16/09 → 15/09
+y 7 del 28/09 → 27/09 (las de Noelia). Segunda corrida: 0 cambios
+(criterio 7). Los nombres de archivo en Drive quedan con la fecha vieja, como
+se decidió. Para deshacer, esas celdas de `fecha_contenido` vuelven al valor
+"antes" de la lista:
+`arc_mts2y6af_sxt1ra`, `arc_mts2y6ns_ysvdkk` (08/09);
+`arc_mu3d9f95_x0ug9n`, `arc_mu3d9hyh_5a85dq`, `arc_mu3d9kq9_r14ntx`,
+`arc_mu3d9nn3_hwhtyl`, `arc_mu3d9qip_wc42xz`, `arc_mu3d9t6c_rf226m`,
+`arc_mu3d9y55_rebfxh` (16/09);
+`arc_mukjxeed_itutui`, `arc_mukjxgyi_urpx3n`, `arc_mukjxkpe_d7sver`,
+`arc_mukjxnin_x0a9jv`, `arc_mukjxqeg_2jj86k`, `arc_mukjxsvt_5qma1c`,
+`arc_mukjxv0z_0cbvu8` (28/09).
+
+Criterio 8 (se ve el 27/09 en el carrusel): el carrusel lee
+`fecha_contenido` con `formatDate()`, el mismo camino que cubre
+`probarBUGFECHA001` en test. No se miró en el navegador porque hace falta
+iniciar sesión con Google en prod.

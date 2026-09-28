@@ -1,6 +1,6 @@
 # REQ-PLAN-001 — Cerrar una tarea requiere el acuerdo de los dos
 
-> **Estado:** DEFINIDO (2026-09-27). Preguntas cerradas; listo para que Gary diseñe el modelo y Bob el servidor.
+> **Estado:** IMPLEMENTADO, PROBADO EN TEST (2026-09-27). Falta: `setupSheets()` en prod, deploy del servidor y push del front (cada paso con OK de Franco).
 > **Nivel:** cambio de fondo (modelo de datos + regla de negocio en el servidor + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** REQ-SYNC-001 (sin él, el otro no ve el acuerdo hasta recargar) y REQ-MEDIA-004 (conteo de fotos).
@@ -87,3 +87,49 @@ BUG-FECHA-001).
 ## Cómo lo resuelven otros (2026-09-27)
 
 Ver `docs/investigacion/2026-09-27-como-lo-resuelven-otros.md`. Ninguna app de pareja de las revisadas pide el acuerdo de los dos para cerrar. El modelo más parecido es el de los "cuatro ojos" (maker-checker) y las revisiones obligatorias de GitHub, que descartan la aprobación si cambió el contenido. Para la pregunta 1 hay tres opciones: (a) el acuerdo se mantiene, que es lo que recomienda Paul; (b) se anula al subir fotos, como hace GitHub; (c) se mantiene, pero el otro ve "subió 2 fotos después de tu OK". Para la pregunta 2, reabrir es estándar en Todoist y Asana; Paul recomienda sumarlo a este REQ (BL-024).
+
+## Diseño elegido (2026-09-27, DEC-006)
+
+Franco vio el mockup interactivo de Jay con tres variantes y eligió la **A**:
+en la tarjeta de la tarea, debajo de la meta, una fila con los dos avatares
+(tilde verde si dio el acuerdo, borde punteado si todavía no) y la frase
+"Franco está de acuerdo · Noelia todavía no". Botones: "Estoy de acuerdo"
+(cobre; al activarlo pasa a "De acuerdo" con tilde, relleno, y se vuelve a
+tocar para sacarlo) y "Completar" (verde), que se ve apagado con el motivo
+abajo ("Falta que Noelia esté de acuerdo") hasta que estén los dos. Pill en el
+encabezado: *Pendiente* (gris), *Esperando acuerdo · 1 de 2* (borde cobre),
+*Lista para cerrar* (cobre relleno), *Completada* (verde). Una tarea
+completada muestra "Completada el DD/MM por X" y el botón "Reabrir", que pide
+confirmación.
+
+## Implementación (2026-09-27)
+
+- **Modelo (Gary):** columnas nuevas al final de `Planes`: `acuerdos_cierre`
+  (IDs separados por coma), `fecha_completado` (ISO UTC; el front la muestra
+  en hora local) y `completado_por`. Completar vacía los acuerdos, así que una
+  tarea reabierta desde la app o a mano en la hoja arranca sin acuerdos (C8)
+  sin lógica extra. La historia queda en `Auditoria` (`plan.acuerdo_dar`,
+  `plan.acuerdo_sacar`, `plan.completar`, `plan.reabrir`).
+- **Servidor (Bob):** `setAcuerdoCierre {planId, deAcuerdo}` (solo el propio,
+  por sesión), `reopenPlan {planId}`, `completePlan` con `ACUERDO_PENDIENTE`
+  (409, con `faltan` y el mensaje con nombres) antes de `FOTO_REQUERIDA`, y
+  `NO_PENDIENTE` si ya estaba completada. `getPlanes` suma `acuerdos`,
+  `fechaCompletado`, `completadoPor` y `participantes`. Todo bajo
+  `LockService`.
+- **Tests:** `probarPLAN001` 44/44 (falla contra el `Code.gs` viejo). Sin
+  regresión: BUGFECHA001 21/21, MEDIA001 22/22, MEDIA002 43/43, DATA002
+  70/70 (el conteo fijo de 13 columnas pasó a `PLANES_HEADERS.length`),
+  BUGLOGIN001B 38/38, BUGCARGA001 9/9, BL015 12/12.
+- **Front (Jay), variante A:** verificado en 127.0.0.1 con `fetch` simulado
+  (ningún pedido a prod): los 5 estados, 375/600/601/1366 sin desborde,
+  doble click = 1 pedido, error 5xx revierte con mensaje propio, carrera
+  (el otro saca su acuerdo) muestra el motivo real, "Reabrir" pide
+  confirmación y cancelar no manda nada, recorrido completo con teclado.
+  Duck encontró que el foco se perdía al re-render: corregido
+  (`devolverFoco`). Sin errores de consola.
+- **Sin verificar:** con la sesión real de Google y los datos reales (se ve
+  después del deploy). El aviso al otro en ≤ 10 s queda para REQ-SYNC-001:
+  hoy lo ve al recargar.
+- **Fuera de alcance, anotado:** los botones de la tarjeta miden 29 px de
+  alto, menos que los 44 recomendados para el dedo (igual que los que ya
+  había). Ver backlog.

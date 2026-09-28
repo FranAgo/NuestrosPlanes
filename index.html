@@ -971,6 +971,151 @@
       letter-spacing: 0.06em;
     }
 
+    /* REQ-PLAN-001 — acuerdo para cerrar (DEC-006, variante A) */
+    .plan-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.35rem;
+    }
+
+    .estado-pill {
+      padding: 0.15rem 0.55rem;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border);
+      font-size: 0.65rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: var(--text-soft);
+    }
+
+    .estado-pill.esperando  { color: var(--copper); border-color: var(--copper-dim); }
+    .estado-pill.lista      { color: var(--bg); background: var(--copper); border-color: var(--copper); }
+    .estado-pill.completada { color: var(--green-ok); background: var(--green-ok-bg); border-color: rgba(106,170,128,0.4); }
+
+    .plan-acuerdo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.6rem;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.8rem;
+    }
+
+    .plan-acuerdo-avatares {
+      display: flex;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+
+    .acuerdo-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #1E1A14;
+      border: 1px dashed var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 500;
+      color: var(--copper);
+      position: relative;
+    }
+
+    .acuerdo-avatar.ok { border: 1px solid var(--green-ok); }
+
+    .acuerdo-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .acuerdo-tilde {
+      position: absolute;
+      right: -3px;
+      bottom: -3px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--green-ok);
+      color: var(--green-ok-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .acuerdo-tilde svg { width: 8px; height: 8px; }
+
+    .plan-acuerdo-texto {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      line-height: 1.35;
+      min-width: 0;
+    }
+
+    .btn-acuerdo,
+    .btn-reabrir {
+      background: transparent;
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.9rem;
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: none;
+      transition: var(--transition);
+      font-family: 'Jost', sans-serif;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .btn-acuerdo { color: var(--copper); border: 0.5px solid var(--copper-dim); }
+    .btn-acuerdo:hover { background: #1A1612; }
+    .btn-acuerdo[aria-pressed="true"] { color: var(--bg); background: var(--copper); border-color: var(--copper); }
+    .btn-acuerdo svg { width: 12px; height: 12px; }
+
+    .btn-reabrir { color: var(--text-soft); border: 0.5px solid var(--border); }
+    .btn-reabrir:hover { border-color: rgba(184,120,58,0.3); }
+
+    .btn-completar[aria-disabled="true"] { opacity: 0.45; }
+    .btn-completar[aria-disabled="true"]:hover { background: transparent; }
+    .btn-acuerdo:disabled, .btn-completar:disabled, .btn-reabrir:disabled { opacity: 0.45; }
+
+    .btn-acuerdo:focus-visible,
+    .btn-completar:focus-visible,
+    .btn-reabrir:focus-visible {
+      outline: 1px solid var(--copper-light);
+      outline-offset: 2px;
+    }
+
+    .plan-acuerdo-motivo,
+    .plan-acuerdo-error {
+      width: 100%;
+      font-size: 0.75rem;
+      margin-top: 0.1rem;
+    }
+
+    .plan-acuerdo-motivo { color: var(--text-soft); }
+    .plan-acuerdo-error  { color: var(--red-venc); }
+
+    .plan-card-iconos {
+      display: inline-flex;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+
+    .plan-completado-meta {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      margin: -0.3rem 0 0.8rem;
+    }
+
     /* Empty state */
     .empty-state {
       text-align: center;
@@ -2037,6 +2182,7 @@
     let state = {
       session:       null,
       planes:        [],
+      participantes: [],
       categorias:    [],
       users:         {},
       activeTab:     'planes',
@@ -2458,6 +2604,7 @@
       const otherIds = [...new Set(
         state.planes
           .map(p => p.creadoPor)
+          .concat(state.participantes, state.planes.map(p => p.completadoPor))
           .filter(id => id && id !== state.session.userId && !state.users[id])
       )];
 
@@ -2982,7 +3129,11 @@
     // funcionando igual que antes.
     async function loadPlanes() {
       const data = await apiLectura('getPlanes');
-      if (data.status === 200) state.planes = data.planes || [];
+      if (data.status === 200) {
+        state.planes = data.planes || [];
+        // REQ-PLAN-001: quiénes tienen que estar de acuerdo para cerrar.
+        state.participantes = data.participantes || [];
+      }
       return data;
     }
 
@@ -3058,14 +3209,30 @@
           ? `<span class="vencido-badge">Vencido</span>`
           : '';
 
+        // REQ-PLAN-001: sin participantes (servidor viejo) queda el botón de antes.
+        const conAcuerdo = state.participantes.length > 0;
+        const cierre     = conAcuerdo ? estadoCierre(plan) : null;
+        const pill       = cierre ? htmlEstadoPill(plan, cierre) : '';
+
         const avatarContent = avatarSrc
           ? `<img src="${avatarSrc}" alt="${escapeHtml(creador)}" />`
           : escapeHtml(initial);
 
+        const errorAcuerdo = acuerdoError[plan.planId]
+          ? `<div class="plan-acuerdo-error" role="alert">${escapeHtml(acuerdoError[plan.planId])}</div>`
+          : '';
+        const enCurso = acuerdoEnCurso.has(plan.planId) ? ' disabled' : '';
+
+        const botonCompletar = conAcuerdo
+          ? htmlBotonesAcuerdo(plan, cierre, pid, enCurso)
+          : `<button type="button" class="btn-completar" onclick="completarPlan('${pid}')">Marcar completado</button>`;
+
         const actions = plan.estado === 'completado'
-          ? `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`
-          : `<button type="button" class="btn-completar" onclick="completarPlan('${pid}')">Marcar completado</button>
-             <button type="button" class="btn-icon" onclick="editarPlan('${pid}')" title="Editar" aria-label="Editar ${escapeHtml(plan.titulo)}">
+          ? (conAcuerdo
+              ? `<button type="button" class="btn-reabrir" onclick="reabrirPlan('${pid}')"${enCurso}>Reabrir</button>${errorAcuerdo}`
+              : `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`)
+          : `${botonCompletar}
+             <span class="plan-card-iconos"><button type="button" class="btn-icon" onclick="editarPlan('${pid}')" title="Editar" aria-label="Editar ${escapeHtml(plan.titulo)}">
                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                  <path d="M2 10.5L3.5 9 9.5 3l1.5 1.5L5 10.5l-2 .5-.5-.5z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M8.5 3l1.5 1.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
@@ -3076,13 +3243,14 @@
                  <path d="M2.5 4h9M5.5 4V2.5h3V4M5.5 6.5v4M8.5 6.5v4" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M3.5 4l.5 7.5h6l.5-7.5" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                </svg>
-             </button>`;
+             </button></span>
+             ${conAcuerdo ? htmlMotivoCierre(plan, cierre, pid) : ''}${errorAcuerdo}`;
 
         return `
-          <div class="plan-card ${plan.estado === 'completado' ? 'completado' : ''} ${vencido ? 'vencido' : ''}">
+          <div class="plan-card ${plan.estado === 'completado' ? 'completado' : ''} ${vencido ? 'vencido' : ''}" data-plan-id="${pid}">
             <div class="plan-card-header">
               ${catBadge}
-              ${vencBadge}
+              <span class="plan-badges">${pill}${vencBadge}</span>
             </div>
             <div class="plan-titulo">${escapeHtml(plan.titulo)}</div>
             <div class="plan-meta">
@@ -3119,6 +3287,7 @@
               <div class="creator-avatar">${avatarContent}</div>
               <span style="font-size:0.78rem;color:var(--text-soft)">Por ${escapeHtml(creador)}</span>
             </div>
+            ${conAcuerdo ? htmlFilaAcuerdo(plan) : ''}
             <div class="plan-card-actions">${actions}</div>
           </div>`;
       }).join('');
@@ -3399,11 +3568,196 @@
 
     function editarPlan(planId) { openModalPlan(planId); }
 
+    // ====================================================
+    // PLAN — ACUERDO PARA CERRAR (REQ-PLAN-001, DEC-006 variante A)
+    // El servidor decide: el botón "Completar" apagado es solo una ayuda.
+    // ====================================================
+    const acuerdoEnCurso = new Set();   // planIds con un pedido en vuelo
+    const acuerdoError   = {};          // planId -> mensaje a mostrar en la tarjeta
+
+    const SVG_TILDE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>';
+
+    // 'pendiente' | 'esperando' | 'lista' | 'completada'
+    function estadoCierre(plan) {
+      if (plan.estado === 'completado') return 'completada';
+      const acuerdos = plan.acuerdos || [];
+      const n = state.participantes.filter(id => acuerdos.includes(id)).length;
+      if (n === 0) return 'pendiente';
+      return n < state.participantes.length ? 'esperando' : 'lista';
+    }
+
+    function htmlEstadoPill(plan, cierre) {
+      const acuerdos = plan.acuerdos || [];
+      const n = state.participantes.filter(id => acuerdos.includes(id)).length;
+      const texto = {
+        pendiente:  'Pendiente',
+        esperando:  `Esperando acuerdo · ${n} de ${state.participantes.length}`,
+        lista:      'Lista para cerrar',
+        completada: 'Completada',
+      }[cierre];
+      return `<span class="estado-pill ${cierre}">${texto}</span>`;
+    }
+
+    function htmlFilaAcuerdo(plan) {
+      if (plan.estado === 'completado') {
+        if (!plan.fechaCompletado) return '';
+        const d  = new Date(plan.fechaCompletado);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const por = plan.completadoPor ? ` por ${escapeHtml(getUserDisplay(plan.completadoPor))}` : '';
+        return `<div class="plan-completado-meta">Completada el ${dd}/${mm}${por}</div>`;
+      }
+      const acuerdos = plan.acuerdos || [];
+      const avatares = state.participantes.map(id => {
+        const ok     = acuerdos.includes(id);
+        const nombre = String(getUserDisplay(id) || '?');
+        const src    = avatarDataUrl(getUserAvatarArchivoId(id));
+        const cara   = src ? `<img src="${src}" alt="" />` : escapeHtml(nombre[0].toUpperCase());
+        return `<span class="acuerdo-avatar${ok ? ' ok' : ''}" aria-hidden="true">${cara}${ok ? `<span class="acuerdo-tilde">${SVG_TILDE}</span>` : ''}</span>`;
+      }).join('');
+      const frase = state.participantes.map(id =>
+        `${escapeHtml(getUserDisplay(id))} ${acuerdos.includes(id) ? 'está de acuerdo' : 'todavía no'}`
+      ).join(' · ');
+      return `<div class="plan-acuerdo"><span class="plan-acuerdo-avatares">${avatares}</span><span class="plan-acuerdo-texto">${frase}</span></div>`;
+    }
+
+    function htmlBotonesAcuerdo(plan, cierre, pid, enCurso) {
+      const mio = (plan.acuerdos || []).includes(state.session.userId);
+      const btnAcuerdo = `<button type="button" class="btn-acuerdo" aria-pressed="${mio}" onclick="toggleAcuerdo('${pid}')"${enCurso}>${mio ? SVG_TILDE + ' De acuerdo' : 'Estoy de acuerdo'}</button>`;
+      const lista = cierre === 'lista';
+      const btnCompletar = `<button type="button" class="btn-completar"${lista ? '' : ` aria-disabled="true" aria-describedby="motivo-${pid}"`} onclick="completarPlan('${pid}')"${enCurso}>Completar</button>`;
+      return btnAcuerdo + btnCompletar;
+    }
+
+    function htmlMotivoCierre(plan, cierre, pid) {
+      if (cierre === 'lista') return '';
+      const acuerdos = plan.acuerdos || [];
+      const faltan   = state.participantes.filter(id => !acuerdos.includes(id));
+      let texto;
+      if (faltan.length === state.participantes.length) {
+        texto = faltan.length === 2 ? 'Falta que estén de acuerdo los dos' : 'Falta que estén de acuerdo todos';
+      } else if (faltan.length === 1 && faltan[0] === state.session.userId) {
+        texto = 'Falta que vos estés de acuerdo';
+      } else {
+        const nombres = faltan.map(id => id === state.session.userId ? 'vos' : getUserDisplay(id));
+        texto = `Falta que ${nombres.join(' y ')} ${faltan.length === 1 ? 'esté' : 'estén'} de acuerdo`;
+      }
+      return `<div class="plan-acuerdo-motivo" id="motivo-${pid}">${escapeHtml(texto)}</div>`;
+    }
+
+    // Un 4xx trae un motivo que sirve ("Falta que Noelia…"); un 5xx no dice
+    // qué hacer, así que se reemplaza por un mensaje propio.
+    function mensajeDeError(data, generico) {
+      return data && data.status < 500 && data.error ? data.error : generico;
+    }
+
+    // renderPlanes() reescribe las tarjetas: quien venía con el teclado
+    // perdería el foco. Se devuelve al primer botón que exista de la lista.
+    function focoEnTarjeta(planId) {
+      const a = document.activeElement;
+      return !!(a && a.closest && a.closest('.plan-card') &&
+        a.closest('.plan-card').dataset.planId === safeId(planId));
+    }
+
+    function devolverFoco(planId, selectores) {
+      const card = [...document.querySelectorAll('.plan-card')].find(c => c.dataset.planId === safeId(planId));
+      if (!card) return;
+      for (const sel of selectores) {
+        const el = card.querySelector(sel);
+        if (el && !el.disabled) { el.focus(); return; }
+      }
+    }
+
+    async function toggleAcuerdo(planId) {
+      const plan = state.planes.find(p => p.planId === planId);
+      if (!plan || acuerdoEnCurso.has(planId)) return;
+      const conFoco = focoEnTarjeta(planId);
+
+      const yo      = state.session.userId;
+      const antes   = (plan.acuerdos || []).slice();
+      const nuevo   = !antes.includes(yo);
+      plan.acuerdos = nuevo ? antes.concat(yo) : antes.filter(id => id !== yo);  // optimista
+      delete acuerdoError[planId];
+      acuerdoEnCurso.add(planId);
+      renderPlanes();
+
+      try {
+        const data = await api('setAcuerdoCierre', { planId, deAcuerdo: nuevo });
+        if (data.status === 200) {
+          plan.acuerdos = data.acuerdos || plan.acuerdos;
+        } else if (data.status === 401) {
+          return;  // api() ya cerró la sesión
+        } else {
+          plan.acuerdos = antes;
+          acuerdoError[planId] = mensajeDeError(data, 'No se pudo guardar tu acuerdo. Probá de nuevo en un momento.');
+          if (data.status === 404 || data.status === 409) await refreshPlanes();  // cambió algo del otro lado
+        }
+      } catch (e) {
+        plan.acuerdos = antes;
+        acuerdoError[planId] = 'No se pudo guardar tu acuerdo: revisá la conexión y probá de nuevo.';
+      } finally {
+        acuerdoEnCurso.delete(planId);
+        renderPlanes();
+        if (conFoco) devolverFoco(planId, ['.btn-acuerdo']);
+      }
+    }
+
+    async function reabrirPlan(planId) {
+      if (acuerdoEnCurso.has(planId)) return;
+      const ok = await confirmarModal(
+        'La tarea vuelve a pendiente y hay que volver a ponerse de acuerdo para cerrarla. Las fotos no se tocan.',
+        'Reabrir'
+      );
+      if (!ok) return;
+      const conFoco = true;  // se llega desde el botón de la tarjeta o el modal
+      delete acuerdoError[planId];
+      acuerdoEnCurso.add(planId);
+      renderPlanes();
+      try {
+        const data = await api('reopenPlan', { planId });
+        if (data.status === 401) return;
+        if (data.status !== 200) acuerdoError[planId] = mensajeDeError(data, 'No se pudo reabrir la tarea. Probá de nuevo en un momento.');
+        await refreshPlanes();
+      } catch (e) {
+        acuerdoError[planId] = 'No se pudo reabrir la tarea: revisá la conexión y probá de nuevo.';
+      } finally {
+        acuerdoEnCurso.delete(planId);
+        renderPlanes();
+        if (conFoco) devolverFoco(planId, ['.btn-acuerdo', '.btn-reabrir']);
+      }
+    }
+
     async function completarPlan(planId) {
-      const data = await api('completePlan', { planId });
+      const plan = state.planes.find(p => p.planId === planId);
+      // Con el acuerdo incompleto el botón está apagado: el motivo ya se ve abajo.
+      if (plan && state.participantes.length && estadoCierre(plan) !== 'lista') return;
+      if (acuerdoEnCurso.has(planId)) return;
+      const conFoco = focoEnTarjeta(planId);
+      const volver  = () => { if (conFoco) devolverFoco(planId, ['.btn-reabrir', '.btn-completar', '.btn-acuerdo']); };
+      delete acuerdoError[planId];
+      acuerdoEnCurso.add(planId);
+      renderPlanes();
+      let data;
+      try {
+        data = await api('completePlan', { planId });
+      } catch (e) {
+        acuerdoError[planId] = 'No se pudo completar la tarea: revisá la conexión y probá de nuevo.';
+        return;
+      } finally {
+        acuerdoEnCurso.delete(planId);
+        renderPlanes();
+        volver();
+      }
       if (data.status === 200) {
         await refreshPlanes();
         renderPlanes();
+        volver();
+      } else if (data.code === 'ACUERDO_PENDIENTE' || data.code === 'NO_PENDIENTE') {
+        // Alguien cambió su acuerdo (o cerró la tarea) mientras tanto.
+        acuerdoError[planId] = data.error;
+        await refreshPlanes();
+        renderPlanes();
+        volver();
       } else if (data.code === 'FOTO_REQUERIDA') {
         // El usuario nunca queda frente a un error seco: se abre directo el
         // modal con el flujo de subida de fotos (REQ-MEDIA-002 §2).
@@ -3411,6 +3765,9 @@
         const errorEl = document.getElementById('plan-error');
         errorEl.textContent = data.error || 'Subí al menos una foto para poder completar esta tarea.';
         errorEl.classList.add('visible');
+      } else if (data.status !== 401) {
+        acuerdoError[planId] = mensajeDeError(data, 'No se pudo completar la tarea. Probá de nuevo en un momento.');
+        renderPlanes();
       }
     }
 

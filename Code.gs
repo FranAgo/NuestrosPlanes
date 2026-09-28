@@ -122,6 +122,15 @@ const PLANES_HEADERS = [
   // ("congelado" aunque después se edite título/categoría) — ver
   // docs/requerimientos/REQ-MEDIA-002.md §3.
   'carpeta_fotos_drive_id',
+  // REQ-PLAN-001: IDs de usuario que dieron su acuerdo para cerrar la tarea,
+  // separados por coma. Se vacía al completar, así que una tarea reabierta
+  // (desde la app o a mano en la hoja) arranca sin acuerdos. La historia de
+  // quién dio o sacó su acuerdo vive en Auditoria.
+  'acuerdos_cierre',
+  // REQ-PLAN-001: timestamp ISO UTC y usuario del cierre. Se conservan al
+  // reabrir (quedan como "último cierre"); el front solo los muestra si la
+  // tarea está completada.
+  'fecha_completado', 'completado_por',
 ];
 
 // Nombres de mes capitalizados para el árbol de Drive de fotos de tarea
@@ -146,6 +155,7 @@ const AUDITORIA_HEADERS = [
 // password y cualquier contenido binario/base64.
 const AUDITORIA_DETALLE_CLAVES_OK = [
   'email', 'nombre', 'titulo', 'valor_anterior', 'valor_nuevo', 'motivo',
+  'acuerdos', // REQ-PLAN-001: IDs de usuario (no son datos personales)
 ];
 
 // ------------------------------------------------------------
@@ -211,6 +221,8 @@ function doPost(e) {
       case 'createPlan':      return handleCreatePlan(body);
       case 'updatePlan':      return handleUpdatePlan(body);
       case 'completePlan':    return handleCompletePlan(body);
+      case 'setAcuerdoCierre': return handleSetAcuerdoCierre(body);
+      case 'reopenPlan':      return handleReopenPlan(body);
       case 'deletePlan':      return handleDeletePlan(body);
 
       // Fotos de tareas (REQ-MEDIA-002)
@@ -1117,6 +1129,9 @@ function handleGetPlanes(body) {
   const iFPro = h.indexOf('fecha_programada');
   const iFVen = h.indexOf('fecha_vencimiento');
   const iEst  = h.indexOf('estado');
+  const iAcu  = h.indexOf('acuerdos_cierre');
+  const iFCom = h.indexOf('fecha_completado');
+  const iCPor = h.indexOf('completado_por');
 
   const planes = [];
   for (let i = 1; i < data.length; i++) {
@@ -1133,10 +1148,16 @@ function handleGetPlanes(body) {
       fechaProgramada:  formatDate(row[iFPro]),
       fechaVencimiento: row[iFVen] ? formatDate(row[iFVen]) : null,
       estado:           row[iEst],
+      // REQ-PLAN-001. En una tarea completada los acuerdos ya se vaciaron.
+      acuerdos:         row[iEst] === 'pendiente' ? parseAcuerdos(iAcu !== -1 ? row[iAcu] : '') : [],
+      fechaCompletado:  iFCom !== -1 && row[iFCom] ? String(row[iFCom]) : null,
+      completadoPor:    iCPor !== -1 && row[iCPor] ? String(row[iCPor]) : null,
     });
   }
 
-  return respond(200, { planes });
+  // Quiénes tienen que estar de acuerdo para cerrar (REQ-PLAN-001): todos
+  // los habilitados en Usuarios. El front los usa para la fila de acuerdos.
+  return respond(200, { planes, participantes: participantesCierre() });
 }
 
 function handleCreatePlan(body) {
@@ -1221,26 +1242,170 @@ function handleCompletePlan(body) {
   if (!planId) return respond(400, { error: 'ID de plan requerido.' });
 
   const sheet = getSheet(SHEETS.PLANES);
-  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
-  if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
-  // REQ-MEDIA-002 criterio 1: no se puede completar una tarea sin al menos
-  // una foto activa. `code` explícito para que el frontend abra directo el
-  // flujo de subida en vez de mostrar un error genérico (ver REQ-MEDIA-002 §2).
-  if (contarFotosActivasPlan(planId) === 0) {
-    return respond(400, {
-      error: 'La tarea necesita al menos una foto para poder completarse.',
-      code: 'FOTO_REQUERIDA',
-    });
+  // Lock: leer los acuerdos, validar y escribir el cierre tiene que ser una
+  // sola operación frente a un setAcuerdoCierre simultáneo del otro.
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+    if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
+
+    const col  = name => h.indexOf(name) + 1;
+    const fila = sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0];
+    if (fila[h.indexOf('estado')] !== 'pendiente') {
+      return respond(409, { error: 'La tarea ya está completada.', code: 'NO_PENDIENTE' });
+    }
+
+    // REQ-PLAN-001: primero el acuerdo de todos los habilitados; recién
+    // después la foto (el REQ pide ese orden, punto 4).
+    const acuerdos = parseAcuerdos(col('acuerdos_cierre') ? fila[col('acuerdos_cierre') - 1] : '');
+    const faltan   = participantesCierre().filter(id => acuerdos.indexOf(id) === -1);
+    if (faltan.length > 0) {
+      return respond(409, {
+        error: mensajeFaltaAcuerdo(faltan),
+        code: 'ACUERDO_PENDIENTE',
+        faltan: faltan,
+      });
+    }
+
+    // REQ-MEDIA-002 criterio 1: no se puede completar una tarea sin al menos
+    // una foto activa. `code` explícito para que el frontend abra directo el
+    // flujo de subida en vez de mostrar un error genérico (ver REQ-MEDIA-002 §2).
+    if (contarFotosActivasPlan(planId) === 0) {
+      return respond(400, {
+        error: 'La tarea necesita al menos una foto para poder completarse.',
+        code: 'FOTO_REQUERIDA',
+      });
+    }
+
+    const ahora = new Date().toISOString();
+    sheet.getRange(rowIndex, col('estado')).setValue('completado');
+    if (col('acuerdos_cierre'))    sheet.getRange(rowIndex, col('acuerdos_cierre')).setValue('');
+    if (col('fecha_completado'))   sheet.getRange(rowIndex, col('fecha_completado')).setValue(ahora);
+    if (col('completado_por'))     sheet.getRange(rowIndex, col('completado_por')).setValue(authUserId || '');
+    if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
+    if (col('fecha_modificacion')) sheet.getRange(rowIndex, col('fecha_modificacion')).setValue(ahora);
+    SpreadsheetApp.flush();
+
+    registrarAuditoria(authUserId, 'plan.completar', 'Planes', planId, { acuerdos: acuerdos.join(',') });
+    return respond(200, { success: true });
+  } finally {
+    lock.releaseLock();
   }
+}
 
-  const col = name => h.indexOf(name) + 1;
+// REQ-PLAN-001: da o saca el acuerdo de QUIEN HACE EL PEDIDO (authUserId,
+// sale de la sesión). No acepta un usuario objetivo: nadie puede cambiar el
+// acuerdo de otro. Solo en tareas pendientes.
+function handleSetAcuerdoCierre(body) {
+  const { planId, deAcuerdo, authUserId } = body;
 
-  sheet.getRange(rowIndex, col('estado')).setValue('completado');
-  if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
-  if (col('fecha_modificacion')) sheet.getRange(rowIndex, col('fecha_modificacion')).setValue(new Date().toISOString());
+  if (!planId) return respond(400, { error: 'ID de plan requerido.' });
+  if (typeof deAcuerdo !== 'boolean') return respond(400, { error: 'Falta indicar si estás de acuerdo o no.' });
+  if (!authUserId) return respond(401, { error: 'Sesión inválida o expirada.' });
 
-  return respond(200, { success: true });
+  const sheet = getSheet(SHEETS.PLANES);
+  const lock  = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+    if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
+
+    const col  = name => h.indexOf(name) + 1;
+    if (!col('acuerdos_cierre')) throw new Error('Falta la columna acuerdos_cierre en Planes. Corré setupSheets().');
+    const fila = sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0];
+    if (fila[h.indexOf('estado')] !== 'pendiente') {
+      return respond(409, {
+        error: 'La tarea ya está completada. Para volver a ponerse de acuerdo, primero reabrila.',
+        code: 'NO_PENDIENTE',
+      });
+    }
+
+    const antes    = parseAcuerdos(fila[col('acuerdos_cierre') - 1]);
+    const acuerdos = antes.filter(id => id !== authUserId);
+    if (deAcuerdo) acuerdos.push(authUserId);
+
+    if (acuerdos.join(',') !== antes.join(',')) {
+      sheet.getRange(rowIndex, col('acuerdos_cierre')).setValue(acuerdos.join(','));
+      SpreadsheetApp.flush();
+      registrarAuditoria(authUserId, deAcuerdo ? 'plan.acuerdo_dar' : 'plan.acuerdo_sacar', 'Planes', planId, null);
+    }
+    return respond(200, { success: true, acuerdos: acuerdos });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// REQ-PLAN-001 punto 6 (BL-024): vuelve una tarea completada a pendiente,
+// sin acuerdos. Las fotos no se tocan. fecha_completado/completado_por
+// quedan como registro del último cierre.
+function handleReopenPlan(body) {
+  const { planId, authUserId } = body;
+
+  if (!planId) return respond(400, { error: 'ID de plan requerido.' });
+
+  const sheet = getSheet(SHEETS.PLANES);
+  const lock  = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+    if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
+
+    const col  = name => h.indexOf(name) + 1;
+    const fila = sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0];
+    if (fila[h.indexOf('estado')] !== 'completado') {
+      return respond(409, { error: 'Solo se puede reabrir una tarea completada.', code: 'NO_COMPLETADA' });
+    }
+
+    sheet.getRange(rowIndex, col('estado')).setValue('pendiente');
+    if (col('acuerdos_cierre'))    sheet.getRange(rowIndex, col('acuerdos_cierre')).setValue('');
+    if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
+    if (col('fecha_modificacion')) sheet.getRange(rowIndex, col('fecha_modificacion')).setValue(new Date().toISOString());
+    SpreadsheetApp.flush();
+
+    registrarAuditoria(authUserId, 'plan.reabrir', 'Planes', planId, null);
+    return respond(200, { success: true });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 'usr_a, usr_b' -> ['usr_a', 'usr_b'] (sin vacíos ni repetidos).
+function parseAcuerdos(valor) {
+  const ids = String(valor || '').split(',').map(s => s.trim()).filter(Boolean);
+  return ids.filter((id, i) => ids.indexOf(id) === i);
+}
+
+// Quiénes tienen que estar de acuerdo: todos los habilitados en Usuarios
+// (mismo criterio que usuarioHabilitado: fila con email).
+function participantesCierre() {
+  const data   = getDatosHoja(SHEETS.USUARIOS);
+  const h      = data[0];
+  const iId    = h.indexOf('usuario_id');
+  const iEmail = h.indexOf('email');
+  const ids = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iId] && String(data[i][iEmail] || '').trim() !== '') ids.push(String(data[i][iId]));
+  }
+  return ids;
+}
+
+// "Falta que Noelia esté de acuerdo…" / "Falta que Franco y Noelia estén…".
+function mensajeFaltaAcuerdo(faltan) {
+  const data    = getDatosHoja(SHEETS.USUARIOS);
+  const h       = data[0];
+  const iId     = h.indexOf('usuario_id');
+  const iNombre = h.indexOf('nombre_display');
+  const nombre  = id => {
+    for (let i = 1; i < data.length; i++) if (data[i][iId] === id) return String(data[i][iNombre] || id);
+    return id;
+  };
+  const nombres = faltan.map(nombre);
+  const lista   = nombres.length === 1 ? nombres[0]
+    : nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1];
+  return 'Falta que ' + lista + (nombres.length === 1 ? ' esté' : ' estén') +
+    ' de acuerdo para cerrar la tarea.';
 }
 
 // Borrado lógico: la fila nunca se borra. estado='eliminado' (se pierde el
@@ -1352,6 +1517,38 @@ function respond(statusCode, data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ------------------------------------------------------------
+// FECHAS "SOLO DÍA" (BUG-FECHA-001)
+// ------------------------------------------------------------
+// Un día de calendario (fecha de una foto, nombre de carpeta) se calcula en
+// hora Argentina, nunca con toISOString(): desde las 21:00 en UTC ya es el
+// día siguiente. Los timestamps de sistema (fecha_subida, Auditoria) siguen
+// en ISO UTC a propósito (docs/modelo-datos.md).
+const TZ_APP = 'America/Argentina/Buenos_Aires';
+
+// Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
+// subida a las 22:30); cada invocación tiene su propio estado global, así
+// que un request del Web App no puede verlo (mismo patrón que
+// TEST_SPREADSHEET_ID_OVERRIDE).
+var RELOJ_OVERRIDE = null;
+
+function ahoraApp() {
+  return RELOJ_OVERRIDE ? new Date(RELOJ_OVERRIDE) : new Date();
+}
+
+// Única forma de obtener "hoy" (o el día de un instante dado) en el servidor.
+// Devuelve 'AAAA-MM-DD' en hora Argentina.
+function fechaDiaArgentina(instante) {
+  return Utilities.formatDate(instante || ahoraApp(), TZ_APP, 'yyyy-MM-dd');
+}
+
+// Lee una fecha "solo día" guardada en la hoja. Acá toISOString() es
+// correcto a propósito (revisado en BUG-FECHA-001): en la hoja conviven
+// Date a la medianoche UTC (Planes guarda new Date('AAAA-MM-DD')) y Date a
+// la medianoche de la planilla (texto 'AAAA-MM-DD' que Sheets convierte, o
+// una fecha editada a mano). Con la planilla en hora Argentina (o cualquier
+// zona entre UTC-12 y UTC), las dos dan el día correcto en UTC; leerlas en
+// hora Argentina correría las de Planes al día anterior.
 function formatDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString().split('T')[0];
@@ -1581,7 +1778,7 @@ function handleUploadPlanPhotos(body) {
       // estado ACTUAL del plan y queda "congelado" guardando el ID de la
       // carpeta en la fila — de acá en más, aunque se edite título o
       // categoría, las fotos nuevas caen en esta misma carpeta.
-      const fechaHoy         = new Date().toISOString().split('T')[0]; // AAAA-MM-DD
+      const fechaHoy         = fechaDiaArgentina(); // AAAA-MM-DD, hora Argentina (BUG-FECHA-001)
       const [aaaa, mm]       = fechaHoy.split('-');
       const categoriaNombre  = getCategoriaNombre(val('categoria_id')) || 'sin-categoria';
       const sufijoAntiColision = (planId.split('_').pop() || '').slice(-6);
@@ -1616,7 +1813,7 @@ function handleUploadPlanPhotos(body) {
 
         const bytes        = Utilities.base64Decode(fileBase64);
         const archivoId     = newId('arc');
-        const fechaHoyFoto  = new Date().toISOString().split('T')[0];
+        const fechaHoyFoto  = fechaDiaArgentina();
         const numero        = ('0000' + siguienteNumero).slice(-4);
         const nombreArchivo = numero + '-' + formatFechaDDMMAAAA(fechaHoyFoto) + '-' +
           normalizarSegmentoRuta(val('titulo')) + '.' + MIME_EXT[mimeType];
@@ -1645,6 +1842,8 @@ function handleUploadPlanPhotos(body) {
           tamanoBytes: bytes.length,
           subidoPor:   authUserId || '',
           estado:      'activo',
+          // La misma fecha que lleva el nombre del archivo (BUG-FECHA-001).
+          fechaContenido: fechaHoyFoto,
         });
 
         subidas.push({ archivoId: archivoId, driveFileId: file.getId() });
@@ -1830,7 +2029,7 @@ function insertArchivo(fields) {
       case 'owner_id':           return fields.ownerId || '';
       case 'proposito':          return fields.proposito;
       case 'titulo':             return fields.titulo || '';
-      case 'fecha_contenido':    return fields.fechaContenido || ahora.split('T')[0];
+      case 'fecha_contenido':    return fields.fechaContenido || fechaDiaArgentina(new Date(ahora));
       case 'drive_file_id':      return fields.driveFileId;
       case 'mime_type':          return fields.mimeType || '';
       case 'tamano_bytes':       return fields.tamanoBytes != null ? fields.tamanoBytes : '';
@@ -1847,6 +2046,49 @@ function insertArchivo(fields) {
 
   sheet.appendRow(valores);
   return archivoId;
+}
+
+// Corrección única de BUG-FECHA-001: hasta el fix, fecha_contenido era
+// siempre el día UTC de fecha_subida (el front nunca la manda), así que las
+// fotos subidas de 21:00 a 23:59 hora Argentina quedaron con el día
+// siguiente. Solo toca las filas donde fecha_contenido coincide con el día
+// UTC de fecha_subida y difiere del día argentino: una fecha puesta a
+// propósito no se pisa, y una segunda corrida no cambia nada. El nombre del
+// archivo en Drive queda como está (la app no lo lee).
+// No se expone por doPost: se corre con `clasp run` (executionApi MYSELF).
+function corregirFechaContenidoArchivos() {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const lock  = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const data = sheet.getDataRange().getValues();
+    const h    = data[0];
+    const iId  = h.indexOf('archivo_id');
+    const iSub = h.indexOf('fecha_subida');
+    const iCon = h.indexOf('fecha_contenido');
+    const cambios = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const crudo = data[i][iSub];
+      if (!crudo) continue;
+      const subida = crudo instanceof Date ? crudo : new Date(crudo);
+      if (isNaN(subida.getTime())) continue;
+
+      const diaUtc  = subida.toISOString().split('T')[0];
+      const diaArg  = fechaDiaArgentina(subida);
+      const actual  = formatDate(data[i][iCon]);
+      if (actual !== diaUtc || diaUtc === diaArg) continue;
+
+      sheet.getRange(i + 1, iCon + 1).setValue(diaArg);
+      cambios.push({ archivoId: data[i][iId], antes: actual, despues: diaArg });
+    }
+
+    SpreadsheetApp.flush();
+    console.log('corregirFechaContenidoArchivos: ' + cambios.length + ' filas corregidas ' + JSON.stringify(cambios));
+    return { corregidas: cambios.length, cambios: cambios };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Devuelve la fila de Archivos como objeto {header: valor, _rowIndex}, o null.
