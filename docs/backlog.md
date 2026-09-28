@@ -282,3 +282,11 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Media
 - Origen: Franco (2026-09-28, cierre de sesión, versión 1.1.0 en la computadora): "puse completar en todas, se puso gris pero después se puso de color de nuevo cuando se actualizó". Tuvo que pasar el filtro de "Todos" a "Pendientes" y volver a "Todos" para que se viera bien.
 - Nota: sin investigar todavía. Hipótesis de Jay, leyendo el código: `completarPlan` (`index.html:4843`) hace `refreshPlanes()` después de cada cierre, y `loadPlanes` (`index.html:3711`) pisa `state.planes` con lo que llegue, sin ningún token de orden. Con varios cierres seguidos, un `getPlanes` que salió antes (con las otras tareas todavía pendientes en el servidor) puede llegar último y dejar el estado o la pantalla viejos. El mismo patrón de `planFotosYaToken`/`carruselRenderToken` lo resolvería: descartar las respuestas de `getPlanes` que no son la última pedida. Reproducir primero con `fetch` simulado y respuestas en desorden, sin tocar prod. Se cruza con REQ-SYNC-001.
+
+## Sesión 2026-09-28 (4)
+
+### BL-032 — `getFotosPlan` tarda unos 4 s en traer la lista de fotos de una tarea
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: medición de REQ-PERF-004 en producción (2026-09-28 11:20, hora Argentina, en el Chrome de Franco): con la tarea de 16 fotos, `getFotosPlan` tardó 3,6 s y 4,0 s, y devuelve apenas 2 KB. Con las miniaturas en caché, esos 4 s son todo lo que tarda en aparecer la grilla de "Ya subidas".
+- Nota: sin investigar. Candidatos: el costo fijo de cada invocación de Apps Script más `validarSesion` y `usuarioHabilitado`, y las hojas que lee el handler (`Archivos` completa, `Planes`). Habría que medirlo en el servidor (`console.time` en test) antes de tocar nada. Se cruza con BL-001 (endpoint único de carga) y con REQ-SYNC-001.

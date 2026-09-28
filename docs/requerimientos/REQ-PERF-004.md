@@ -29,6 +29,24 @@ computadora de Franco.
    aplica el mismo respaldo (foto completa).
 4. **Sin cambios** en hojas ni columnas (Gary).
 
+## Medición en producción (2026-09-28 11:20, hora Argentina)
+
+La medición se hizo en el Chrome de Franco, sobre la app publicada (1.2.0, @29), en modo solo lectura: `fetch` quedó instrumentado y bloqueaba toda acción que no fuera de lectura. La tarea era la de 16 fotos (`plan_muj2zk04_sfpb81`), con el caché de fotos vaciado en memoria.
+
+| | Antes (1.1.0) | Primera apertura (1.2.0) | Segunda apertura (1.2.0) |
+|---|---|---|---|
+| Miniaturas | 16/16 | 16/16, ninguna en "Sin vista previa" | 16/16 |
+| Pedidos de fotos | 16 `getArchivo` | 1 `getMiniaturas` y 0 `getArchivo` | ninguno (caché) |
+| Datos | 7,6 MB | 499 KB | 2 KB |
+| Tiempo hasta la última | 33 s | 9,9 s: `getFotosPlan` 3,6 s + `getMiniaturas` 6,2 s | 4,5 s (todo `getFotosPlan`) |
+
+- **Criterio 1 no se cumple tal como estaba escrito** (menos de 5 s y menos de 200 KB). Las miniaturas de fotos reales a 320 px pesan unos 31 KB en base64 cada una, más de lo que había dado el diagnóstico con una imagen chica.
+- Ahora el cuello de botella es `getFotosPlan`: tarda unos 4 s solo en traer la lista, antes de pedir cualquier miniatura.
+- **Criterios 2 y 3:** se cumplen.
+- **Criterios 4 a 6:** cubiertos en test.
+
+**Decisión (Franco, 2026-09-28): parche 1.2.1.** Las miniaturas bajan a 200 px, porque las celdas de la grilla miden de 64 a 80 px. En test, la miniatura de la imagen de prueba pasó de 11,4 KB a 5,7 KB. El criterio 1 queda así: menos de 200 KB y menos de 5 s **para `getMiniaturas`**. Los ~4 s de `getFotosPlan` son otro problema y van al backlog.
+
 ## Criterios de aceptación
 
 1. En la tarea de 16 fotos, "Ya subidas" muestra todas las miniaturas en

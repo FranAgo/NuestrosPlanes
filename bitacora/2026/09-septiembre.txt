@@ -2653,3 +2653,19 @@ Cambios:
 - CHANGELOG.md — 1.2.0.
 - PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v29, "v1.2.0 REQ-PERF-004: miniaturas (getMiniaturas)"); clasp redeploy ...LxD0d -V 29. Smoke: getMiniaturas sin sesión -> 401. Rollback: redeploy -V 28.
 ========================================================
+
+========================================================
+2026-09-28 11:30 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): push a main (f7f8a78) + tag v1.2.0; GitHub Pages sirve APP_VERSION 1.2.0 (curl).
+- Medición de 1.2.0 en el Chrome de Franco (Claude in Chrome, solo lectura, fetch instrumentado que bloqueaba toda acción que no fuera de lectura), tarea de 16 fotos sin caché: 16/16, 0 "Sin vista previa", 1 getMiniaturas y 0 getArchivo, 499 KB, 9,9 s (getFotosPlan 3,6 s + getMiniaturas 6,2 s). Segunda apertura: 4,5 s, todo getFotosPlan. El criterio 1 (menos de 5 s y menos de 200 KB) no se cumplió: miniaturas reales a 320 px de ~31 KB en base64.
+- docs/requerimientos/REQ-PERF-004.md — medición en producción y decisión de Franco: parche 1.2.1 y criterio 1 medido sobre getMiniaturas.
+- Code.gs — MINIATURA_LADO_PX 320 -> 200 (celdas de 64-80 px). APP_VERSION 1.2.1. probarPERF004 22/22 en test (miniatura de prueba 11,4 KB -> 5,7 KB).
+- index.html — APP_VERSION 1.2.1.
+- CHANGELOG.md — 1.2.1.
+- docs/backlog.md — BL-011 hecho; BL-030 en curso (falta confirmación de Franco); BL-032 (nuevo): getFotosPlan tarda ~4 s.
+- PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v30, "v1.2.1 REQ-PERF-004: miniaturas a 200 px"); clasp redeploy ...LxD0d -V 30. Rollback: redeploy -V 29.
+========================================================

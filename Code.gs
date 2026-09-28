@@ -1564,7 +1564,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
@@ -1811,7 +1811,7 @@ function handleGetArchivos(body) {
 // de doPost, ahí se loguea err.message.
 // Una foto sin miniatura (Drive todavía no la generó, error, cuota) vuelve
 // con sinMiniatura: true y el front la pide completa por getArchivo.
-const MINIATURA_LADO_PX         = 320;  // cuadrado de ~110 px en pantallas 2x/3x
+const MINIATURA_LADO_PX         = 200;  // celdas de 64-80 px: alcanza en pantallas 2x (1.2.1; con 320 eran ~31 KB por foto)
 const MINIATURAS_MAX_POR_PEDIDO = 30;
 
 function handleGetMiniaturas(body) {

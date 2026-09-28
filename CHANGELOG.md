@@ -5,6 +5,12 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.2.1] - 2026-09-28
+
+### Cambiado
+- Las vistas previas de las fotos pesan la mitad: alcanzan igual para el
+  tamaño en que se muestran. (REQ-PERF-004)
+
 ## [1.2.0] - 2026-09-28
 
 ### Cambiado
