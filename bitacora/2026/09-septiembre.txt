@@ -2452,3 +2452,74 @@ Cambios:
 - docs/backlog.md — BL-018 hecho (falta push de la segunda parte); nuevo BL-022 (colores de categoría sin teclado ni área táctil).
 Sin cambios en Code.gs.
 ========================================================
+
+========================================================
+2026-09-27 22:31 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/BUG-FECHA-001.md — nuevo. Las fotos subidas despues de las 21 h quedan con la fecha del dia siguiente: el servidor calcula "hoy" en UTC (Code.gs:1584, 1619, 1833). Incluye la correccion de las fotos de Noelia del 27/09 (se hace solo con OK).
+- docs/requerimientos/REQ-SYNC-001.md — nuevo. Cambios del otro visibles en 10 s como maximo sin recargar, incluidas las ediciones a mano en la planilla.
+- docs/requerimientos/REQ-MEDIA-004.md — nuevo. Conteo de fotos en la tarjeta (sin ceros), fotos ya subidas en el modal y pills de estado por foto. Registra la verificacion de carpeta compartida: probarMEDIA002 en test 43/43 APTO, caso C4 con usr_fran y usr_noe en la misma carpeta.
+- docs/requerimientos/REQ-PLAN-001.md — nuevo. Cerrar una tarea requiere el acuerdo de los dos, controlado en el servidor, mas la pill de estado de la tarea. Tiene preguntas abiertas para Franco.
+- docs/requerimientos/REQ-UX-001.md — nuevo. Todo error explica que paso y que hacer; relevar los caminos que hoy fallan en silencio (completarPlan, eliminarPlan).
+- docs/backlog.md — sesion 2026-09-27 (5): BL-023 videos (hoy no se aceptan), BL-024 reabrir tarea desde la app, BL-025 que fecha lleva una foto y tareas de varios dias (con la investigacion: EXIF, y la recompresion con canvas que lo borra).
+========================================================
+
+========================================================
+2026-09-27 22:38 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/investigacion/2026-09-27-como-lo-resuelven-otros.md — nuevo. Investigacion de como resuelven otras apps y empresas cada pendiente (backlog y REQ abiertos), con fuentes y recomendacion.
+- docs/requerimientos/REQ-MEDIA-004.md, REQ-PLAN-001.md, REQ-UX-001.md, REQ-SYNC-001.md, REQ-PERF-004.md — seccion "Como lo resuelven otros" con lo que cambia o confirma cada uno.
+- docs/backlog.md — referencia a la investigacion en la sesion 2026-09-27 (5).
+========================================================
+
+========================================================
+2026-09-27 22:43 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/BUG-FECHA-001.md — OK de Franco para corregir las fechas ya grabadas. Se hace con una correccion general: recalcular fecha_contenido desde fecha_subida en hora Argentina para todas las filas (nadie manda fechaContenido desde el front). Criterios 6-8. La corrida en prod lleva su propio OK al deployar.
+- docs/requerimientos/REQ-PLAN-001.md — boton "Reabrir" dentro del alcance (punto 6, criterios 11-12). Pregunta 2 cerrada.
+- docs/backlog.md — BL-024 pasa a En curso (entra en REQ-PLAN-001).
+========================================================
+
+========================================================
+2026-09-27 22:49 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/decisiones.md — DEC-004: subir fotos no anula el acuerdo para cerrar una tarea; reglas de REQ-PLAN-001 confirmadas.
+- docs/requerimientos/REQ-PLAN-001.md — pasa a DEFINIDO; preguntas cerradas.
+- docs/requerimientos/REQ-MEDIA-005.md — nuevo. Fecha de captura (EXIF) por foto, con respaldo en el dia de subida y edicion manual; dia de fin opcional en la tarea y fotos agrupadas por dia. Drive: todas en la misma carpeta, con la fecha en el nombre (a confirmar).
+- docs/backlog.md — BL-025 formalizado en REQ-MEDIA-005.
+========================================================
+
+========================================================
+2026-09-27 22:58 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/decisiones.md — DEC-005: una sola carpeta por tarea (sin subcarpetas por dia) y nombre/mes de la carpeta segun el dia de inicio de la tarea.
+- docs/requerimientos/REQ-MEDIA-005.md — pasa a DEFINIDO; seccion Drive confirmada, ejemplo completo y criterios 11-12. Formato de fecha corregido a dd-mm-aaaa.
+- docs/requerimientos/REQ-MEDIA-002.md — nota en la regla de carpetas: cambia con REQ-MEDIA-005, y la fecha de la primera foto se calculaba en UTC (BUG-FECHA-001).
+========================================================
+
+========================================================
+2026-09-27 22:59 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios (cierre de sesion):
+- .claude/skills/convenciones-tecnicas/fechas.md — tema nuevo: "hoy" en hora Argentina y no con toISOString() (UTC); fechas solo-dia que se corren. Sale de BUG-FECHA-001.
+- .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — recomprimir con canvas borra el EXIF; leer la fecha antes y nunca mandar el GPS.
+- .claude/skills/convenciones-tecnicas/SKILL.md — indice y palabras clave de los dos cuidados nuevos.
+- docs/backlog.md — estados corregidos segun git: BL-004, BL-018 y BL-021 ya estaban en main (a95c10d, 717653a); BL-012 ya commiteado (a4baa76), falta la revision de Franco.
+========================================================

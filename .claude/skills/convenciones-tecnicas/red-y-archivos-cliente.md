@@ -92,3 +92,16 @@ planes en la hoja.
 
 **Dónde ya está bien:** `loadPlanes`/`loadCategorias` con `apiLectura` y
 el cartel de error (BUG-CARGA-001 fase 1).
+
+## Recomprimir con `canvas` borra el EXIF
+
+**Qué cuidar:** la app achica cada foto con `canvas` antes de subirla
+(`index.html`, cerca de la línea 3191), y el JPEG que sale ya no tiene
+EXIF: ni fecha de captura, ni orientación, ni GPS. Si hace falta un dato
+del EXIF (REQ-MEDIA-005: la fecha en que se sacó la foto), hay que leerlo
+del `File` original **antes** de comprimir y mandarlo aparte. Del EXIF se
+lee solo el campo necesario: el GPS es un dato personal y nunca se manda.
+Además, iOS puede sacar datos al compartir desde la galería, así que
+siempre hace falta un respaldo.
+
+**Por qué:** investigación de BL-025 / REQ-MEDIA-005 (2026-09-27).

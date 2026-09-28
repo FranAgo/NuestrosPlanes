@@ -97,3 +97,7 @@ Verificadas a mano; son cuidados para cuando se implemente, no hallazgos:
   error de fetch en test y leyendo `clasp logs --json`.
 - Un test de bloqueo contra el código viejo no muerde (la acción no
   existe, da 400): el mutante es poner `getMiniatura` en `publicActions`.
+
+## Cómo lo resuelven otros (2026-09-27)
+
+Ver `docs/investigacion/2026-09-27-como-lo-resuelven-otros.md`. La documentación de Drive confirma el enfoque: `thumbnailLink` dura unas horas, necesita credenciales y no está pensado para usarse directo en la web, así que el proxy del servidor es lo recomendado. Para invalidar el caché se puede usar la versión de la miniatura.

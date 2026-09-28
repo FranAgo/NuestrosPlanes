@@ -58,7 +58,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   solo guarda el `userId`.)*
 
 ### BL-004 — Reemplazar los glifos de UI restantes por SVG
-- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión); falta push a `main`
+- Estado: Hecho — en `main` (GitHub Pages) desde el 2026-09-27 (commit a95c10d)
 - Prioridad: Baja
 - Origen: REQ-AUTH-001 (2026-09-05), mayormente resuelto en sesiones
   posteriores
@@ -130,7 +130,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27
 
 ### BL-012 — `docs/DESIGN.md` de Nuestros Planes
-- Estado: En curso (escrito el 2026-09-27, falta la revisión de Franco y el commit)
+- Estado: En curso (escrito el 2026-09-27 y commiteado en a4baa76; falta la revisión de Franco)
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). Jay y `hjay-identidad-visual` usan el `DESIGN.md` del proyecto "si tiene uno"; en sis-web salió de extraer del código colores, tipografía y componentes.
 - Nota: extraer de `index.html` el sistema de diseño real (tokens de color, radios, tipografía, botones, modales, excepciones) para que los cambios visuales tengan una referencia escrita. Lo mantiene Jay.
@@ -168,7 +168,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
 
 ### BL-018 — Deudas de UI que dejó a la vista `docs/DESIGN.md`
-- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión; la parte chica ya está en `main`, el resto falta push)
+- Estado: Hecho — en `main` (GitHub Pages) desde el 2026-09-27 (commits a95c10d y 717653a)
 - Prioridad: Baja
 - Origen: armado de `docs/DESIGN.md` (BL-012), 2026-09-27
 - Nota: falta `color-scheme: dark` (el calendario nativo de `<input type="date">` puede salir claro); no hay bloque `prefers-reduced-motion`; `--transition` es `all`; los `<label>` no tienen `for`; los botones de la tarjeta de plan no tienen `aria-label` ni `type="button"`. Detalle en DESIGN.md, "Deudas conocidas". *(2026-09-27: primera parte en `main` (a95c10d): `color-scheme`, `type="button"`, `aria-label`. Segunda: `--transition` con propiedades nombradas; bloque `prefers-reduced-motion` (spinners siguen) y `menosMovimiento()` en JS (estrellas fijas, sin chispas, halo sin demora); `for` en los 5 labels de campo y `aria-label` en el zoom; `:focus-visible` en campos y zoom. Lo que quedó afuera va a BL-022.)*
@@ -187,7 +187,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27 (3)
 
 ### BL-021 — Después del logout, el DOM de la app sigue con los datos
-- Estado: Hecho en código y verificado en el navegador con backend simulado (2026-09-27, cuarta sesión); falta push a `main`
+- Estado: Hecho — en `main` (GitHub Pages) desde el 2026-09-27 (commit a95c10d)
 - Prioridad: Baja
 - Origen: búsqueda de variantes de BL-016 (2026-09-27)
 - Nota: `forceLogout()` oculta `#app-screen` pero no vacía lo que ya se pintó (planes, categorías, miniaturas de fotos recientes, carrusel) ni `state.planes`/`state.categorias`/`fotosRecientes`/`carruselFotos`. Dura mientras la pestaña siga abierta (cerrarla lo borra, a diferencia de `localStorage`). Opción simple: recargar la página después del logout, pasando el mensaje de "sesión expirada" por `sessionStorage`.
@@ -206,3 +206,33 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Prioridad: Baja
 - Origen: cierre de BL-018 (2026-09-27)
 - Nota: `renderColorOptions` pinta cada color como `<div class="color-option" onclick>`: sin foco, sin rol ni nombre para un lector de pantalla, y de 26px (menos de 44 de área táctil en el teléfono). Pasarlos a `<button type="button" aria-label="Color …" aria-pressed>` (o radios) dentro de un grupo con nombre ("Color"), con área táctil de 44. Ojo: `.color-option` está en `CLICKABLE_SEL` del cursor propio y `selectColor` recorre los `.color-option` por clase.
+
+## Sesión 2026-09-27 (5)
+
+Pedidos de Franco después de un caso real: completó una tarea, la reabrió a
+mano en la planilla para que Noelia subiera sus fotos, y esas fotos quedaron
+con fecha del día siguiente. Los que tienen alcance claro ya son REQ:
+BUG-FECHA-001, REQ-SYNC-001, REQ-MEDIA-004, REQ-PLAN-001 y REQ-UX-001. Acá
+queda solo lo que falta decidir.
+
+Investigación de mercado de todos los pendientes (2026-09-27): `docs/investigacion/2026-09-27-como-lo-resuelven-otros.md`.
+Lo que cambia algo de un REQ quedó escrito en ese REQ.
+
+### BL-023 — Videos en las tareas
+- Estado: Propuesto
+- Prioridad: Sin definir
+- Origen: Franco (2026-09-27), al pedir el conteo "fotos / videos" y "mínimo una foto o video" para cerrar
+- Nota: hoy no se pueden subir videos: `MIME_EXT` solo acepta JPG, PNG y WEBP. Un video pesa mucho más que una foto y hoy se manda en base64 dentro de un `doPost`, que tiene límite de tamaño y de tiempo. Necesita diseño propio (subida por partes o directo a Drive, miniatura, reproducción a través del proxy sin exponer la URL). REQ-MEDIA-004 y REQ-PLAN-001 dejan el conteo preparado para sumar videos.
+
+### BL-024 — Reabrir una tarea completada desde la app
+- Estado: En curso (Franco dijo que sí el 2026-09-27; entra en REQ-PLAN-001, punto 6)
+- Prioridad: Media
+- Origen: Franco (2026-09-27): tuvo que cambiar `completado` → `pendiente` a mano en la hoja `Planes`
+- Nota: hoy no hay forma de reabrirla desde la app. Con REQ-PLAN-001 se cruza así: reabrir borra los acuerdos. Pregunta abierta en REQ-PLAN-001.
+
+### BL-025 — Qué fecha lleva una foto (captura, programada o subida) y tareas de varios días
+- Estado: En curso (formalizado en REQ-MEDIA-005 el 2026-09-27; Franco aprobó la fecha de captura y el día de fin opcional)
+- Prioridad: Media
+- Origen: Franco (2026-09-27), después de BUG-FECHA-001
+- Nota: hoy `fecha_contenido` es el día de la subida. Opciones: la fecha en que se sacó la foto (EXIF), la fecha programada de la tarea o la de subida. Además, una tarea puede durar varios días y cada foto debería mostrar a qué día corresponde. BUG-FECHA-001 arregla solo el corrimiento UTC, no esta decisión.
+  *(2026-09-27, investigación de Paul: Google Fotos ordena por la fecha de captura del EXIF (`DateTimeOriginal`). Si el archivo no la trae, usa la de subida, y el usuario la puede corregir a mano. Esa corrección vive en la base de Google Fotos, no en el archivo. Las apps de viaje (Polarsteps) agrupan las fotos por día o por "paso" dentro de un viaje de varios días. Hallazgo propio: la app recomprime cada foto con `canvas` antes de subirla (`index.html:3191`), y eso borra el EXIF. Por eso la fecha de captura hay que leerla en el navegador antes de comprimir, con un lector chico tipo ExifReader. Además, iOS a veces la saca al compartir. Propuesta: la fecha de la foto es la de captura; si no hay, la del día de subida en hora Argentina; en los dos casos se puede editar. La fecha programada no se usa como fecha de foto. Para tareas de varios días: una fecha de fin opcional en la tarea (la programada pasa a ser el inicio) y las fotos agrupadas por día ("Día 1 · sáb 27/09"). Falta que Franco decida; después se formaliza como REQ.)*

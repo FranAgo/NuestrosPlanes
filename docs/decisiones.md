@@ -37,3 +37,21 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: opción 3, pedida por Franco ("mejoralas acá; ya no tocamos sis-web a menos que indique lo contrario"). Desde ahora las skills de `.claude/skills/` son de este repo y evolucionan acá. DEC-001 sigue vigente en lo demás (estructura y datos en `docs/`).
 - Motivo: Franco no quiere tocar sis-web desde este proyecto, y mantener dos copias en sincronía a mano no paga para una app de dos personas.
 - Reabrir si: Franco pide volver a traer o a llevar skills entre sis-web y Peroncitos.
+
+## DEC-004 — Subir fotos no anula el acuerdo para cerrar una tarea
+- Fecha: 2026-09-27
+- Estado: Aceptada
+- Contexto: REQ-PLAN-001 pide el acuerdo de los dos para cerrar una tarea. Faltaba definir qué pasa si alguien sube fotos después de que los dos dieron el acuerdo. En empresas, los sistemas de doble aprobación (GitHub, maker-checker) descartan la aprobación si el contenido cambió.
+- Opciones consideradas: (1) el acuerdo se mantiene; (2) subir fotos borra los acuerdos; (3) se mantiene, pero se avisa "subió fotos después de tu OK".
+- Decisión: opción 1. Franco: "la subida de fotos es independiente del acuerdo". También aceptó las reglas propuestas por Paul: cada uno solo cambia su propio acuerdo, reabrir borra los acuerdos, y las tareas que ya existen arrancan sin acuerdos.
+- Motivo: el acuerdo es sobre si la salida o la tarea ya pasó, no sobre el conjunto de fotos. Anularlo con cada foto obligaría a ponerse de acuerdo de nuevo por algo que no cambia la decisión.
+- Reabrir si: pasa que una tarea se cierra con fotos que uno de los dos no quería.
+
+## DEC-005 — Fotos de tareas de varios días: una sola carpeta, con el nombre por el día de inicio
+- Fecha: 2026-09-27
+- Estado: Aceptada
+- Contexto: REQ-MEDIA-005 suma un día de fin opcional y agrupa las fotos por el día en que se sacaron. Había que decidir cómo se refleja en Drive y de dónde sale la fecha del nombre de la carpeta, que según REQ-MEDIA-002 era la de la primera foto subida.
+- Opciones consideradas: estructura: (A) una sola carpeta, con el día en el nombre de cada archivo; (B) subcarpetas por día. Fecha de la carpeta: (1) la de la primera subida, como hoy; (2) el día de inicio de la tarea.
+- Decisión: A + 2 (Franco, 2026-09-27, después de ver el ejemplo del viaje a Tandil).
+- Motivo: con subcarpetas, corregir la fecha de una foto o cambiar el día de inicio o de fin obligaría a mover o renombrar cosas en Drive, y la app no usa Drive para agrupar. La fecha de inicio hace que el nombre no dependa de quién subió primero ni de cuándo, y deja los viajes en el mes en que empezaron.
+- Reabrir si: alguien empieza a usar Drive directamente para mirar las fotos por día y el nombre del archivo no le alcanza.

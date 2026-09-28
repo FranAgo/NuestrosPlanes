@@ -74,6 +74,12 @@ media/
 
 Reglas:
 
+> **Cambia con REQ-MEDIA-005 (2026-09-27, DEC-005):** las carpetas nuevas toman
+> `<AAAA>` / `<NombreMes>` / `<DD-MM-AAAA>` del **día de inicio de la tarea**
+> (`fecha_programada`), no de la primera foto. Las carpetas ya creadas no se tocan.
+> Además, este REQ describía la fecha de la primera foto como `fecha_contenido`,
+> pero el código la calcula con `new Date().toISOString()` en UTC (ver BUG-FECHA-001).
+
 - `<AAAA>` / `<NombreMes>` / `<DD-MM-AAAA>` salen de la **fecha de la primera foto
   subida a esa tarea** (`fecha_contenido` de la primera fila `Archivos` con
   `owner_id=plan_id`), no de `fecha_vencimiento` ni de una fecha de completado.

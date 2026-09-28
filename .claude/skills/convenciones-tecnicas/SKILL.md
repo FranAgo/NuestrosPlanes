@@ -13,12 +13,15 @@ description: >
   `display`, estilo inline contra clase, pantalla negra, modal más alto que
   la pantalla; fotos y archivos de Drive en el cliente: pedidos en vuelo,
   `AbortController`, cachear fallos, respuestas viejas, `<img>` sin `src`,
-  cuota de `localStorage`, lotes lentos, miniaturas; errores de carga que
+  cuota de `localStorage`, lotes lentos, miniaturas, EXIF que borra
+  `canvas`; errores de carga que
   se pintan como lista vacía, reintentos; verificar en el navegador o
   preview local, a qué backend pega `localhost`, login de Google local;
   seguridad: lista blanca de `Usuarios`, sesión opaca con HMAC,
   `validarSesion`, `escapeHtml`, URLs de Drive nunca al cliente,
-  `Auditoria`, Script Properties, tests `probarXXX()` en `Tests.gs`.
+  `Auditoria`, Script Properties, tests `probarXXX()` en `Tests.gs`;
+  fechas y zonas horarias: `toISOString()` en UTC, "hoy" en hora
+  Argentina, día corrido después de las 21 h, `Utilities.formatDate`.
 ---
 
 # Convenciones técnicas — cuidados que ya aprendimos
@@ -32,8 +35,9 @@ actual.
 - [apps-script-clasp.md](apps-script-clasp.md) — deploy con clasp a prod y test, `clasp run -u duck`, qué sube un `push`, Ejecuciones y logs invisibles, editor de Apps Script por control remoto.
 - [sheets-concurrencia.md](sheets-concurrencia.md) — escrituras que el request siguiente no ve (`flush()`), lecturas fuera del lock, claves de `CacheService` compartidas entre planillas.
 - [pantallas-y-visibilidad.md](pantallas-y-visibilidad.md) — `hidden` contra `display:flex`, estilo inline que le gana a la clase, modales sin scroll interno.
-- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía.
+- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`.
 - [seguridad.md](seguridad.md) — lo propio de Nuestros Planes para `hjulia-revision-cambio`: lista blanca, sesión opaca, validación en el servidor, `escapeHtml`, proxy de Drive, Auditoría, tests server-side.
+- [fechas.md](fechas.md) — "hoy" en hora Argentina y no con `toISOString()` (UTC), fechas solo-día que se corren.
 - [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`.
 
 ## Cómo mantenerlo
