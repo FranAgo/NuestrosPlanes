@@ -2669,3 +2669,17 @@ Cambios:
 - docs/backlog.md — BL-011 hecho; BL-030 en curso (falta confirmación de Franco); BL-032 (nuevo): getFotosPlan tarda ~4 s.
 - PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v30, "v1.2.1 REQ-PERF-004: miniaturas a 200 px"); clasp redeploy ...LxD0d -V 30. Rollback: redeploy -V 29.
 ========================================================
+
+========================================================
+2026-09-28 12:09 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): push a main (d367dd3) + tag v1.2.1; GitHub Pages sirve APP_VERSION 1.2.1 (curl).
+- Medición de 1.2.1 en el Chrome de Franco (solo lectura): getMiniaturas trajo 242 KB para 16 fotos (1.2.0: 499 KB; antes del REQ: 7,6 MB), 16/16 sin "Sin vista previa". Los tiempos no se pudieron medir: Franco estaba fuera de casa y getFotosPlan tardó de 15 a 42 s o no volvió; con otro wifi la pestaña tampoco respondía. Queda pendiente medirlos con buena conexión.
+- docs/requerimientos/REQ-PERF-004.md — medición de 1.2.1 y efecto secundario aceptado (la card ya no precarga la foto completa para el carrusel).
+- docs/decisiones.md — DEC-010: miniaturas con thumbnailLink por REST (fetchAll) desde el servidor, a 200 px; descartado generarla en el navegador y el Servicio Avanzado.
+- .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — sección de miniaturas actualizada (REST sin Servicio Avanzado, tamaño =sNNN, imagen de Charts no sirve para medir peso, cachés separados).
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — tema 7: medir tiempos en el Chrome de Franco (límite de 45 s, window.__res, recargar entre corridas, pestaña al frente, red de Franco, wrapper de solo lectura).
+========================================================

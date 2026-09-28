@@ -73,12 +73,26 @@ precargar la siguiente.
 
 **Por qué:** el carrusel tardaba más de 40 s en abrir (REQ-PERF-005).
 
-## Miniaturas: `DriveApp.getThumbnail()` no sirve
+## Miniaturas: `thumbnailLink` por el servidor, no `getThumbnail()`
 
 **Qué cuidar:** para fotos subidas por la app, `getThumbnail()` no
-devuelve nada útil. `thumbnailLink` de Drive API v3 (Servicio Avanzado)
-sí, pero la URL de Google nunca va al cliente: se baja en el servidor.
-Detalle en `docs/requerimientos/REQ-PERF-004.md` y BL-011.
+devuelve nada útil. `thumbnailLink` de Drive API v3 sí, pero la URL de
+Google nunca va al cliente: se baja en el servidor.
+- No hace falta el Servicio Avanzado: la API de Drive por REST con
+  `ScriptApp.getOAuthToken()` anda con los scopes que ya están, y
+  `UrlFetchApp.fetchAll` pide todas en paralelo.
+- El tamaño se elige cambiando el `=sNNN` del final del link. Tiene que
+  alcanzar para el tamaño en que se muestra, no más: con fotos reales, a
+  320 px eran ~31 KB por miniatura en base64, y a 200 px, la mitad.
+- Una imagen de prueba armada con `Charts` pesa poco aun entera: sirve para
+  probar que anda, no para medir la proporción. El peso real se mide con
+  fotos reales en el navegador.
+- Mostrar una miniatura no reemplaza la foto completa: van en cachés
+  separados (`miniCache` y `avatarCache`), para que el visor nunca muestre
+  una miniatura estirada.
+
+**Dónde ya está bien:** `handleGetMiniaturas` (`Code.gs`), y
+`fetchMiniaturas` / `miniaturaDataUrl` (`index.html`). REQ-PERF-004.
 
 ## Un error de carga no se pinta como lista vacía
 

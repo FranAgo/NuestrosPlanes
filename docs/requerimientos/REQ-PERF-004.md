@@ -47,6 +47,14 @@ La medición se hizo en el Chrome de Franco, sobre la app publicada (1.2.0, @29)
 
 **Decisión (Franco, 2026-09-28): parche 1.2.1.** Las miniaturas bajan a 200 px, porque las celdas de la grilla miden de 64 a 80 px. En test, la miniatura de la imagen de prueba pasó de 11,4 KB a 5,7 KB. El criterio 1 queda así: menos de 200 KB y menos de 5 s **para `getMiniaturas`**. Los ~4 s de `getFotosPlan` son otro problema y van al backlog.
 
+**Medición de 1.2.1 (2026-09-28 ~11:40, hora Argentina).** Franco estaba fuera de casa, con mala conexión.
+- **Peso:** `getMiniaturas` trajo 242 KB para las 16 fotos, contra 499 KB de la 1.2.0. Todavía queda un poco arriba de los 200 KB.
+- **Resultado:** 16/16, sin "Sin vista previa".
+- **Tiempos:** no sirven. `getFotosPlan` tardó entre 15 y 42 s, y en otra corrida no volvió en más de 40 s. Una de las corridas además se mezcló con otra que seguía andando en la misma pestaña.
+- **Pendiente:** repetir la medición de tiempos con la conexión de casa antes de cerrar el criterio 1.
+
+**Efecto secundario aceptado:** la card de recuerdos ya no deja bajada de antemano la foto completa. Al abrir el carrusel, la primera foto se pide en ese momento, igual que las siguientes desde REQ-PERF-005. Si se nota lenta, se puede precargar solo la primera.
+
 ## Criterios de aceptación
 
 1. En la tarea de 16 fotos, "Ya subidas" muestra todas las miniaturas en

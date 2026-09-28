@@ -118,3 +118,26 @@ deploy (`apps-script-clasp.md`). Aun así, el modo automático frena leer
 hojas con datos personales (`Auditoria`) o guardarlas en un archivo.
 Preferir funciones que devuelven lo justo (`participantesCierre`,
 `conteoFotosPorPlan`) antes que volcar una hoja entera.
+
+## 7. Medir tiempos en el Chrome de Franco
+
+**Qué cuidar:**
+- La herramienta de JavaScript corta a los 45 s. Si la medición puede
+  tardar más, hay que lanzarla sin esperarla: se guarda el resultado en
+  `window.__res` y se lee después con otra llamada.
+- Antes de repetir una medición, recargar la pestaña. Si no, la corrida
+  anterior puede seguir andando con su propio wrapper de `fetch` y se
+  mezclan los registros (salen pedidos duplicados).
+- La pestaña tiene que estar al frente: en segundo plano, Chrome frena los
+  timers y los tiempos no sirven.
+- Los tiempos dependen de la red de Franco. Si está fuera de casa, medir
+  solo el peso (bytes) y dejar los tiempos para otro momento. Si un pedido
+  mínimo no vuelve, la medición no sirve: se cancela y no se insiste.
+- El wrapper es de solo lectura: tira un error para toda acción que no
+  esté en la lista de lecturas. Al terminar se restaura `fetch` y se recarga
+  la pestaña.
+
+**Por qué:** medición de REQ-PERF-004 (2026-09-28): una corrida salió
+mezclada con la anterior, y con la red de un lugar prestado `getFotosPlan`
+tardó de 15 a 42 s o no volvió.
+

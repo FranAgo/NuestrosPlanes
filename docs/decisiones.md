@@ -91,3 +91,17 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A + 1 (Franco, 2026-09-28, después de ver la investigación de Roy). MENOR = un REQ nuevo, PARCHE = un bug o ajuste, MAYOR = un cambio que obliga a actualizar front y servidor a la vez. Arranca en `1.0.0` = lo que está en prod hoy; REQ-MEDIA-003 sale como `1.1.0`. Constante `APP_VERSION` en `index.html` y `Code.gs`, visible en el perfil; tag anotado `vX.Y.Z` en git y la misma versión en la descripción del deploy de Apps Script; `CHANGELOG.md` en formato Keep a Changelog, en castellano y para Franco y Noelia (la bitácora sigue siendo el registro técnico).
 - Motivo: CalVer sirve cuando se publica en fechas fijas y acá se publica cuando algo está listo. Una sola versión evita tener que cruzar dos números para saber qué anda con qué, que es justo el problema que se quiere resolver.
 - Reabrir si: el front y el servidor empiezan a salir tan desacoplados que una sola versión deja de describir lo que está en prod.
+
+## DEC-010 — Miniaturas: `thumbnailLink` de Drive por REST desde el servidor, a 200 px
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: REQ-PERF-004 / BL-030. Cada vista previa bajaba la foto entera: 7,6 MB y 33 s para 16 fotos.
+- Opciones consideradas: dónde sale la miniatura: (A) `thumbnailLink` de Drive, bajado en el servidor; (B) generarla en el navegador al subir y guardarla en una columna de `Archivos`. Cómo llamar a Drive: (1) Servicio Avanzado `Drive.Files.get`; (2) API REST con `UrlFetchApp.fetchAll` y el token del script.
+- Decisión: A + 2. Franco aprobó el alcance a las 10:56 (hora Argentina) y el parche a 200 px después de la medición en producción.
+- Motivo:
+  - (B) toca la subida y la hoja, y no sirve para las fotos que ya están subidas.
+  - (2) no cambia el manifiesto, porque los scopes ya estaban. Además pide todas las miniaturas en paralelo, mientras que con el Servicio Avanzado van de a una.
+  - 200 px alcanzan para celdas de 64 a 80 px en pantallas 2x. A 320 px eran ~31 KB por foto.
+  - No tiene costo: usa la cuota gratis de `UrlFetchApp`, de 20.000 llamadas por día.
+- Reabrir si: Drive deja de generar `thumbnailLink` para las fotos de la app, la cuota empieza a quedar corta, o hace falta mostrar las miniaturas sin pasar por el servidor.
+
