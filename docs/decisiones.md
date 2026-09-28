@@ -64,3 +64,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A (Franco, 2026-09-27, después de ver el mockup interactivo de Jay).
 - Motivo: con dos personas, tener todo a la vista cuesta poco y cada uno ve sin abrir nada qué falta y de quién. B esconde quién está de acuerdo detrás de un número; C obliga a un toque más.
 - Reabrir si: la tarjeta queda demasiado cargada al sumar el conteo de fotos (REQ-MEDIA-004) o si en el teléfono la fila no entra a 375 px.
+
+## DEC-007 — Subir fotos a una tarea se confirma en un paso aparte
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: REQ-MEDIA-004. Franco pidió que la app pregunte antes de la subida final de fotos. Una foto subida no se puede borrar desde la app (BL-009), así que subir es irreversible.
+- Opciones consideradas: (A) confirmación en un paso aparte, con las miniaturas y el aviso "Después no se pueden borrar desde la app"; (B) sin confirmación, el botón dice "Subir 3 fotos" y el aviso queda en texto chico debajo; (C) sin confirmación, la subida arranca a los 5 segundos y mientras tanto se puede deshacer.
+- Decisión: A (Franco, 2026-09-28, después de ver el mockup interactivo de Jay).
+- Motivo: frena justo antes de lo que no se puede deshacer, y con las miniaturas a la vista se nota si se coló una foto equivocada. B deja el aviso en letra chica; C no tiene vuelta atrás pasados los 5 segundos y no arranca si se cierra la app en ese lapso.
+- Reabrir si: se implementa BL-009 (borrar una foto subida), porque ahí subir deja de ser irreversible y B alcanza.

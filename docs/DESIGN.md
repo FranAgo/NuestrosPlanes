@@ -243,6 +243,14 @@ con el brillo `skeletonShimmer` (`.skeleton-card`, card de fotos con
 `.is-loading`) mientras carga la app. El error de carga (`#app-loading`,
 BUG-CARGA-001) muestra el motivo y un botón Reintentar.
 
+**Fotos de una tarea (REQ-MEDIA-004):** en el modal de la tarea, "Ya
+subidas" (`.plan-fotos-ya`, grilla de miniaturas `.foto-ya` con la inicial
+de quién la subió y la fecha) y "Por subir" (`.foto-fila`, una por foto).
+Cada fila lleva una `.foto-pill` con texto: *Lista para subir* (neutra),
+*En espera* (muted), *Subiendo* (cobre, con spinner), *Subida* (verde) y
+*Error* (rojo, con el motivo en su propia línea). Sin colores nuevos. Subir
+pide confirmación en `#modal-subir-fotos` (DEC-007).
+
 **Avatar:** `.avatar` (30px, 72px con `.avatar-lg`), círculo con borde
 cobre tenue; sin foto, muestra la inicial en cobre.
 

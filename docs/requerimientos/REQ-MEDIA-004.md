@@ -1,6 +1,6 @@
 # REQ-MEDIA-004 — Ver qué fotos ya tiene una tarea y en qué estado está cada subida
 
-> **Estado:** PROPUESTO (2026-09-27). Sin diseñar.
+> **Estado:** IMPLEMENTADO, PROBADO EN TEST (2026-09-28). Franco eligió la variante A del mockup (DEC-007). Falta: deploy del servidor y push del front (cada paso con OK de Franco).
 > **Nivel:** cambio de fondo (endpoint nuevo + cambio en `getPlanes` + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** nada. Conviene hacerlo antes de REQ-PLAN-001, que usa el mismo conteo.
@@ -102,3 +102,95 @@ mockup y después elegir):
 Relacionado: si se cierra el modal con fotos elegidas y sin subir, hoy se
 pierden sin aviso (mismo principio: "cerrar un formulario con datos sin
 guardar pregunta antes de descartar"). Entra en el alcance de este REQ.
+
+## Diseño elegido (2026-09-28, DEC-007)
+
+Franco vio el mockup interactivo de Jay (conteo en la tarjeta, "Ya subidas" y
+"Por subir" en el modal, tres variantes de confirmación) y eligió la **A**:
+al tocar "Subir N fotos" aparece un paso aparte con las miniaturas, "¿Subir 3
+fotos a *título*?" y "Después no se pueden borrar desde la app", con "Volver"
+y "Subir 3 fotos".
+
+Lo demás del mockup, que va en cualquier variante:
+- Tarjeta: "3 fotos" / "1 foto" en la meta, con el ícono de cámara. Sin
+  fotos, nada.
+- Modal: bloque "Ya subidas" (miniaturas con la inicial de quién la subió y
+  la fecha; tocar una la abre en el visor del carrusel) y bloque "Por subir"
+  (una fila por foto con su pill, el motivo del error en palabras,
+  "Reintentar" y "Sacar").
+- Se suben de a una; un error de red o 5xx se reintenta solo una vez antes
+  de pasar a *Error*. "Reintentar" sube solo esa foto.
+- Resumen al terminar: "Se subieron las 3 fotos." / "Se subieron 2 de 3. 1
+  no se pudo subir: *motivo*".
+- Cerrar el modal (X, Cancelar, click afuera) con fotos elegidas sin subir
+  pregunta "¿Descartar N fotos elegidas sin subir?".
+
+## Plan de implementación (Paul, 2026-09-28)
+
+Orden:
+1. **Servidor (Bob).** `getPlanes` suma `fotos` (conteo de adjuntos activos
+   por tarea, un solo pase por `Archivos`). Endpoint nuevo `getFotosPlan
+   {planId}` → `[{archivoId, subidoPor, fechaContenido, fechaSubida}]`,
+   ordenado por subida, sin IDs de Drive, 404 si la tarea no existe o está
+   eliminada. `uploadPlanPhotos` no cambia: el front lo llama con una foto
+   por pedido.
+2. **Tests (Duck).** `probarMEDIA004()` en `Tests.gs`: conteo (activas sí,
+   archivadas no, eliminadas no; tarea sin fotos = 0), `getFotosPlan` (solo
+   las de esa tarea, orden, sin `drive_file_id`, 404), 401 sin sesión por
+   `doPost`. Tiene que fallar contra el `Code.gs` actual. Regresión:
+   MEDIA001, MEDIA002, PLAN001, DATA002.
+3. **Front (Jay).** Conteo en la tarjeta; "Ya subidas" con `getFotosPlan` +
+   `getArchivos` (misma caché de imágenes); "Por subir" con pills y subida de
+   a una; paso de confirmación A; aviso al cerrar con fotos sin subir;
+   refrescar el conteo al terminar. Verificación en navegador con el front
+   contra el Web App de test (`simPLAN001`-style), 375/600/601/1366.
+4. **Deploy (Roy)**, cada paso con OK de Franco: servidor primero (el campo
+   y el endpoint nuevos no rompen el front viejo), después el front.
+
+Contratos que no se rompen (Bob): `getPlanes` solo suma un campo;
+`uploadPlanPhotos`, `getArchivos` y `getRecentPlanPhotos` quedan iguales.
+Hojas (Gary): sin columnas nuevas, no hace falta `setupSheets()`.
+Seguridad (Julia): `getFotosPlan` pasa por la sesión de `doPost` como el
+resto; no devuelve IDs de Drive ni emails; cualquiera de los dos puede ver
+las fotos de cualquier tarea (igual que hoy en el carrusel).
+
+## Implementación (2026-09-28)
+
+- **Servidor (Bob):** `getPlanes` suma `fotos` por tarea (`conteoFotosPorPlan()`,
+  un pase por `Archivos`). Endpoint nuevo `getFotosPlan {planId}` →
+  `{fotos: [{archivoId, subidoPor, fechaContenido, fechaSubida}]}`, la más
+  vieja primero, sin IDs de Drive; 400 sin `planId`, 404 si la tarea no
+  existe o está eliminada; pasa por la sesión de `doPost`.
+- **Tests (Duck):** `probarMEDIA004` 21/21 (0/5 contra el `Code.gs` de
+  `HEAD`: sin `fotos` y sin el endpoint). Sin regresión: PLAN001 44/44,
+  MEDIA002 43/43, MEDIA001 22/22, DATA002 70/70.
+- **Front (Jay):** conteo en la tarjeta; en el modal, "Ya subidas" (miniaturas
+  de a una por `getArchivo`, inicial o avatar de quién la subió, fecha; tocar
+  una la abre en el visor del carrusel con el título de la tarea) y "Por
+  subir" (fila por foto con pill, motivo del error en su propia línea,
+  "Reintentar" y "Sacar"); paso de confirmación en un modal aparte
+  (`#modal-subir-fotos`); subida de a una; resumen solo con el conteo;
+  cerrar (X, Cancelar o después de Guardar) con fotos sin subir pregunta por
+  `#modal-confirm` ("Descartar y cerrar").
+- **Desvío del alcance (Paul):** no hay reintento automático. El REQ pedía
+  reintentar una vez sola ante un error de red, pero subir es una escritura:
+  si la foto llegó y se perdió la respuesta, el reintento la duplica, y no se
+  puede borrar desde la app (convenciones-tecnicas, red y archivos: "las
+  escrituras no [reintentan], porque duplican"). Ante un corte, la fila dice
+  "No hubo respuesta. Puede que haya llegado igual: fijate en 'Ya subidas'
+  antes de reintentar", y "Ya subidas" se relee sola al terminar la tanda.
+- **Verificado en navegador** (front local en 127.0.0.1 contra el Web App de
+  test @9, sesiones de prueba con `simPLAN001_preparar`): conteo 1 → 3 → 4
+  en la tarjeta; "Ya subidas" con miniatura fallida ("Sin vista previa");
+  3 fotos "Lista para subir"; confirmación con título, miniaturas y aviso,
+  "Volver" sin pedidos; subida con teclado (Enter, Enter); traza de estados
+  `error,subiendo,espera → error,subida,subiendo → error,subida,subida` con
+  un corte simulado; el servidor recibió solo las 2 que salieron;
+  "Reintentar" sube solo esa y sin volver a confirmar; cerrar con 1 foto con
+  error pregunta, "Cancelar" la conserva y "Descartar y cerrar" cierra;
+  visor con el título de la tarea; 375 px sin desborde; consola sin errores.
+  Duck encontró que "Reintentar" seguía activo durante otra tanda (dos
+  subidas en paralelo): se oculta mientras hay una en curso.
+- **Sin verificar:** con fotos reales de un teléfono y la sesión real (se ve
+  después del deploy). En test quedaron los archivos de Drive de las fotos
+  de prueba (las filas de `Archivos` se borraron con `simPLAN001_limpiar`).

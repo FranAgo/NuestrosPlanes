@@ -901,6 +901,9 @@
       gap: 0.4rem;
     }
 
+    .plan-meta-fotos { color: var(--text-main); }
+    .plan-meta-fotos span.icon { color: var(--copper); }
+
     .plan-meta-item span.icon {
       font-size: 0.82rem;
       color: var(--text-muted);
@@ -1575,59 +1578,251 @@
       margin-bottom: 0.6rem;
     }
 
-    .plan-fotos-grid {
+    /* REQ-MEDIA-004: "Ya subidas" (lo que está en el servidor) y "Por subir"
+       (la selección local, una fila por foto con su estado en texto). */
+    .plan-fotos-bloque { margin-bottom: 0.8rem; }
+
+    .plan-fotos-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.66rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .plan-fotos-sub em {
+      font-style: normal;
+      text-transform: none;
+      letter-spacing: 0.02em;
+      font-size: 0.74rem;
+      color: var(--text-soft);
+    }
+
+    .plan-fotos-ya {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .plan-fotos-vacio {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .plan-fotos-error-carga {
+      grid-column: 1 / -1;
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 0.5rem;
-      margin-bottom: 0.7rem;
+      font-size: 0.78rem;
+      color: var(--red-venc);
     }
 
-    .plan-fotos-grid:empty { margin-bottom: 0; }
+    .foto-ya {
+      display: grid;
+      gap: 0.2rem;
+      min-width: 0;
+      background: none;
+      border: none;
+      padding: 0;
+      color: inherit;
+      font-family: inherit;
+      text-align: left;
+      cursor: none;
+    }
 
-    .plan-foto-item {
+    .foto-ya-thumb {
       position: relative;
-      width: 64px;
-      height: 64px;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 1;
+      width: 100%;
       border-radius: var(--radius-sm);
-      overflow: hidden;
       border: 0.5px solid var(--border-soft);
+      overflow: hidden;
       background: #1A1612;
-      flex-shrink: 0;
+      transition: var(--transition);
     }
 
-    .plan-foto-item.ok    { border-color: rgba(106,170,128,0.5); }
-    .plan-foto-item.error { border-color: rgba(170,96,96,0.6); }
+    .foto-ya:hover .foto-ya-thumb { border-color: rgba(184,120,58,0.5); }
 
-    .plan-foto-item img {
+    .foto-ya-img {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
 
-    .plan-foto-overlay {
+    .foto-ya-sin {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 0 0.2rem;
+    }
+
+    .foto-ya-quien {
       position: absolute;
-      inset: 0;
-      display: none;
+      right: 3px;
+      bottom: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--copper-dim);
+      color: var(--copper);
+      font-size: 0.6rem;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .foto-ya-quien img { width: 100%; height: 100%; object-fit: cover; }
+
+    .foto-ya-fecha {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .plan-fotos-cola { display: grid; gap: 0.45rem; }
+
+    .foto-fila {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      gap: 0.65rem;
       align-items: center;
-      justify-content: center;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.45rem 0.55rem;
+      background: #13100D;
+      transition: var(--transition);
     }
 
-    .plan-foto-overlay svg {
-      width: 1rem;
-      height: 1rem;
+    .foto-fila.error { border-color: rgba(170,96,96,0.4); }
+
+    .foto-fila-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 0.5px solid var(--border-soft);
     }
 
-    .plan-foto-item.subiendo .plan-foto-overlay {
-      display: flex;
-      background: rgba(8,7,6,0.55);
+    .foto-fila-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .foto-fila-info {
+      min-width: 0;
+      display: grid;
+      gap: 0.2rem;
+      justify-items: start;
     }
 
-    .plan-foto-item.error .plan-foto-overlay {
-      display: flex;
-      background: rgba(30,10,10,0.75);
+    .foto-fila-nombre {
+      max-width: 100%;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .foto-fila-motivo {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 0.74rem;
+      line-height: 1.35;
       color: var(--red-venc);
-      cursor: help;
+    }
+
+    .foto-fila-acciones { display: flex; gap: 0.25rem; }
+
+    .btn-mini {
+      background: none;
+      border: 0.5px solid var(--border-soft);
+      color: var(--text-soft);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.66rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.5rem;
+      cursor: none;
+      transition: var(--transition);
+    }
+
+    .btn-mini:hover { border-color: var(--copper-dim); color: var(--text-main); }
+
+    .btn-mini.solo-icono {
+      width: 30px;
+      padding: 0.35rem 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .btn-mini svg { width: 13px; height: 13px; }
+
+    .foto-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: var(--radius-sm);
+      padding: 0.12rem 0.45rem;
+      border: 0.5px solid;
+      white-space: nowrap;
+    }
+
+    .foto-pill svg { width: 10px; height: 10px; }
+    .foto-pill .spinner { width: 9px; height: 9px; }
+    .foto-pill.lista    { color: var(--text-soft); border-color: var(--border-soft); }
+    .foto-pill.espera   { color: var(--text-muted); border-color: var(--border); }
+    .foto-pill.subiendo { color: var(--copper); border-color: var(--copper-dim); }
+    .foto-pill.subida   { color: var(--green-ok); border-color: rgba(106,170,128,0.4); background: var(--green-ok-bg); }
+    .foto-pill.error    { color: var(--red-venc); border-color: rgba(170,96,96,0.4); background: var(--red-venc-bg); }
+
+    .plan-fotos-resumen {
+      font-size: 0.8rem;
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.75rem;
+      margin-top: 0.6rem;
+      border: 0.5px solid rgba(106,170,128,0.4);
+      color: var(--green-ok);
+      background: var(--green-ok-bg);
+    }
+
+    .plan-fotos-resumen.parcial {
+      border-color: rgba(170,96,96,0.4);
+      color: var(--text-main);
+      background: var(--red-venc-bg);
+    }
+
+    /* Confirmación antes de subir (REQ-MEDIA-004, DEC-007) */
+    .subir-fotos-tira {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .subir-fotos-tira img {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border-soft);
     }
 
     .plan-fotos-actions {
@@ -2015,13 +2210,21 @@
       <div class="form-group" id="plan-fotos-section" style="display:none">
         <label>Fotos</label>
         <p class="plan-fotos-hint">Se necesita al menos una foto para poder completar esta tarea.</p>
-        <div class="plan-fotos-grid" id="plan-fotos-grid"></div>
+        <div class="plan-fotos-bloque">
+          <div class="plan-fotos-sub"><span>Ya subidas</span><em id="plan-fotos-ya-cuenta"></em></div>
+          <div class="plan-fotos-ya" id="plan-fotos-ya"></div>
+        </div>
+        <div class="plan-fotos-bloque" id="plan-fotos-cola-bloque" hidden>
+          <div class="plan-fotos-sub"><span>Por subir</span><em id="plan-fotos-cola-cuenta"></em></div>
+          <div class="plan-fotos-cola" id="plan-fotos-cola" aria-live="polite"></div>
+          <div id="plan-fotos-resumen" aria-live="polite"></div>
+        </div>
         <div class="plan-fotos-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-agregar-foto-plan">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
             Agregar foto
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-confirmar-fotos-plan" style="display:none">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-confirmar-fotos-plan" hidden>
             Subir fotos
           </button>
         </div>
@@ -2042,7 +2245,7 @@
   <div class="modal-overlay" id="modal-carrusel">
     <div class="modal">
       <div class="modal-header">
-        <h3>Nuestros recuerdos</h3>
+        <h3 id="carrusel-titulo">Nuestros recuerdos</h3>
         <button type="button" class="btn-icon" id="btn-close-modal-carrusel" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
@@ -2139,6 +2342,27 @@
   <!-- ================================================
        MODAL: CONFIRMACIÓN GENÉRICA
   ================================================ -->
+  <!-- Confirmar antes de subir fotos (REQ-MEDIA-004, DEC-007): una foto
+       subida no se puede borrar desde la app (BL-009). -->
+  <div class="modal-overlay" id="modal-subir-fotos">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="subir-fotos-titulo" aria-describedby="subir-fotos-msg">
+      <div class="modal-header">
+        <h3 id="subir-fotos-titulo">¿Subir las fotos?</h3>
+        <button type="button" class="btn-icon" id="btn-close-subir-fotos" aria-label="Volver sin subir" title="Volver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="subir-fotos-tira" id="subir-fotos-tira"></div>
+      <p class="modal-confirm-msg" id="subir-fotos-msg">Después no se pueden borrar desde la app.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-volver-subir-fotos">Volver</button>
+        <button type="button" class="btn btn-primary" id="btn-si-subir-fotos">Subir fotos</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-confirm">
     <div class="modal">
       <div class="modal-header">
@@ -2907,6 +3131,7 @@
 
     async function openModalCarrusel() {
       const modal = document.getElementById('modal-carrusel');
+      document.getElementById('carrusel-titulo').textContent = 'Nuestros recuerdos';
       modal.classList.add('visible');
 
       const imagen = document.getElementById('carrusel-imagen');
@@ -3282,6 +3507,13 @@
                   </svg>
                 </span> Creado el ${formatDateDisplay(plan.fechaCreacion)}
               </div>
+              ${plan.fotos > 0
+                ? `<div class="plan-meta-item plan-meta-fotos">
+                    <span class="icon">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+                    </span> ${textoFotos(plan.fotos)}
+                   </div>`
+                : ''}
             </div>
             <div class="plan-creator">
               <div class="creator-avatar">${avatarContent}</div>
@@ -3310,43 +3542,235 @@
       addRipple(e.currentTarget, e);
       openModalPlan(null);
     });
-    document.getElementById('btn-close-modal-plan').addEventListener('click', closeModalPlan);
-    document.getElementById('btn-cancel-plan').addEventListener('click', closeModalPlan);
+    document.getElementById('btn-close-modal-plan').addEventListener('click', pedirCerrarModalPlan);
+    document.getElementById('btn-cancel-plan').addEventListener('click', pedirCerrarModalPlan);
     document.getElementById('btn-save-plan').addEventListener('click', e => {
       addRipple(e.currentTarget, e);
       savePlan();
     });
 
     // ====================================================
-    // PLAN — FOTOS (REQ-MEDIA-002)
-    // Selección múltiple con preview antes de confirmar, subida en una sola
-    // llamada a uploadPlanPhotos, y marcado individual de las que fallan sin
-    // descartar las que sí subieron (criterios 10 y 11).
+    // PLAN — FOTOS (REQ-MEDIA-002, REQ-MEDIA-004)
+    // "Ya subidas": lo que está en el servidor (getFotosPlan), miniaturas de a
+    // una por getArchivo. "Por subir": la selección local, una fila por foto
+    // con su estado en texto. Se suben de a una (una llamada a
+    // uploadPlanPhotos por foto) para poder mostrar el estado de cada una.
+    // Antes de subir se confirma (DEC-007): una foto subida no se puede
+    // borrar desde la app (BL-009).
     // ====================================================
-    // { file, mimeType, fileBase64, previewUrl, estado: 'pendiente'|'subiendo'|'ok'|'error', error }
+    // { id, nombre, mimeType, fileBase64, previewUrl,
+    //   estado: 'lista'|'espera'|'subiendo'|'subida'|'error', error }
     let planFotosSeleccion = [];
+    let planFotosSeq = 0;
+    // Cambia al cerrar el modal: una subida en curso deja de mandar las que
+    // faltan y no pinta en el modal de otra tarea.
+    let planFotosLote = 0;
+
+    // { planId, estado: 'cargando'|'ok'|'error', fotos, error }
+    let planFotosYa = { planId: null, estado: 'ok', fotos: [] };
+    let planFotosYaToken = 0;
+    const planFotosYaFallidas = new Set();   // archivoIds cuya miniatura no se pudo traer
+
+    const SVG_X_CHICA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+    function textoFotos(n) { return n === 1 ? '1 foto' : `${n} fotos`; }
 
     function resetPlanFotosSeleccion() {
       planFotosSeleccion = [];
-      document.getElementById('plan-fotos-grid').innerHTML = '';
-      document.getElementById('btn-confirmar-fotos-plan').style.display = 'none';
+      planFotosLote++;
+      pintarResumenFotos('');
+      renderPlanFotosGrid();
+    }
+
+    function htmlFotoPill(f) {
+      switch (f.estado) {
+        case 'lista':    return '<span class="foto-pill lista">Lista para subir</span>';
+        case 'espera':   return '<span class="foto-pill espera">En espera</span>';
+        case 'subiendo': return '<span class="foto-pill subiendo"><span class="spinner" aria-hidden="true"></span>Subiendo</span>';
+        case 'subida':   return '<span class="foto-pill subida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Subida</span>';
+        case 'error':    return '<span class="foto-pill error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>Error</span>';
+        default:         return '';
+      }
     }
 
     function renderPlanFotosGrid() {
-      const grid = document.getElementById('plan-fotos-grid');
-      grid.innerHTML = planFotosSeleccion.map(f => {
-        let overlay = '';
-        if (f.estado === 'subiendo') overlay = '<div class="plan-foto-overlay"><span class="spinner"></span></div>';
-        if (f.estado === 'error')    overlay = `<div class="plan-foto-overlay" title="${escapeHtml(f.error || '')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></div>`;
-        return `<div class="plan-foto-item ${f.estado}">
-          <img src="${f.previewUrl}" alt="" />
-          ${overlay}
+      const cola    = document.getElementById('plan-fotos-cola');
+      // Mientras hay una tanda en curso no se reintenta aparte: serían dos
+      // subidas en paralelo con un solo resumen.
+      const enCurso = planFotosSeleccion.some(f => f.estado === 'espera' || f.estado === 'subiendo');
+      cola.innerHTML = planFotosSeleccion.map(f => {
+        const nombre = escapeHtml(f.nombre);
+        const reintentar = f.estado === 'error' && !enCurso
+          ? `<button type="button" class="btn-mini" data-reintentar="${f.id}" aria-label="Reintentar ${nombre}">Reintentar</button>`
+          : '';
+        const sacar = f.estado === 'lista' || f.estado === 'error'
+          ? `<button type="button" class="btn-mini solo-icono" data-sacar="${f.id}" aria-label="Sacar ${nombre}" title="Sacar">${SVG_X_CHICA}</button>`
+          : '';
+        return `<div class="foto-fila ${f.estado}">
+          <span class="foto-fila-thumb"><img src="${f.previewUrl}" alt="" /></span>
+          <div class="foto-fila-info">
+            <span class="foto-fila-nombre" title="${nombre}">${nombre}</span>
+            ${htmlFotoPill(f)}
+          </div>
+          <div class="foto-fila-acciones">${reintentar}${sacar}</div>
+          ${f.estado === 'error' ? `<p class="foto-fila-motivo">${escapeHtml(f.error || '')}</p>` : ''}
         </div>`;
       }).join('');
 
-      const hayPendientes = planFotosSeleccion.some(f => f.estado === 'pendiente');
-      document.getElementById('btn-confirmar-fotos-plan').style.display = hayPendientes ? '' : 'none';
+      const n = planFotosSeleccion.length;
+      document.getElementById('plan-fotos-cola-bloque').hidden = n === 0 && !document.getElementById('plan-fotos-resumen').innerHTML;
+      document.getElementById('plan-fotos-cola-cuenta').textContent = n ? `${n} elegida${n === 1 ? '' : 's'}` : '';
+
+      const listas  = planFotosSeleccion.filter(f => f.estado === 'lista').length;
+      const btnSubir = document.getElementById('btn-confirmar-fotos-plan');
+      btnSubir.hidden      = listas === 0;
+      btnSubir.textContent = `Subir ${textoFotos(listas)}`;
+      btnSubir.disabled    = enCurso;
+      document.getElementById('btn-agregar-foto-plan').disabled = enCurso;
     }
+
+    function pintarResumenFotos(texto, parcial) {
+      const el = document.getElementById('plan-fotos-resumen');
+      el.className   = texto ? `plan-fotos-resumen${parcial ? ' parcial' : ''}` : '';
+      el.textContent = texto;
+    }
+
+    // --- Ya subidas ---
+
+    async function cargarFotosYaSubidas(planId, silencioso) {
+      const token = ++planFotosYaToken;
+      if (!silencioso) {
+        planFotosYa = { planId, estado: 'cargando', fotos: [] };
+        renderFotosYaSubidas();
+      }
+      let data;
+      try { data = await apiLectura('getFotosPlan', { planId }); } catch (e) { data = e; }
+      if (token !== planFotosYaToken || !state.session) return;
+
+      if (data && data.status === 200) {
+        planFotosYa = { planId, estado: 'ok', fotos: data.fotos || [] };
+        renderFotosYaSubidas();
+        // De a una (convenciones-tecnicas, red y archivos): una que falla no
+        // arrastra a las demás y cada una aparece apenas llega.
+        planFotosYa.fotos.forEach(f => {
+          if (avatarCache.get(f.archivoId)) return;
+          planFotosYaFallidas.delete(f.archivoId);
+          fetchArchivoDataUrl(f.archivoId).then(url => {
+            if (!url) planFotosYaFallidas.add(f.archivoId);
+            if (token === planFotosYaToken) pintarMiniaturaYa(f.archivoId);
+          });
+        });
+      } else if (!silencioso || planFotosYa.estado !== 'ok') {
+        planFotosYa = { planId, estado: 'error', fotos: [], error: motivoDeFallo('las fotos', data) };
+        renderFotosYaSubidas();
+      }
+    }
+
+    function htmlMiniaturaYa(archivoId) {
+      const src = avatarCache.get(archivoId);
+      if (src) return `<img class="foto-ya-img" src="${src}" alt="" />`;
+      if (planFotosYaFallidas.has(archivoId)) return '<span class="foto-ya-sin">Sin vista previa</span>';
+      return '<span class="spinner" aria-hidden="true"></span>';
+    }
+
+    function htmlQuienSubio(userId) {
+      const src = avatarDataUrl(getUserAvatarArchivoId(userId));
+      if (src) return `<img src="${src}" alt="" />`;
+      return escapeHtml((getUserDisplay(userId) || '?')[0].toUpperCase());
+    }
+
+    function renderFotosYaSubidas() {
+      const cont   = document.getElementById('plan-fotos-ya');
+      const cuenta = document.getElementById('plan-fotos-ya-cuenta');
+
+      if (planFotosYa.estado === 'cargando') {
+        cuenta.textContent = '';
+        cont.innerHTML = '<p class="plan-fotos-vacio"><span class="spinner" aria-hidden="true"></span>Cargando fotos…</p>';
+        return;
+      }
+      if (planFotosYa.estado === 'error') {
+        cuenta.textContent = '';
+        cont.innerHTML = `<div class="plan-fotos-error-carga" role="alert">${escapeHtml(planFotosYa.error)}
+          <button type="button" class="btn-mini" id="btn-reintentar-fotos-ya">Reintentar</button></div>`;
+        return;
+      }
+
+      const fotos = planFotosYa.fotos;
+      cuenta.textContent = fotos.length ? textoFotos(fotos.length) : '';
+      if (fotos.length === 0) {
+        cont.innerHTML = '<p class="plan-fotos-vacio">Todavía no hay fotos.</p>';
+        return;
+      }
+      cont.innerHTML = fotos.map((f, i) => {
+        const quien = escapeHtml(getUserDisplay(f.subidoPor) || '');
+        const fecha = f.fechaContenido ? formatDateDisplay(f.fechaContenido).slice(0, 5) : '';
+        return `<button type="button" class="foto-ya" data-foto-ya="${i}" data-archivo-id="${safeId(f.archivoId)}"
+                  aria-label="Ver en grande la foto de ${quien}${fecha ? ', ' + fecha : ''}" title="Ver en grande">
+          <span class="foto-ya-thumb">${htmlMiniaturaYa(f.archivoId)}<span class="foto-ya-quien" aria-hidden="true">${htmlQuienSubio(f.subidoPor)}</span></span>
+          <span class="foto-ya-fecha">${fecha}</span>
+        </button>`;
+      }).join('');
+    }
+
+    // Cambia solo la miniatura: re-renderizar la grilla le sacaría el foco a
+    // quien viene con el teclado.
+    function pintarMiniaturaYa(archivoId) {
+      const btn = document.querySelector(`#plan-fotos-ya [data-archivo-id="${safeId(archivoId)}"]`);
+      if (!btn) return;
+      const thumb = btn.querySelector('.foto-ya-thumb');
+      const quien = thumb.querySelector('.foto-ya-quien');
+      thumb.innerHTML = htmlMiniaturaYa(archivoId);
+      thumb.appendChild(quien);
+    }
+
+    // Tocar una foto ya subida la abre en el visor del carrusel, con las
+    // fotos de esta tarea.
+    function abrirVisorFotosPlan(indice) {
+      const plan = state.planes.find(p => p.planId === planFotosYa.planId);
+      const cat  = plan ? getCategoriaById(plan.categoriaId) : null;
+      carruselFotos = planFotosYa.fotos.map(f => ({
+        archivoId:       f.archivoId,
+        planId:          planFotosYa.planId,
+        tituloPlan:      plan ? plan.titulo : null,
+        categoriaNombre: cat ? cat.nombre : null,
+        fecha:           f.fechaContenido,
+      }));
+      if (!carruselFotos[indice]) return;
+      carruselIndex = indice;
+      document.getElementById('carrusel-titulo').textContent = plan ? plan.titulo : 'Fotos de la tarea';
+      const imagen = document.getElementById('carrusel-imagen');
+      imagen.classList.remove('is-loaded');
+      imagen.removeAttribute('src');
+      document.getElementById('carrusel-loader').classList.remove('is-hidden');
+      document.getElementById('carrusel-caption').textContent = '';
+      document.getElementById('modal-carrusel').classList.add('visible');
+      renderCarruselFoto();
+    }
+
+    document.getElementById('plan-fotos-ya').addEventListener('click', e => {
+      if (e.target.closest('#btn-reintentar-fotos-ya')) {
+        if (planFotosYa.planId) cargarFotosYaSubidas(planFotosYa.planId);
+        return;
+      }
+      const btn = e.target.closest('[data-foto-ya]');
+      if (btn) abrirVisorFotosPlan(Number(btn.dataset.fotoYa));
+    });
+
+    // --- Por subir ---
+
+    document.getElementById('plan-fotos-cola').addEventListener('click', e => {
+      const reintentar = e.target.closest('[data-reintentar]');
+      const sacar      = e.target.closest('[data-sacar]');
+      if (reintentar) {
+        const f = planFotosSeleccion.find(x => x.id === Number(reintentar.dataset.reintentar));
+        if (f && f.estado === 'error') subirFotosPlan([f]);
+      } else if (sacar) {
+        planFotosSeleccion = planFotosSeleccion.filter(x => x.id !== Number(sacar.dataset.sacar));
+        pintarResumenFotos('');
+        renderPlanFotosGrid();
+        document.getElementById('btn-agregar-foto-plan').focus();
+      }
+    });
 
     document.getElementById('btn-agregar-foto-plan').addEventListener('click', () => {
       document.getElementById('plan-foto-input').click();
@@ -3416,59 +3840,136 @@
         }
 
         planFotosSeleccion.push({
-          file,
+          id:          ++planFotosSeq,
+          nombre:      file.name || 'foto',
           mimeType:    comprimido.mimeType,
           fileBase64:  comprimido.base64,
           previewUrl:  comprimido.dataUrl,
-          estado:      'pendiente',
+          estado:      'lista',
           error:       null,
         });
+        pintarResumenFotos('');
         renderPlanFotosGrid();
       });
     });
 
-    document.getElementById('btn-confirmar-fotos-plan').addEventListener('click', async () => {
-      const planId    = state.editingPlanId;
-      const pendientes = planFotosSeleccion.filter(f => f.estado === 'pendiente');
-      if (!planId || pendientes.length === 0) return;
+    // --- Confirmar y subir (DEC-007, variante A) ---
 
-      pendientes.forEach(f => { f.estado = 'subiendo'; });
+    const modalSubirFotos = document.getElementById('modal-subir-fotos');
+
+    document.getElementById('btn-confirmar-fotos-plan').addEventListener('click', () => {
+      const listas = planFotosSeleccion.filter(f => f.estado === 'lista');
+      if (!state.editingPlanId || listas.length === 0) return;
+
+      const plan  = state.planes.find(p => p.planId === state.editingPlanId);
+      const texto = textoFotos(listas.length);
+      document.getElementById('subir-fotos-titulo').textContent = plan ? `¿Subir ${texto} a ${plan.titulo}?` : `¿Subir ${texto}?`;
+      document.getElementById('subir-fotos-tira').innerHTML = listas.map(f => `<img src="${f.previewUrl}" alt="" />`).join('');
+      document.getElementById('btn-si-subir-fotos').textContent = `Subir ${texto}`;
+      modalSubirFotos.classList.add('visible');
+      document.getElementById('btn-si-subir-fotos').focus();
+    });
+
+    function cerrarConfirmarSubida(subir) {
+      if (!modalSubirFotos.classList.contains('visible')) return;
+      modalSubirFotos.classList.remove('visible');
+      if (subir) {
+        subirFotosPlan(planFotosSeleccion.filter(f => f.estado === 'lista'));
+      } else {
+        document.getElementById('btn-confirmar-fotos-plan').focus();
+      }
+    }
+
+    document.getElementById('btn-si-subir-fotos').addEventListener('click', () => cerrarConfirmarSubida(true));
+    document.getElementById('btn-volver-subir-fotos').addEventListener('click', () => cerrarConfirmarSubida(false));
+    document.getElementById('btn-close-subir-fotos').addEventListener('click', () => cerrarConfirmarSubida(false));
+    modalSubirFotos.addEventListener('click', e => { if (e.target === modalSubirFotos) cerrarConfirmarSubida(false); });
+
+    // Sin reintento automático: subir es una escritura, y si la foto llegó
+    // pero se perdió la respuesta, reintentar la duplicaría
+    // (convenciones-tecnicas, red y archivos). "Reintentar" lo decide la
+    // persona, foto por foto.
+    async function subirFotosPlan(fotos) {
+      const planId = state.editingPlanId;
+      const lote   = planFotosLote;
+      if (!planId || fotos.length === 0) return;
+
+      pintarResumenFotos('');
+      fotos.forEach(f => { f.estado = 'espera'; f.error = null; });
       renderPlanFotosGrid();
 
-      const btnConfirmar = document.getElementById('btn-confirmar-fotos-plan');
-      const btnAgregar    = document.getElementById('btn-agregar-foto-plan');
-      btnConfirmar.disabled = true;
-      btnAgregar.disabled   = true;
-
-      try {
-        const data = await api('uploadPlanPhotos', {
-          planId,
-          files: pendientes.map(f => ({ fileBase64: f.fileBase64, mimeType: f.mimeType })),
-        });
-
-        if (data.status === 200) {
-          const erroresPorIndex = new Map((data.errores || []).map(err => [err.index, err.error]));
-          pendientes.forEach((f, i) => {
-            if (erroresPorIndex.has(i)) {
-              f.estado = 'error';
-              f.error  = erroresPorIndex.get(i);
-            } else {
-              f.estado = 'ok';
-            }
-          });
-          // El carrusel de recuerdos se refresca en caliente con lo recién subido.
-          await loadFotosRecientes();
-        } else {
-          pendientes.forEach(f => { f.estado = 'error'; f.error = data.error || 'Error al subir la imagen.'; });
+      let huboCorte = false;
+      for (const f of fotos) {
+        if (lote !== planFotosLote) break;
+        f.estado = 'subiendo';
+        renderPlanFotosGrid();
+        try {
+          const data = await api('uploadPlanPhotos', { planId, files: [{ fileBase64: f.fileBase64, mimeType: f.mimeType }] });
+          const errorFoto = data.status === 200 && data.errores && data.errores[0] ? data.errores[0].error : null;
+          if (data.status === 200 && !errorFoto) {
+            f.estado = 'subida';
+            // La vista previa local sirve de miniatura: no hace falta bajarla de nuevo.
+            const nueva = data.subidas && data.subidas[0];
+            if (nueva && nueva.archivoId && state.session) avatarCache.set(nueva.archivoId, f.previewUrl);
+          } else {
+            f.estado = 'error';
+            f.error  = errorFoto || mensajeDeError(data, 'No se pudo subir. Probá de nuevo en un momento.');
+          }
+        } catch {
+          huboCorte = true;
+          f.estado = 'error';
+          f.error  = 'No hubo respuesta. Puede que haya llegado igual: fijate en "Ya subidas" antes de reintentar.';
         }
-      } catch {
-        pendientes.forEach(f => { f.estado = 'error'; f.error = 'Error de conexión.'; });
+        if (lote !== planFotosLote) break;
+        renderPlanFotosGrid();
       }
 
-      btnConfirmar.disabled = false;
-      btnAgregar.disabled   = false;
-      renderPlanFotosGrid();
-    });
+      // Se cerró el modal en el medio: solo se actualiza el conteo.
+      if (lote !== planFotosLote) { refrescarConteoFotos(); return; }
+
+      const bien = fotos.filter(f => f.estado === 'subida').length;
+      const mal  = fotos.filter(f => f.estado === 'error');
+      // El motivo de cada error ya está en su fila: el resumen solo cuenta.
+      if (mal.length === 0) {
+        pintarResumenFotos(bien === 1 ? 'Se subió la foto.' : `Se subieron las ${bien} fotos.`);
+      } else if (bien === 0) {
+        pintarResumenFotos(mal.length === 1 ? 'No se pudo subir la foto.' : `No se pudieron subir las ${mal.length} fotos.`, true);
+      } else {
+        pintarResumenFotos(`Se subieron ${bien} de ${fotos.length}. ${mal.length === 1 ? '1 no se pudo subir.' : `${mal.length} no se pudieron subir.`}`, true);
+      }
+
+      // Las subidas pasan a "Ya subidas", que se relee del servidor (también
+      // muestra una que llegó aunque la respuesta se haya cortado).
+      if (bien > 0 || huboCorte) {
+        await cargarFotosYaSubidas(planId, true);
+        if (lote !== planFotosLote) return;
+        planFotosSeleccion = planFotosSeleccion.filter(f => f.estado !== 'subida');
+        renderPlanFotosGrid();
+        refrescarConteoFotos();
+        loadFotosRecientes();
+      }
+    }
+
+    // Conteo de la tarjeta (REQ-MEDIA-004): se relee getPlanes en segundo plano.
+    async function refrescarConteoFotos() {
+      try {
+        const data = await loadPlanes();
+        if (data && data.status === 200) renderPlanes();
+      } catch { /* el conteo se actualiza en la próxima carga */ }
+    }
+
+    // Cerrar el modal con fotos elegidas sin subir pregunta antes de
+    // descartarlas. La que ya se está subiendo termina igual.
+    async function pedirCerrarModalPlan() {
+      const sinSubir = planFotosSeleccion.filter(f => f.estado === 'lista' || f.estado === 'espera' || f.estado === 'error').length;
+      if (sinSubir > 0) {
+        const ok = await confirmarModal(
+          `Tenés ${sinSubir === 1 ? '1 foto elegida' : `${sinSubir} fotos elegidas`} sin subir. Si cerrás, se descarta${sinSubir === 1 ? '' : 'n'}. Las que ya están subidas no se tocan.`,
+          'Descartar y cerrar');
+        if (!ok) return;
+      }
+      closeModalPlan();
+    }
 
     function openModalPlan(planId) {
       state.editingPlanId = planId || null;
@@ -3500,6 +4001,7 @@
       // existe — "Nuevo Plan" todavía no tiene planId para asociarle fotos.
       resetPlanFotosSeleccion();
       document.getElementById('plan-fotos-section').style.display = planId ? '' : 'none';
+      if (planId) cargarFotosYaSubidas(planId);
 
       document.getElementById('modal-plan').classList.add('visible');
     }
@@ -3507,6 +4009,8 @@
     function closeModalPlan() {
       document.getElementById('modal-plan').classList.remove('visible');
       state.editingPlanId = null;
+      resetPlanFotosSeleccion();   // corta una subida en curso (planFotosLote)
+      planFotosYaToken++;          // descarta una carga de "Ya subidas" en vuelo
     }
 
     async function savePlan() {
@@ -3552,7 +4056,7 @@
         if (data.status === 200) {
           await refreshPlanes();
           renderPlanes();
-          closeModalPlan();
+          await pedirCerrarModalPlan();
         } else {
           errorEl.textContent = data.error || 'Error al guardar.';
           errorEl.classList.add('visible');

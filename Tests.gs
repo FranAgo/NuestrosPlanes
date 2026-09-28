@@ -1891,3 +1891,194 @@ function probarPLAN001() {
 
   return R.finalizar();
 }
+
+
+// ============================================================
+// Simulación de REQ-PLAN-001 en el navegador contra el Web App de TEST.
+// Prueba el front publicado con el servidor real (no un fetch simulado),
+// con dos personas, sin tocar prod. Uso:
+//   clasp run simPLAN001_preparar -P .clasp-test.json -u duck
+//   (navegador: dos pestañas, una por sesión)
+//   clasp run simPLAN001_limpiar  -P .clasp-test.json -u duck
+// Usa la planilla de test (SPREADSHEET_ID del proyecto de test), no una
+// scratch: el Web App no ve TEST_SPREADSHEET_ID_OVERRIDE.
+// ============================================================
+
+var SIM_USR_B = 'usr_sim_noe';
+
+function simPLAN001_preparar() {
+  const usuarios = getSheet(SHEETS.USUARIOS);
+  const dataU = usuarios.getDataRange().getValues();
+  const iEmail = dataU[0].indexOf('email');
+  const usrA = dataU.slice(1).filter(r => String(r[iEmail] || '').trim() !== '')[0][0];
+  if (!dataU.slice(1).some(r => r[0] === SIM_USR_B)) {
+    usuarios.appendRow(dataU[0].map(h => ({
+      usuario_id: SIM_USR_B, nombre_display: 'Noe (simulada)', email: 'sim-noe@test.local',
+    })[h] || ''));
+  }
+  invalidarCacheHoja(SHEETS.USUARIOS);
+  SpreadsheetApp.flush();
+
+  const crear = parseResp(handleCreatePlan({
+    titulo: 'SIM PLAN-001 (borrar)', categoriaId: '', userId: usrA,
+    fechaProgramada: fechaDiaArgentina(new Date()),
+  }));
+  insertArchivo({
+    ownerTipo: 'plan', ownerId: crear.planId, proposito: 'adjunto',
+    driveFileId: 'fake-drive-id-sim-plan001', mimeType: 'image/png', tamanoBytes: 1,
+    subidoPor: usrA, estado: 'activo',
+  });
+
+  return {
+    planId: crear.planId,
+    participantes: participantesCierre(),
+    sesiones: [
+      { userId: usrA,      sessionToken: crearSesion(usrA),      nombreDisplay: 'Testeo' },
+      { userId: SIM_USR_B, sessionToken: crearSesion(SIM_USR_B), nombreDisplay: 'Noe (simulada)' },
+    ],
+  };
+}
+
+// Deja la planilla de test como estaba: borra la usuaria simulada, sus
+// sesiones, las tareas SIM y sus archivos falsos. Devuelve la auditoría de
+// esas tareas para revisar el criterio 9 antes de borrar nada de Auditoria
+// (la auditoría no se borra).
+function simPLAN001_limpiar() {
+  const ss = abrirPlanilla();
+  const planes = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const iTit = planes[0].indexOf('titulo');
+  const ids = planes.slice(1).filter(r => r[iTit] === 'SIM PLAN-001 (borrar)').map(r => r[0]);
+
+  const auditoria = getSheet(SHEETS.AUDITORIA).getDataRange().getValues();
+  const hA = auditoria[0];
+  const auditoriaSim = auditoria.slice(1)
+    .filter(r => r.some(v => ids.indexOf(String(v)) !== -1 || String(v).indexOf(SIM_USR_B) !== -1))
+    .map(r => { const o = {}; hA.forEach((h, j) => { o[h] = r[j]; }); return o; });
+
+  const borrarFilas = (nombre, pred) => {
+    const sh = getSheet(nombre);
+    const d = sh.getDataRange().getValues();
+    let n = 0;
+    for (let i = d.length - 1; i >= 1; i--) if (pred(d[i], d[0])) { sh.deleteRow(i + 1); n++; }
+    return n;
+  };
+  const borrados = {
+    planes: borrarFilas(SHEETS.PLANES, r => ids.indexOf(r[0]) !== -1),
+    archivos: borrarFilas(SHEETS.ARCHIVOS, (r, h) => ids.indexOf(r[h.indexOf('owner_id')]) !== -1),
+    sesionesNoe: borrarFilas(SHEETS.SESIONES, (r, h) => r[h.indexOf('usuario_id')] === SIM_USR_B),
+    usuario: borrarFilas(SHEETS.USUARIOS, r => r[0] === SIM_USR_B),
+  };
+  invalidarCacheHoja(SHEETS.USUARIOS);
+  SpreadsheetApp.flush();
+  return { planIds: ids, auditoriaSim: auditoriaSim, borrados: borrados, participantes: participantesCierre() };
+}
+
+
+// ============================================================
+// probarMEDIA004() — REQ-MEDIA-004: conteo de fotos en getPlanes y
+// getFotosPlan para el bloque "Ya subidas" del modal.
+//   clasp push -f -P .clasp-test.json -I .claspignore-test
+//   clasp run probarMEDIA004 -P .clasp-test.json -u duck
+// Planilla scratch propia, se borra al terminar.
+// ============================================================
+
+function probarMEDIA004() {
+  const R = nuevoReporte('REQ-MEDIA-004');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA004 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const crear = titulo => parseResp(handleCreatePlan({
+      titulo: titulo, categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+    })).planId;
+    const foto = (planId, u, estado, extra) => insertArchivo(Object.assign({
+      ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+      driveFileId: 'fake-drive-media004-' + planId, mimeType: 'image/jpeg', tamanoBytes: 1,
+      subidoPor: u, estado: estado || 'activo',
+    }, extra || {}));
+    const planDe = planId => parseResp(handleGetPlanes({})).planes.filter(p => p.planId === planId)[0];
+    const fotosDe = planId => parseResp(handleGetFotosPlan({ planId: planId }));
+
+    const pTres = crear('Tres fotos');
+    const pUna  = crear('Una foto');
+    const pCero = crear('Sin fotos');
+    const a1 = foto(pTres, 'usr_fran');
+    const a2 = foto(pTres, 'usr_noe');
+    const a3 = foto(pTres, 'usr_fran');
+    foto(pTres, 'usr_noe', 'archivado');
+    foto(pUna, 'usr_noe');
+    // Una foto de otra tarea con el mismo dueño tipo no se mezcla.
+    insertArchivo({ ownerTipo: 'usuario', ownerId: pTres, proposito: 'avatar',
+                    driveFileId: 'fake-avatar', mimeType: 'image/png', tamanoBytes: 1,
+                    subidoPor: 'usr_fran', estado: 'activo' });
+
+    // C1 / C2 — conteo.
+    R.eq('C1 · tarea con 3 fotos activas -> fotos = 3', planDe(pTres).fotos, 3);
+    R.eq('C1 · tarea con 1 foto -> fotos = 1', planDe(pUna).fotos, 1);
+    R.eq('C1 · tarea sin fotos -> fotos = 0', planDe(pCero).fotos, 0);
+    R.check('C2 · la archivada y el avatar no cuentan', planDe(pTres).fotos === 3);
+
+    // C3 — getFotosPlan.
+    const g = fotosDe(pTres);
+    R.eq('C3 · getFotosPlan -> 200', g.status, 200);
+    R.eq('C3 · devuelve solo las 3 activas de esa tarea', g.fotos.length, 3);
+    R.eq('C3 · en orden de subida, la más vieja primero',
+         JSON.stringify(g.fotos.map(f => f.archivoId)), JSON.stringify([a1, a2, a3]));
+    R.eq('C3 · con quién la subió', JSON.stringify(g.fotos.map(f => f.subidoPor)),
+         JSON.stringify(['usr_fran', 'usr_noe', 'usr_fran']));
+    R.check('C3 · con fecha AAAA-MM-DD', g.fotos.every(f => /^\d{4}-\d{2}-\d{2}$/.test(f.fechaContenido)));
+    const texto = JSON.stringify(g);
+    R.check('C8 · no expone el ID de Drive', texto.indexOf('fake-drive') === -1 && texto.indexOf('drive') === -1);
+    R.eq('C3 · tarea sin fotos -> lista vacía', fotosDe(pCero).fotos.length, 0);
+
+    // C4 — completada y reabierta: las fotos siguen ahí.
+    darAcuerdosDeLosDos(pUna);
+    parseResp(handleCompletePlan({ planId: pUna, authUserId: 'usr_fran' }));
+    R.eq('C4 · completada: getFotosPlan sigue devolviendo su foto', fotosDe(pUna).fotos.length, 1);
+    parseResp(handleReopenPlan({ planId: pUna, authUserId: 'usr_noe' }));
+    R.eq('C4 · reabierta: su foto sigue', fotosDe(pUna).fotos.length, 1);
+    R.eq('C4 · reabierta: el conteo sigue', planDe(pUna).fotos, 1);
+
+    // Errores.
+    R.eq('S · sin planId -> 400', fotosDe('').status, 400);
+    R.eq('S · tarea inexistente -> 404', fotosDe('plan_no_existe').status, 404);
+    parseResp(handleDeletePlan({ planId: pCero, authUserId: 'usr_fran' }));
+    R.eq('S · tarea eliminada -> 404', fotosDe(pCero).status, 404);
+
+    // C8 — por doPost: sin sesión 401, con sesión 200.
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    R.eq('C8 · getFotosPlan sin sesión -> 401', pedir({ action: 'getFotosPlan', planId: pTres }).status, 401);
+    R.eq('C8 · getFotosPlan con token falso -> 401',
+         pedir({ action: 'getFotosPlan', planId: pTres, sessionToken: 'ses_x.yyyy' }).status, 401);
+    const conSesion = pedir({ action: 'getFotosPlan', planId: pTres, sessionToken: t });
+    R.eq('C8 · getFotosPlan con sesión -> 200', conSesion.status, 200);
+    R.eq('C8 · con sesión devuelve las 3', (conSesion.fotos || []).length, 3);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}

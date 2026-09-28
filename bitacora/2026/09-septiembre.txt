@@ -2557,3 +2557,20 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/apps-script-clasp.md — setupSheets corre el código subido (HEAD): push antes de setupSheets.
 - PRODUCCIÓN (cada paso con OK de Franco): clasp push -f (HEAD); clasp run setupSheets -u duck -> Planes con las 3 columnas nuevas al final, verificado leyendo el encabezado; clasp version (v25); clasp redeploy ...LxD0d -V 25. Smoke sin escritura: setAcuerdoCierre y reopenPlan con token inválido -> 401. Rollback: redeploy -V 24.
 ========================================================
+
+========================================================
+2026-09-28 01:15 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- REQ-PLAN-001 — verificación en prod (solo lectura: Pages y Code.gs idénticos al repo, @25, columnas nuevas, participantes, acuerdo real de Franco guardado) y de punta a punta con el front publicado contra el Web App de test y dos sesiones de prueba. docs/requerimientos/REQ-PLAN-001.md — estado "en producción" y sección "Verificación del 2026-09-28". Falta el primer cierre real (acuerdo de Noelia).
+- Tests.gs — simPLAN001_preparar/simPLAN001_limpiar (segunda usuaria de prueba, tarea SIM y sesiones en la planilla de test) y probarMEDIA004 (21/21; 0/5 contra el Code.gs anterior).
+- REQ-MEDIA-004 — mockup interactivo (Artifact, no versionado) con 3 variantes de confirmación; Franco eligió la A. docs/decisiones.md — DEC-007.
+- Code.gs — getPlanes suma `fotos` (conteoFotosPorPlan) y endpoint nuevo getFotosPlan (fotos activas de una tarea, sin IDs de Drive, 404 si no existe o está eliminada). Regresión en test: PLAN001 44/44, MEDIA002 43/43, MEDIA001 22/22, DATA002 70/70.
+- index.html — conteo de fotos en la tarjeta; en el modal de la tarea, "Ya subidas" (miniaturas de a una, quién y cuándo, abre el visor con el título de la tarea) y "Por subir" (fila por foto con pill, motivo, Reintentar y Sacar); confirmación antes de subir (#modal-subir-fotos); subida de a una, sin reintento automático (escritura: duplicaría); pregunta antes de descartar fotos sin subir al cerrar. Verificado contra el Web App de test (@9): estados, corte simulado, reintento, teclado, 375 px, consola limpia.
+- docs/requerimientos/REQ-MEDIA-004.md — diseño elegido, plan, implementación, desvío del reintento automático y verificación. docs/DESIGN.md — componente de fotos de la tarea. docs/backlog.md — BL-027 (visor a pantalla completa en el teléfono).
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md (+ SKILL.md) — probar contra el Web App de test con dos sesiones; clasp run de solo lectura a prod.
+- TEST: clasp push, versiones 8 y 9, redeploy de la implementación AKfycbw5O9… (Web App de test).
+- PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v26); clasp redeploy ...LxD0d -V 26. Verificado: conteoFotosPorPlan en prod devuelve los conteos reales. Rollback: redeploy -V 25.
+========================================================

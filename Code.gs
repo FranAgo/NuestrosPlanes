@@ -228,6 +228,7 @@ function doPost(e) {
       // Fotos de tareas (REQ-MEDIA-002)
       case 'uploadPlanPhotos':    return handleUploadPlanPhotos(body);
       case 'getRecentPlanPhotos': return handleGetRecentPlanPhotos(body);
+      case 'getFotosPlan':        return handleGetFotosPlan(body);
 
       default:
         return respond(400, { error: 'Acción no reconocida.' });
@@ -1133,6 +1134,9 @@ function handleGetPlanes(body) {
   const iFCom = h.indexOf('fecha_completado');
   const iCPor = h.indexOf('completado_por');
 
+  // REQ-MEDIA-004: conteo de fotos por tarea, un solo pase por Archivos.
+  const fotosPorPlan = conteoFotosPorPlan();
+
   const planes = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -1152,6 +1156,7 @@ function handleGetPlanes(body) {
       acuerdos:         row[iEst] === 'pendiente' ? parseAcuerdos(iAcu !== -1 ? row[iAcu] : '') : [],
       fechaCompletado:  iFCom !== -1 && row[iFCom] ? String(row[iFCom]) : null,
       completadoPor:    iCPor !== -1 && row[iCPor] ? String(row[iCPor]) : null,
+      fotos:            fotosPorPlan[row[iId]] || 0,
     });
   }
 
@@ -1936,6 +1941,65 @@ function handleGetRecentPlanPhotos(body) {
   });
 
   return respond(200, { fotos: resultado });
+}
+
+// REQ-MEDIA-004: las fotos activas de una tarea, para el bloque "Ya subidas"
+// del modal. Nunca devuelve drive_file_id: las miniaturas se piden después
+// por getArchivos, con sesión, como el resto de las imágenes.
+function handleGetFotosPlan(body) {
+  const { planId } = body;
+  if (!planId) return respond(400, { error: 'ID de tarea requerido.' });
+
+  const { rowIndex } = buscarPlanActivo(getSheet(SHEETS.PLANES), planId);
+  if (rowIndex === -1) return respond(404, { error: 'Tarea no encontrada.' });
+
+  const data = getSheet(SHEETS.ARCHIVOS).getDataRange().getValues();
+  const h        = data[0];
+  const iArcId   = h.indexOf('archivo_id');
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+  const iSubPor  = h.indexOf('subido_por');
+  const iFSub    = h.indexOf('fecha_subida');
+  const iFCon    = h.indexOf('fecha_contenido');
+
+  const fotos = [];
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] !== 'plan' || r[iOwnerId] !== planId) continue;
+    if (r[iProp] !== 'adjunto' || r[iEstado] !== 'activo') continue;
+    fotos.push({
+      archivoId:      r[iArcId],
+      subidoPor:      r[iSubPor] ? String(r[iSubPor]) : null,
+      fechaContenido: r[iFCon] ? formatDate(r[iFCon]) : null,
+      fechaSubida:    r[iFSub] ? String(r[iFSub]) : '',
+    });
+  }
+  // ISO 8601 UTC: ordena como texto. La más vieja primero.
+  fotos.sort((a, b) => (a.fechaSubida < b.fechaSubida ? -1 : a.fechaSubida > b.fechaSubida ? 1 : 0));
+
+  return respond(200, { fotos: fotos });
+}
+
+// REQ-MEDIA-004: { planId: cantidad } de fotos activas, para getPlanes. Mismo
+// criterio que contarFotosActivasPlan, pero de todas las tareas a la vez.
+function conteoFotosPorPlan() {
+  const data = getSheet(SHEETS.ARCHIVOS).getDataRange().getValues();
+  const h        = data[0];
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+
+  const conteo = {};
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] === 'plan' && r[iProp] === 'adjunto' && r[iEstado] === 'activo') {
+      conteo[r[iOwnerId]] = (conteo[r[iOwnerId]] || 0) + 1;
+    }
+  }
+  return conteo;
 }
 
 // Cuenta cuántos archivos activos ('adjunto', 'plan') tiene una tarea. Se usa

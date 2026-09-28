@@ -244,3 +244,11 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Baja
 - Origen: verificación visual de REQ-PLAN-001 (2026-09-27)
 - Nota: "Estoy de acuerdo", "Completar", "Reabrir" y los íconos de editar y eliminar miden unos 29 px de alto a 375 px, menos que los 44 px que pide `hjay-verificacion-visual` para el dedo. Ya pasaba con "Marcar completado"; se dejó igual que los vecinos. Agrandar el área táctil (padding o `min-height: 44px` en móvil) sin cambiar cómo se ve en escritorio. Se cruza con BL-022.
+
+## Sesión 2026-09-28
+
+### BL-027 — Visor de fotos a pantalla completa en el teléfono
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: pedido de Franco durante REQ-MEDIA-004 (2026-09-28): "cuando pulsemos la foto, que se agrande y la veamos en el centro de la pantalla".
+- Nota: hoy tocar una foto (en "Ya subidas" o en el carrusel de recuerdos) la abre en el visor del carrusel, centrado, pero a 375 px la foto ocupa unos 212 px de ancho: las flechas y los márgenes del recuadro se comen el resto. La idea es un visor a pantalla completa (fondo negro, foto de borde a borde, deslizar para pasar, cerrar con la X o bajando). Cambia también el carrusel de recuerdos: va con mockup antes. Postergado porque la sesión ya venía cargada.

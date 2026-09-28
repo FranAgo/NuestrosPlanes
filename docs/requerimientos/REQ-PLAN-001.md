@@ -1,6 +1,6 @@
 # REQ-PLAN-001 — Cerrar una tarea requiere el acuerdo de los dos
 
-> **Estado:** IMPLEMENTADO, PROBADO EN TEST (2026-09-27). Falta: `setupSheets()` en prod, deploy del servidor y push del front (cada paso con OK de Franco).
+> **Estado:** EN PRODUCCIÓN (Web App @25 y front `50b378e`, 2026-09-28), verificado de punta a punta con el front publicado contra el servidor de test (ver "Verificación del 2026-09-28"). Falta solo el primer cierre real con los dos acuerdos en prod.
 > **Nivel:** cambio de fondo (modelo de datos + regla de negocio en el servidor + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** REQ-SYNC-001 (sin él, el otro no ve el acuerdo hasta recargar) y REQ-MEDIA-004 (conteo de fotos).
@@ -133,3 +133,31 @@ confirmación.
 - **Fuera de alcance, anotado:** los botones de la tarjeta miden 29 px de
   alto, menos que los 44 recomendados para el dedo (igual que los que ya
   había). Ver backlog.
+
+## Verificación del 2026-09-28
+
+**En prod (solo lectura):** el front de GitHub Pages es idéntico a `index.html`
+de `main`. El `Code.gs` de prod (bajado con `clasp pull` a una carpeta aparte)
+es idéntico al del repo, en la implementación @25. `setupSheets()` corrió en
+prod y `Planes` tiene `acuerdos_cierre`, `fecha_completado` y
+`completado_por`. `participantesCierre()` devuelve los dos usuarios. Uso real:
+Franco dio su acuerdo en "Estudio de finde pre-parcial mate" y quedó guardado.
+En los logs no hay errores de la Web App de prod desde el deploy.
+
+**De punta a punta, contra test:** front publicado (franago.github.io), con
+`fetch` redirigido en memoria al Web App de test (@8), dos pestañas y dos
+sesiones de prueba (`simPLAN001_preparar()` en `Tests.gs`), ningún pedido a
+prod. Resultado por criterio:
+
+| # | Resultado |
+|---|---|
+| 1 | Testeo da su acuerdo: pill "Esperando acuerdo · 1 de 2", motivo "Falta que Noe (simulada) esté de acuerdo". Noe, en su pestaña, lo ve y su motivo dice "Falta que vos estés de acuerdo". "Completar" apagado no manda ningún pedido. |
+| 2 | Con los dos: "Lista para cerrar" y "Completar" habilitado. |
+| 3 | Noe saca su acuerdo: vuelve a "1 de 2", "Completar" apagado, el foco queda en el botón. Lo vuelve a dar con Enter. |
+| 5 | Completar: `completado`, `completado_por` = Noe, `fecha_completado` 03:28 UTC (00:28 en Argentina), tarjeta "Completada el 28/09 por Noe (simulada)", acuerdos vacíos. |
+| 9 | `Auditoria`: `acuerdo_dar` ×3, `acuerdo_sacar`, `completar` (con los acuerdos en el detalle) y `reabrir`, cada uno con su usuario. |
+| 11 | "Reabrir" pide confirmación sin mandar nada. Al confirmar: `pendiente`, sin acuerdos. `fecha_completado` y `completado_por` quedan como registro del último cierre (a propósito, ver `handleReopenPlan`). |
+
+Los criterios 4, 6, 7, 8 y 12 los cubre `probarPLAN001` (44/44). El 10 se
+verificó el 2026-09-27. Sigue sin cubrirse que el otro lo vea sin recargar
+(REQ-SYNC-001). `simPLAN001_limpiar()` dejó la planilla de test como estaba.

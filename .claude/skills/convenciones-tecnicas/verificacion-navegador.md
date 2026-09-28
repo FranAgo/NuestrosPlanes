@@ -79,3 +79,36 @@ escritorio y recién ahí armar el estado simulado.
 Con la emulación de móvil, `(hover: hover) and (pointer: fine)` da falso:
 desaparecen el cursor propio y los efectos de hover. El hover se verifica
 a 1366 o más.
+
+## 5. Probar el front contra el servidor de test, con dos personas
+
+**Qué cuidar:** para ver el front con el servidor de verdad (no con
+`fetch` simulado) y sin tocar prod:
+- La implementación Web App de test que se usa para esto es
+  `AKfycbw5O9…8o7gZ` (`clasp deployments -P .clasp-test.json`). Después de
+  `clasp push` a test, `clasp version` + `clasp redeploy` de esa
+  implementación: si no, sigue sirviendo el código viejo.
+- `clasp run simPLAN001_preparar -P .clasp-test.json -u duck` suma una
+  segunda usuaria de prueba, una tarea "SIM PLAN-001 (borrar)" con una foto
+  falsa y una sesión para cada una. `simPLAN001_limpiar` deja la planilla
+  como estaba (los archivos de Drive que se hayan subido quedan).
+- En el navegador, el wrapper de `fetch` manda a esa URL de test lo que iba
+  a `SCRIPT_URL` y rechaza cualquier otra URL de Apps Script. Una pestaña por
+  persona. Un corte de red se simula rechazando el pedido en el wrapper
+  antes de que salga.
+- Ver los tokens de sesión, aunque sean de test, lo frena el modo
+  automático: hace falta el OK explícito de Franco. Al terminar, cerrar las
+  pestañas y borrar del scratch lo que tenga tokens.
+
+**Por qué:** REQ-PLAN-001 y REQ-MEDIA-004 (2026-09-28): así se probó el
+acuerdo de los dos y la subida de fotos de punta a punta sin escribir en
+prod.
+
+## 6. Un `clasp run` a prod, suelto y de solo lectura
+
+**Qué cuidar:** `clasp run <funcion> -u duck` contra prod (sin `-P`) está
+permitido si va solo en el comando (sin `cd`, `;` ni `>`), igual que los de
+deploy (`apps-script-clasp.md`). Aun así, el modo automático frena leer
+hojas con datos personales (`Auditoria`) o guardarlas en un archivo.
+Preferir funciones que devuelven lo justo (`participantesCierre`,
+`conteoFotosPorPlan`) antes que volcar una hoja entera.

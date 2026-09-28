@@ -38,7 +38,7 @@ actual.
 - [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`.
 - [seguridad.md](seguridad.md) — lo propio de Nuestros Planes para `hjulia-revision-cambio`: lista blanca, sesión opaca, validación en el servidor, `escapeHtml`, proxy de Drive, Auditoría, tests server-side.
 - [fechas.md](fechas.md) — "hoy" en hora Argentina y no con `toISOString()` (UTC), fechas solo-día que se corren.
-- [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`.
+- [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`, probar contra el Web App de test con dos sesiones (`simPLAN001_preparar`), `clasp run` de solo lectura a prod.
 
 ## Cómo mantenerlo
 
