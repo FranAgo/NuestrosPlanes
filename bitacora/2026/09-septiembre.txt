@@ -2775,3 +2775,25 @@ Cambios:
 - docs/backlog.md — BL-035 nuevo: overlays de modal con backdrop-filter aun cerrados (anterior al rediseño, hipótesis sin medir).
 - Commit local previo bafc474 (fase 4), sin push.
 ========================================================
+
+========================================================
+2026-09-28 19:13 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): git push origin main (ed1ebb8..4f93539: e48a6ab, bafc474, 4f93539) y tag anotado v1.3.0. GitHub Pages sirve APP_VERSION 1.3.0 desde las 19:12 (confirmado con curl). Servidor sin cambios (Code.gs 1.2.2, Web App @31).
+- docs/requerimientos/REQ-UX-002.md — estado: en producción; falta que lo vean Franco (PC) y Noelia (celular) y la revisión de DESIGN.md (BL-012).
+========================================================
+
+========================================================
+2026-09-28 19:29 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html — 1.3.1: los campos de fecha de .form-group sin apariencia nativa, con min-width 0, max-width 100 %, min-height 2.9rem y la fecha alineada a la izquierda. En el iPhone de Franco se enciman "Empieza" y "Termina" y el de vencimiento se sale del modal (captura de Franco con 1.3.0). APP_VERSION 1.3.1.
+- CHANGELOG.md — 1.3.1.
+- docs/requerimientos/REQ-UX-002.md — hallazgo en iOS después del deploy y arreglo.
+- Verificado en Chromium a 375 (sin cambios, campos dentro de su columna). El motor de iOS no se puede reproducir en local: lo confirma Franco en el iPhone.
+========================================================

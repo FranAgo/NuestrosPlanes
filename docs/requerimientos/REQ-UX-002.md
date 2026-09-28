@@ -1,6 +1,6 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificación completa hecha el 2026-09-28 y `APP_VERSION` 1.3.0 en `index.html`; falta el deploy (con OK de Franco) y que lo vean Franco en la PC y Noelia en el celular.
+> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificada y **en producción como 1.3.0** desde el 2026-09-28 19:12 (push de `4f93539` con OK de Franco, tag `v1.3.0`, Pages confirmado con curl). Falta que lo vean Franco en la PC y Noelia en el celular (criterio 6) y la revisión de `DESIGN.md` (BL-012) para cerrarlo.
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
@@ -273,3 +273,22 @@ Julia: sin superficie de seguridad (solo CSS y el aspecto del botón de
 confirmar; ningún dato ni endpoint nuevo). Gary: sin cambios en las hojas.
 Roy: el deploy es solo `git push origin main` (GitHub Pages) y el tag
 `v1.3.0`; sin `clasp`.
+
+## Después del deploy: 1.3.1 (2026-09-28)
+
+Franco, en su iPhone con 1.3.0 (captura del modal "Editar plan"): los
+campos de fecha se veían "sobrepuestos y desplazados". "Empieza" quedaba
+debajo de "Termina", "Fecha de vencimiento" se salía del modal por la
+derecha y la fecha aparecía centrada. En Safari de iOS, el `input
+type="date"` nativo tiene un ancho mínimo propio y no respeta
+`width:100%`. Seguramente pasaba desde REQ-MEDIA-005, pero no se veía:
+con el fondo igual al del modal y el borde de 0,5 px, el campo casi no se
+distinguía. El borde de 1 px y `--bg-input` lo dejaron a la vista.
+
+Arreglo: `.form-group input[type="date"]` sin apariencia nativa,
+`min-width: 0`, `max-width: 100%`, `min-height: 2.9rem` (vacío no queda
+más bajo) y la fecha alineada a la izquierda
+(`::-webkit-date-and-time-value`). En Chromium a 375 no cambia nada (los
+tres campos quedan dentro de su columna, con el ícono del calendario). El
+motor de iOS no se puede reproducir acá: se confirma en el iPhone de
+Franco.

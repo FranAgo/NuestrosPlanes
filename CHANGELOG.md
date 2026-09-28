@@ -5,6 +5,13 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.3.1] - 2026-09-28
+
+### Corregido
+- En el iPhone, los campos de fecha de "Editar plan" ya no se enciman
+  ("Empieza" quedaba debajo de "Termina") ni se salen del recuadro, y la
+  fecha se lee alineada a la izquierda como el resto.
+
 ## [1.3.0] - 2026-09-28
 
 ### Cambiado
