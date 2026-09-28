@@ -2488,3 +2488,139 @@ function probarMEDIA003() {
 
   return R.finalizar();
 }
+
+
+// ============================================================
+// probarPERF004() — REQ-PERF-004: getMiniaturas devuelve la miniatura que
+// genera Drive (unos KB), no la foto entera, sin exponer URLs de Google.
+// Sube a Drive una imagen de verdad (un gráfico de 1200x900 armado con
+// Charts; con un PNG de 1 px la miniatura no dice nada) y la borra al final.
+// Los logs (criterio 4, que no salga el thumbnailLink) se miran aparte con
+// `clasp logs --json`.
+// Uso: clasp run probarPERF004 -P .clasp-test.json -u duck
+// ============================================================
+
+function probarPERF004() {
+  const R = nuevoReporte('REQ-PERF-004');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  const driveFileIdsCreados = [];
+  const driveFolderIdsCreados = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarPERF004 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    // Imagen realista: un gráfico con relleno, 1200x900.
+    const dt = Charts.newDataTable().addColumn(Charts.ColumnType.STRING, 'x').addColumn(Charts.ColumnType.NUMBER, 'y');
+    for (let i = 0; i < 24; i++) dt.addRow(['p' + i, Math.round(50 + 40 * Math.sin(i))]);
+    // En JPEG, como lo que sube la app después de comprimir.
+    const png = Charts.newAreaChart().setDataTable(dt.build()).setDimensions(1200, 900).build().getAs('image/jpeg');
+    const pngBytes = png.getBytes().length;
+    R.nota('imagen de prueba: ' + pngBytes + ' bytes');
+
+    const planId = parseResp(handleCreatePlan({
+      titulo: 'Miniaturas', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+    })).planId;
+    const s = parseResp(handleUploadPlanPhotos({
+      planId: planId,
+      files: [{ fileBase64: Utilities.base64Encode(png.getBytes()), mimeType: 'image/jpeg' }],
+      authUserId: 'usr_fran',
+    }));
+    (s.subidas || []).forEach(x => driveFileIdsCreados.push(x.driveFileId));
+    const carpetaId = filaPorId('Planes', planId)[col('Planes', 'carpeta_fotos_drive_id')];
+    if (carpetaId) driveFolderIdsCreados.push(carpetaId);
+    R.eq('Setup · la foto real se subió', (s.subidas || []).length, 1);
+    const real = (s.subidas || [])[0] ? s.subidas[0].archivoId : 'arc_sin_subida';
+
+    const fakeDrive = 'fake-drive-perf004-no-existe';
+    const falsa = insertArchivo({ ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+      driveFileId: fakeDrive, mimeType: 'image/jpeg', tamanoBytes: 1, subidoPor: 'usr_fran', estado: 'activo' });
+    const archivada = insertArchivo({ ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+      driveFileId: driveFileIdsCreados[0] || fakeDrive, mimeType: 'image/png', tamanoBytes: 1,
+      subidoPor: 'usr_fran', estado: 'archivado' });
+
+    const mini = body => parseResp(handleGetMiniaturas(body));
+
+    // Validación de entrada.
+    R.eq('E · sin archivoIds -> 400', mini({}).status, 400);
+    R.eq('E · lista vacía -> 400', mini({ archivoIds: [] }).status, 400);
+    R.eq('E · no es lista -> 400', mini({ archivoIds: real }).status, 400);
+    R.eq('E · solo valores que no son texto -> 400', mini({ archivoIds: [1, null, {}] }).status, 400);
+
+    const r = mini({ archivoIds: [real, falsa, archivada, 'arc_no_existe', real] });
+    R.eq('C1 · pedido mixto -> 200', r.status, 200);
+    const porId = {};
+    (r.archivos || []).forEach(a => { porId[a.archivoId] = a; });
+    R.eq('C1 · los ids repetidos vuelven una sola vez', (r.archivos || []).length, 4);
+    R.eq('C1 · respeta el orden pedido', JSON.stringify((r.archivos || []).map(a => a.archivoId)),
+         JSON.stringify([real, falsa, archivada, 'arc_no_existe']));
+
+    const m = porId[real] || {};
+    R.check('C1 · la foto real trae miniatura (base64)', !!m.base64 && !m.sinMiniatura);
+    R.check('C1 · con mimeType de imagen', /^image\//.test(m.mimeType || ''));
+    const miniBytes = m.base64 ? Utilities.base64Decode(m.base64).length : -1;
+    R.nota('miniatura: ' + miniBytes + ' bytes (original ' + pngBytes + ')');
+    R.check('C1 · la miniatura pesa menos de 30 KB', miniBytes > 0 && miniBytes < 30 * 1024);
+    // Un gráfico de colores planos pesa poco aun entero: acá solo se exige que
+    // sea más chica. La proporción real (fotos de 150 KB a 1 MB) se mide en
+    // el navegador (criterio 1).
+    R.check('C1 · y más chica que la original', miniBytes > 0 && miniBytes < pngBytes);
+
+    R.check('C2 · archivo activo que no está en Drive -> sinMiniatura',
+            !!porId[falsa] && porId[falsa].sinMiniatura === true && !porId[falsa].base64);
+    R.eq('C2 · archivada -> no encontrado', (porId[archivada] || {}).error, 'Archivo no encontrado.');
+    R.eq('C2 · inexistente -> no encontrado', (porId['arc_no_existe'] || {}).error, 'Archivo no encontrado.');
+
+    const texto = JSON.stringify(r);
+    R.check('C4 · la respuesta no trae URLs', !/https?:|googleusercontent|googleapis/i.test(texto));
+    R.check('C4 · ni IDs de Drive', texto.indexOf(fakeDrive) === -1 &&
+            driveFileIdsCreados.every(id => texto.indexOf(id) === -1));
+
+    // Tope por pedido.
+    const muchos = [];
+    for (let i = 0; i < 40; i++) muchos.push('arc_tope_' + i);
+    R.eq('E · más de 30 ids -> responde 30', (mini({ archivoIds: muchos }).archivos || []).length, 30);
+
+    // C5 — por doPost: sin sesión 401, con sesión 200.
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    R.eq('C5 · getMiniaturas sin sesión -> 401', pedir({ action: 'getMiniaturas', archivoIds: [real] }).status, 401);
+    R.eq('C5 · getMiniaturas con token falso -> 401',
+         pedir({ action: 'getMiniaturas', archivoIds: [real], sessionToken: 'ses_x.yyyy' }).status, 401);
+    const conSesion = pedir({ action: 'getMiniaturas', archivoIds: [real], sessionToken: t });
+    R.eq('C5 · getMiniaturas con sesión -> 200', conSesion.status, 200);
+    R.check('C5 · con sesión trae la miniatura', !!((conSesion.archivos || [])[0] || {}).base64);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    driveFileIdsCreados.forEach(fileId => {
+      try { DriveApp.getFileById(fileId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive el archivo de prueba ' + fileId + ' — borralo a mano: ' + e); }
+    });
+    driveFolderIdsCreados.forEach(folderId => {
+      try { DriveApp.getFolderById(folderId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive la carpeta de prueba ' + folderId + ' — borrala a mano: ' + e); }
+    });
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}

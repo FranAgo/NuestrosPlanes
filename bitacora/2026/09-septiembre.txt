@@ -2639,3 +2639,17 @@ Cambios:
 - docs/backlog.md — BL-031 (nuevo): al completar varias tareas seguidas, una tarjeta vuelve a verse pendiente hasta cambiar de filtro (reporte de Franco); hipótesis: respuestas de getPlanes fuera de orden.
 - .claude/skills/convenciones-tecnicas/apps-script-clasp.md — clasp logs mezcla prod y test (separar por deployment_id, trae ~100 entradas); clasp run de un handler da "No response"; curl -L da 411.
 ========================================================
+
+========================================================
+2026-09-28 11:11 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-PERF-004.md — EN CURSO: alcance y criterios aprobados por Franco a las 10:56 (enfoque thumbnailLink por el servidor, sin costo: cuota gratis de UrlFetchApp).
+- Code.gs — acción nueva getMiniaturas({archivoIds}), hasta 30 por pedido: drive_file_id de la hoja -> Drive v3 files.get (fields=thumbnailLink) -> miniatura a 320 px, las dos rondas con UrlFetchApp.fetchAll y el token del dueño. Sin Servicio Avanzado (el manifiesto no cambia). Foto sin miniatura -> sinMiniatura:true. Logs con mensaje fijo (sin el texto de la excepción, que puede traer la URL). APP_VERSION 1.2.0.
+- Tests.gs — probarPERF004 (22 checks; sube una imagen real armada con Charts y la borra). En test: 22/22. Se comprobó que el test detecta el error: con getMiniaturas en publicActions da 20/22 (los dos 401); después se revirtió. clasp logs sin googleusercontent/thumbnailLink/drive/v3.
+- index.html — miniCache aparte de avatarCache (persistido en cp_mini_cache, máx. 120, se borra al cerrar sesión); fetchMiniaturas en lotes; "Ya subidas" pide todas las miniaturas en un pedido y lo que queda sin miniatura va por getArchivo como antes (de a 3, con reintento); la card de recuerdos usa miniaturas. Si getMiniaturas falla entero (servidor viejo, red), se usa la foto completa. APP_VERSION 1.2.0. Verificado en localhost con fetch simulado: 16/16 con el servidor nuevo (1 getMiniaturas + 2 getArchivo) y con el viejo (16 getArchivo), red caída, card 3/3, logout; consola limpia.
+- CHANGELOG.md — 1.2.0.
+- PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v29, "v1.2.0 REQ-PERF-004: miniaturas (getMiniaturas)"); clasp redeploy ...LxD0d -V 29. Smoke: getMiniaturas sin sesión -> 401. Rollback: redeploy -V 28.
+========================================================

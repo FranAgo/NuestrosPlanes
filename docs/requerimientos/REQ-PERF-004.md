@@ -1,7 +1,49 @@
 # REQ-PERF-004 — Performance: miniatura real de fotos, generada al subir
 
-> **Estado:** PROPUESTO por Paul. Sin implementar. Hay dos enfoques diagnosticados (ver abajo) — falta que Franco elija cuál seguir (o confirme el preferido) antes de diseñar en detalle. Prioridad a definir con Franco.
-> **Dueño técnico:** por definir (Bob + Jay, con esquema de datos a cargo de Gary) · **QA:** Duck · **PM:** Paul
+> **Estado:** EN PRODUCCIÓN (1.2.0) desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Falta medir el criterio 1 en el Chrome de Franco. Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030.
+> **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
+> **Versión:** 1.2.0 (DEC-009: un REQ nuevo sube la versión menor).
+
+## Alcance aprobado (2026-09-28)
+
+Motivo: BL-030. Hoy cada miniatura de "Ya subidas" baja la foto entera: en
+una tarea de 16 fotos fueron 7,6 MB y 33 s hasta la última, en la
+computadora de Franco.
+
+1. **Servidor.** Acción nueva `getMiniaturas({ archivoIds })`, de a varias
+   por pedido. Para cada foto: `drive_file_id` de la hoja `Archivos` → API
+   de Drive v3 (`files.get`, `fields=thumbnailLink`) → baja la miniatura
+   con el token del dueño y la devuelve en base64. Se hace por REST con
+   `UrlFetchApp.fetchAll` (en paralelo), no con el Servicio Avanzado: no hace
+   falta tocar `appsscript.json`, porque los scopes `drive` y
+   `external_request` ya están. Si una foto no tiene miniatura, vuelve con
+   `sinMiniatura: true` y el front la pide completa (`getArchivo`), como hoy.
+2. **Front.** "Ya subidas" y la tarjeta de fotos recientes usan miniaturas,
+   con un caché propio separado del de fotos completas. Ese caché se
+   persiste acotado y se borra al cerrar sesión (BL-016). El visor y el
+   carrusel siguen con la foto completa. Si `getMiniaturas` falla entero
+   (por ejemplo, un front nuevo contra un servidor viejo), se cae a
+   `getArchivo`.
+3. **Costo:** ninguno. La cuota gratis de `UrlFetchApp` es de 20.000
+   llamadas por día y cada miniatura usa 2. Si se pasara la cuota, se
+   aplica el mismo respaldo (foto completa).
+4. **Sin cambios** en hojas ni columnas (Gary).
+
+## Criterios de aceptación
+
+1. En la tarea de 16 fotos, "Ya subidas" muestra todas las miniaturas en
+   menos de 5 s (hoy tarda 33 s) y baja menos de 200 KB (hoy, 7,6 MB).
+2. Ninguna foto queda en "Sin vista previa" por no tener miniatura: en ese
+   caso se muestra la foto completa.
+3. El visor sigue mostrando la foto en resolución completa.
+4. El `thumbnailLink` (y cualquier URL de Google) no aparece en ninguna
+   respuesta ni en los logs. Los errores se registran con un mensaje fijo,
+   sin el texto de la excepción.
+5. `getMiniaturas` exige sesión: sin sesión da 401. Para comprobar que el
+   test muerde, se agrega `getMiniaturas` a `publicActions` y el test tiene
+   que fallar.
+6. `probarPERF004()` pasa contra el proyecto de test y
+   `node check-sintaxis.js` también pasa.
 > **Depende de:** [REQ-PERF-003](REQ-PERF-003.md) (diagnóstico de por qué el enfoque de miniaturas de Drive no sirve).
 
 ## Objetivo

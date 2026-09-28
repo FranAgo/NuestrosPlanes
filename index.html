@@ -2575,7 +2575,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.1.0';
+    const APP_VERSION = '1.2.0';
     document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -3116,7 +3116,9 @@
     function borrarImageCache() {
       archivosEnCurso.forEach(({ controller }) => controller.abort());
       avatarCache.clear();
+      miniCache.clear();
       try { localStorage.removeItem(IMAGE_CACHE_KEY); } catch (e) { /* ignorado */ }
+      try { localStorage.removeItem(MINI_CACHE_KEY); } catch (e) { /* ignorado */ }
     }
 
     // Lectura sincrónica del cache. Devuelve null si todavía no se resolvió
@@ -3224,6 +3226,65 @@
       return promesa;
     }
 
+    // MINIATURAS — REQ-PERF-004. La grilla de "Ya subidas" y la tarjeta de
+    // fotos recientes bajaban la foto entera (150 KB a 1 MB) para un cuadrado
+    // chico: 7,6 MB y 33 s para una tarea de 16 fotos (BL-030). getMiniaturas
+    // devuelve la miniatura que genera Drive (unos KB), de a varias por
+    // pedido. Caché propio, aparte de avatarCache, que guarda fotos
+    // completas: el visor nunca tiene que mostrar una miniatura como si fuera
+    // la foto. Una foto que vuelve sin miniatura (o si el pedido entero falla,
+    // por ejemplo contra un servidor viejo) se pide completa, como antes.
+    const miniCache              = new Map(); // archivoId -> dataUrl
+    const MINI_CACHE_KEY         = 'cp_mini_cache';
+    const MINI_CACHE_MAX         = 120;
+    const MINIATURAS_POR_PEDIDO  = 30;       // tope del servidor
+
+    function loadMiniCachePersistido() {
+      try {
+        const obj = JSON.parse(localStorage.getItem(MINI_CACHE_KEY) || 'null');
+        if (obj && typeof obj === 'object') {
+          Object.entries(obj).forEach(([id, url]) => {
+            if (id && typeof url === 'string' && safeImageUrl(url)) miniCache.set(id, url);
+          });
+        }
+      } catch (e) { /* sin caché persistido */ }
+    }
+
+    // Una vez por lote, no por foto (cuota de localStorage).
+    function guardarMiniCachePersistido() {
+      if (!state.session) return;   // lote que volvió después del logout (BL-016)
+      const entradas = [...miniCache.entries()];
+      for (const n of [MINI_CACHE_MAX, Math.floor(MINI_CACHE_MAX / 2)]) {
+        try { localStorage.setItem(MINI_CACHE_KEY, JSON.stringify(Object.fromEntries(entradas.slice(-n)))); return; }
+        catch (e) { /* cuota: se prueba con la mitad, y si no, queda en memoria */ }
+      }
+    }
+
+    // Para mostrar en chico sirve la miniatura o, si ya se bajó, la completa.
+    function miniaturaDataUrl(archivoId) {
+      return archivoId ? (miniCache.get(archivoId) || avatarCache.get(archivoId) || null) : null;
+    }
+
+    // Pide las miniaturas que falten y devuelve los ids que quedaron sin
+    // ninguna imagen (hay que pedirlos completos). No cachea fallos.
+    async function fetchMiniaturas(archivoIds) {
+      const faltan = [...new Set((archivoIds || []).filter(id => id && !miniaturaDataUrl(id)))];
+      const lotes = [];
+      for (let i = 0; i < faltan.length; i += MINIATURAS_POR_PEDIDO) lotes.push(faltan.slice(i, i + MINIATURAS_POR_PEDIDO));
+      await Promise.all(lotes.map(async lote => {
+        try {
+          const data = await api('getMiniaturas', { archivoIds: lote });
+          if (!state.session || data.status !== 200) return;
+          (data.archivos || []).forEach(a => {
+            const url = a && a.base64 ? safeImageUrl(`data:${a.mimeType};base64,${a.base64}`) : '';
+            if (url) miniCache.set(a.archivoId, url);
+          });
+        } catch { /* red: van al respaldo */ }
+      }));
+      if (lotes.length) guardarMiniCachePersistido();
+      return faltan.filter(id => !miniaturaDataUrl(id));
+    }
+
     // Resuelve de antemano todos los avatares que hacen falta para el render
     // actual (sesión propia + usuarios ya cargados en state.users).
     async function prefetchAvatares() {
@@ -3319,11 +3380,13 @@
         return;
       }
 
-      await fetchAvataresDataUrl(fotosRecientes.map(f => f.archivoId));
+      // REQ-PERF-004: miniaturas; las que no tengan, completas como antes.
+      const sinMini = await fetchMiniaturas(fotosRecientes.map(f => f.archivoId));
+      if (sinMini.length) await fetchAvataresDataUrl(sinMini);
 
       const thumbs = document.getElementById('fotos-recientes-thumbs');
       thumbs.innerHTML = fotosRecientes.map(f => {
-        const src = avatarDataUrl(f.archivoId);
+        const src = miniaturaDataUrl(f.archivoId);
         return src ? `<div class="fotos-recientes-thumb"><img src="${src}" alt="" /></div>` : '';
       }).join('');
 
@@ -4089,9 +4152,15 @@
     // reintentar no duplica nada.
     const MINIATURAS_EN_PARALELO = 3;
 
-    function cargarMiniaturasYa(token) {
-      const cola = planFotosYa.fotos.map(f => f.archivoId).filter(id => !avatarCache.get(id));
-      cola.forEach(id => planFotosYaFallidas.delete(id));
+    // REQ-PERF-004: primero todas las miniaturas en un pedido; lo que quede
+    // sin miniatura sigue por el camino de antes (foto completa, de a 3).
+    async function cargarMiniaturasYa(token) {
+      const ids = planFotosYa.fotos.map(f => f.archivoId).filter(id => !miniaturaDataUrl(id));
+      ids.forEach(id => planFotosYaFallidas.delete(id));
+      if (!ids.length) return;
+      const cola = await fetchMiniaturas(ids);
+      if (token !== planFotosYaToken || !state.session) return;
+      ids.filter(id => !cola.includes(id)).forEach(pintarMiniaturaYa);
       const trabajador = async () => {
         while (cola.length && token === planFotosYaToken && state.session) {
           const id = cola.shift();
@@ -4117,7 +4186,7 @@
     }
 
     function htmlMiniaturaYa(archivoId) {
-      const src = avatarCache.get(archivoId);
+      const src = miniaturaDataUrl(archivoId);
       if (src) return `<img class="foto-ya-img" src="${src}" alt="" />`;
       if (planFotosYaFallidas.has(archivoId)) return '<span class="foto-ya-sin">Sin vista previa</span>';
       return '<span class="spinner" aria-hidden="true"></span>';
@@ -5417,7 +5486,7 @@
       initGoogleAuth();
       // Sin sesión guardada, las fotos que hayan quedado de antes (versiones
       // previas a BL-016 no las borraban) se borran en vez de cargarse.
-      if (loadSession()) loadImageCachePersistido();
+      if (loadSession()) { loadImageCachePersistido(); loadMiniCachePersistido(); }
       else borrarImageCache();
       // Mensaje que dejó forceLogout antes de recargar (BL-021), una sola vez.
       try {

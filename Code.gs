@@ -218,6 +218,7 @@ function doPost(e) {
       // Archivos
       case 'getArchivo':      return handleGetArchivo(body);
       case 'getArchivos':     return handleGetArchivos(body);
+      case 'getMiniaturas':   return handleGetMiniaturas(body);
 
       // Categorías
       case 'getCategorias':   return handleGetCategorias(body);
@@ -1563,7 +1564,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
@@ -1794,6 +1795,112 @@ function handleGetArchivos(body) {
   });
 
   return respond(200, { archivos: archivos });
+}
+
+// Miniaturas (REQ-PERF-004). Para la grilla de "Ya subidas" y la tarjeta de
+// fotos recientes: getArchivo bajaba la foto entera (150 KB a 1 MB en base64)
+// para mostrarla en un cuadrado chico (BL-030: 7,6 MB y 33 s para 16 fotos).
+// Drive ya genera una miniatura de cada imagen (thumbnailLink, unos KB). Se
+// pide por REST en dos rondas de fetchAll (metadatos y después las
+// miniaturas), en paralelo, sin el Servicio Avanzado: los scopes drive y
+// external_request ya están en el manifiesto.
+// Privacidad (Julia): el thumbnailLink sale del drive_file_id de la hoja,
+// nunca de un parámetro del pedido, y no llega al cliente ni a los logs. Los
+// logs son mensajes fijos: el texto de una excepción de UrlFetchApp puede
+// traer la URL. Todo va dentro del try por eso: si algo se escapara al catch
+// de doPost, ahí se loguea err.message.
+// Una foto sin miniatura (Drive todavía no la generó, error, cuota) vuelve
+// con sinMiniatura: true y el front la pide completa por getArchivo.
+const MINIATURA_LADO_PX         = 320;  // cuadrado de ~110 px en pantallas 2x/3x
+const MINIATURAS_MAX_POR_PEDIDO = 30;
+
+function handleGetMiniaturas(body) {
+  const { archivoIds } = body;
+
+  if (!Array.isArray(archivoIds) || archivoIds.length === 0) {
+    return respond(400, { error: 'Se requiere al menos un archivoId.' });
+  }
+  const ids = [...new Set(archivoIds.filter(id => typeof id === 'string' && id))]
+    .slice(0, MINIATURAS_MAX_POR_PEDIDO);
+  if (ids.length === 0) {
+    return respond(400, { error: 'Se requiere al menos un archivoId.' });
+  }
+
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iId     = h.indexOf('archivo_id');
+  const iEstado = h.indexOf('estado');
+  const iDrive  = h.indexOf('drive_file_id');
+  const porId = {};
+  for (let i = 1; i < data.length; i++) {
+    porId[data[i][iId]] = { estado: data[i][iEstado], driveFileId: data[i][iDrive] };
+  }
+
+  const resultado = {};
+  const pendientes = [];
+  ids.forEach(archivoId => {
+    const a = porId[archivoId];
+    if (!a || a.estado !== 'activo') {
+      resultado[archivoId] = { archivoId: archivoId, error: 'Archivo no encontrado.' };
+    } else {
+      pendientes.push({ archivoId: archivoId, driveFileId: String(a.driveFileId) });
+    }
+  });
+
+  const sinMiniatura = archivoId => { resultado[archivoId] = { archivoId: archivoId, sinMiniatura: true }; };
+
+  if (pendientes.length) {
+    try {
+      const headers = { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() };
+
+      const metas = UrlFetchApp.fetchAll(pendientes.map(p => ({
+        url: 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(p.driveFileId) +
+             '?fields=thumbnailLink&supportsAllDrives=true',
+        headers: headers,
+        muteHttpExceptions: true,
+      })));
+
+      const conLink = [];
+      pendientes.forEach((p, i) => {
+        let link = null;
+        if (metas[i].getResponseCode() === 200) {
+          try { link = JSON.parse(metas[i].getContentText()).thumbnailLink || null; } catch (e) { link = null; }
+        }
+        if (link) conLink.push({ archivoId: p.archivoId, link: link.replace(/=s\d+$/, '=s' + MINIATURA_LADO_PX) });
+        else sinMiniatura(p.archivoId);
+      });
+
+      if (conLink.length) {
+        const minis = UrlFetchApp.fetchAll(conLink.map(c => ({
+          url: c.link, headers: headers, muteHttpExceptions: true,
+        })));
+        conLink.forEach((c, i) => {
+          const r = minis[i];
+          const blob = r.getResponseCode() === 200 ? r.getBlob() : null;
+          const mimeType = blob ? String(blob.getContentType() || '') : '';
+          if (blob && /^image\/(jpeg|png|webp|gif)$/.test(mimeType)) {
+            resultado[c.archivoId] = {
+              archivoId: c.archivoId,
+              base64:    Utilities.base64Encode(blob.getBytes()),
+              mimeType:  mimeType,
+            };
+          } else {
+            sinMiniatura(c.archivoId);
+          }
+        });
+      }
+
+      const faltan = pendientes.filter(p => resultado[p.archivoId].sinMiniatura).length;
+      if (faltan) console.log('getMiniaturas: ' + faltan + ' de ' + pendientes.length + ' sin miniatura.');
+    } catch (err) {
+      // Mensaje fijo: el de la excepción puede traer la URL de la miniatura.
+      console.error('getMiniaturas: falló la consulta a Drive.');
+      pendientes.forEach(p => { if (!resultado[p.archivoId]) sinMiniatura(p.archivoId); });
+    }
+  }
+
+  return respond(200, { archivos: ids.map(id => resultado[id]) });
 }
 
 // ------------------------------------------------------------

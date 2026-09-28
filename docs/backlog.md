@@ -116,7 +116,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   reordenarlas.
 
 ### BL-011 — REQ-PERF-004: miniatura de Drive para la card de "fotos recientes"
-- Estado: Propuesto (diagnóstico técnico ya hecho, ver REQ-PERF-004.md)
+- Estado: Hecho — REQ-PERF-004 en producción desde el 2026-09-28 11:11 (1.2.0, Web App @29); `getMiniaturas` sirve también a "Ya subidas", no solo a la card
 - Prioridad: Sin definir
 - Origen: REQ-PERF-003 (2026-09-15); diagnóstico de `thumbnailLink` corrido
   el 2026-09-16
@@ -270,7 +270,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Nota: hoy no hay número de versión. El servidor tiene las versiones de deploy de Apps Script (@27) y el front solo tiene commits en `main`: no hay forma de saber qué versión tiene abierta cada teléfono. Propuesta de Roy y Paul, basada en lo que se usa en la industria: (1) SemVer `MAYOR.MENOR.PARCHE` para la app entera (front y servidor juntos): MENOR = un REQ nuevo, PARCHE = un bug o un ajuste, MAYOR = un cambio incompatible (migración de hojas que obliga a actualizar los dos lados). Arranca en `1.0.0` = lo que está hoy en prod. (2) Una constante `APP_VERSION` en `index.html` y en `Code.gs`, visible en el perfil. (3) Un tag anotado de git `vX.Y.Z` en cada salida a prod, y la misma versión en la descripción del deploy de Apps Script, para que se correspondan. (4) Un `CHANGELOG.md` en formato Keep a Changelog, en castellano y para Franco y Noelia (qué cambió para ellos); la bitácora sigue siendo el registro técnico. Etapa 2, aparte: que el servidor devuelva su versión y el front avise "hay una versión nueva, recargá" si no coincide (se cruza con REQ-SYNC-001 y BL-001).
 
 ### BL-030 — Miniaturas de "Ya subidas" que siguen quedando en "Sin vista previa"
-- Estado: En curso (investigado el 2026-09-28; no se reprodujo en Chrome de escritorio)
+- Estado: En curso: el arreglo de fondo (REQ-PERF-004, 1.2.0) está en producción desde el 2026-09-28 11:11; falta medirlo en el Chrome de Franco y que Franco confirme
 - Prioridad: Media
 - Origen: Franco (2026-09-28), después del fix de miniaturas de a 3 con reintento (2a1a038): "mejoró, al abrir una imagen carga la vista previa, pero sigue habiendo varias que no cargan".
 - Nota: pasa en "Ya subidas" (modal de la tarea) **sin abrir el visor**, así que la hipótesis de que el visor cancela los pedidos (`abortFetchesExcepto`) no alcanza a explicarlo. Datos: `getArchivo` devuelve la foto entera en base64 (no hay miniatura, ver BL-011/REQ-PERF-004); cada miniatura se reintenta una sola vez a los 800 ms y después queda fija hasta reabrir la tarea; `api()` no tiene timeout propio. `clasp logs` de la sesión no mostró errores de lectura en la Web App (no concluyente: parecían corridas de test). Primer paso: reproducir en el navegador contra prod en modo solo lectura y mirar qué responde cada `getArchivo` que falla (status, error, tiempo).

@@ -5,6 +5,14 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.2.0] - 2026-09-28
+
+### Cambiado
+- Las vistas previas de las fotos ("Ya subidas" en cada tarea y la card de
+  recuerdos) cargan mucho más rápido: se baja una miniatura de pocos KB en
+  vez de la foto entera. Al tocar una foto se sigue viendo completa.
+  (REQ-PERF-004, BL-030)
+
 ## [1.1.0] - 2026-09-28
 
 ### Agregado
