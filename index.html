@@ -13,22 +13,41 @@
     ==================================================== */
     :root {
       color-scheme: dark; /* controles nativos (calendario del input date, scrollbars) en oscuro */
-      --bg:           #0E0C0A;
-      --bg-card:      #161310;
-      --bg-header:    #100E0B;
-      --border:       #2A2520;
-      --border-soft:  #2E2820;
-      --copper:       #B8783A;
-      --copper-light: #D4A060;
-      --copper-dim:   rgba(184,120,58,0.45);
-      --text-main:    #EDE0CC;
-      --text-soft:    #A09488;
-      --text-muted:   #6A6058;
-      --text-faint:   #524840;
-      --green-ok:     #6AAA80;
-      --green-ok-bg:  #0A1E10;
-      --red-venc:     #AA6060;
-      --red-venc-bg:  #1E0A0A;
+      /* Paleta B "Profunda" (REQ-UX-002, DEC-014). Contraste medido con
+         `node check-contraste.js`: todo texto 4,5:1, bordes de campos y
+         botones 3:1. Un color nuevo se suma acá y a PARES del script. */
+      --bg:           #0A0908;
+      --bg-header:    #0E0C0B;
+      --bg-card:      #15120F;
+      --bg-elevated:  #1E1A16;   /* modales, avatares, hover/foco de campos */
+      --bg-input:     #080706;
+      --bg-card-vencido: #1C110F;
+      --bg-card-done: #101812;   /* negro verdoso, par del vencido (Franco, 2026-09-28) */
+      --border:       rgba(232,200,160,0.15);
+      --border-soft:  rgba(232,200,160,0.17);
+      --border-control: rgba(232,200,160,0.44); /* campos y botones: 3:1 */
+      --edge-light:   rgba(255,232,200,0.08);   /* filo de luz: inset 0 1px 0 */
+      --copper-rgb:   201,138,72;               /* para rgba(var(--copper-rgb), a) */
+      --copper:       #C98A48;
+      --copper-light: #E6BC80;
+      --copper-deep:  #94602E;
+      --copper-dim:   rgba(201,138,72,0.75);
+      --on-copper:    #120C06;
+      --glow:         rgba(201,138,72,0.13);
+      --glow-strong:  rgba(201,138,72,0.5);
+      --grain:        0.06;
+      --text-main:    #F5ECDD;
+      --text-soft:    #C8BCAC;
+      --text-muted:   #A39684;
+      --text-faint:   #8E8274;
+      --green-rgb:    125,190,147;
+      --green-ok:     #7DBE93;
+      --green-ok-bg:  #0D2416;
+      --green-line:   rgba(125,190,147,0.55);
+      --red-rgb:      213,131,122;
+      --red-venc:     #D5837A;
+      --red-venc-bg:  #2B1311;
+      --red-line:     rgba(213,131,122,0.62);
       --white:        #FDFAF7;
       --radius-sm:    6px;
       --radius-md:    10px;
@@ -64,6 +83,25 @@
       cursor: none;
     }
 
+    /* Atmósfera (REQ-UX-002): resplandor cobre muy tenue arriba y grano
+       suave, fijos detrás de todo. El grano es una imagen quieta (SVG),
+       no un filtro animado, para no costar en el celular. */
+    body::before,
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+    body::before {
+      background: radial-gradient(ellipse 90% 420px at 50% 0%, var(--glow), transparent 70%);
+    }
+    body::after {
+      opacity: var(--grain);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0.8 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
     /* ====================================================
        CURSOR PERSONALIZADO
     ==================================================== */
@@ -83,7 +121,7 @@
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      border: 0.5px solid rgba(184,120,58,0.45);
+      border: 1px solid rgba(var(--copper-rgb),0.45);
       pointer-events: none;
       z-index: 9998;
       transform: translate(-50%, -50%);
@@ -95,7 +133,7 @@
       width: 46px;
       height: 46px;
       border-color: var(--copper);
-      background: rgba(184,120,58,0.09);
+      background: rgba(var(--copper-rgb),0.09);
     }
 
     /* ====================================================
@@ -152,8 +190,8 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse at 40% 30%, rgba(184,120,58,0.10) 0%, transparent 55%),
-        radial-gradient(ellipse at 75% 70%, rgba(184,120,58,0.05) 0%, transparent 45%);
+        radial-gradient(ellipse at 40% 30%, rgba(var(--copper-rgb),0.10) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 70%, rgba(var(--copper-rgb),0.05) 0%, transparent 45%);
       pointer-events: none;
     }
 
@@ -165,7 +203,8 @@
 
     .login-card {
       background: var(--bg-card);
-      border: 0.5px solid var(--border-soft);
+      box-shadow: inset 0 1px 0 var(--edge-light);
+      border: 1px solid var(--border-soft);
       border-radius: var(--radius-xl);
       padding: 2.8rem 2.4rem 2.4rem;
       width: 100%;
@@ -195,12 +234,14 @@
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: rgba(184,120,58,0.3);
+      background: rgba(var(--copper-rgb),0.3);
     }
 
     .login-emblem {
-      width: 48px;
-      height: 48px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(var(--copper-rgb),0.3);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -209,10 +250,11 @@
     }
 
     .heart-icon {
-      width: 2rem;
-      height: 2rem;
+      width: 2.1rem;
+      height: 2.1rem;
       color: var(--copper);
       display: block;
+      filter: drop-shadow(0 2px 8px var(--glow-strong));
       animation: heartbeat 3.2s ease-in-out infinite;
     }
 
@@ -221,7 +263,7 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(184,120,58,0.15) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(var(--copper-rgb),0.15) 0%, transparent 70%);
       animation: halo 3.2s ease-in-out infinite;
     }
 
@@ -255,8 +297,8 @@
       margin-bottom: 1.6rem;
     }
 
-    .login-divider-line { flex: 1; height: 0.5px; background: var(--border); }
-    .login-divider-dot  { width: 3px; height: 3px; border-radius: 50%; background: rgba(184,120,58,0.45); }
+    .login-divider-line { flex: 1; height: 1px; background: var(--border); }
+    .login-divider-dot  { width: 3px; height: 3px; border-radius: 50%; background: rgba(var(--copper-rgb),0.45); }
 
     /* ====================================================
        BOTÓN DE GOOGLE (login)
@@ -282,10 +324,11 @@
       gap: 0.7rem;
       -webkit-appearance: none;
       appearance: none;
-      border: 0.5px solid var(--copper-dim);
+      border: 1px solid var(--copper);
       border-radius: var(--radius-lg);
-      background: linear-gradient(180deg, #1C1712 0%, #141110 100%);
-      color: var(--text-main);
+      background: linear-gradient(180deg, var(--copper-light) -40%, var(--copper) 55%, var(--copper-deep) 120%);
+      box-shadow: inset 0 1px 0 rgba(255,235,205,0.35), 0 1px 2px rgba(0,0,0,0.45);
+      color: var(--on-copper);
       font-family: 'Jost', sans-serif;
       font-size: 0.9rem;
       font-weight: 500;
@@ -301,7 +344,7 @@
       position: absolute;
       inset: 0;
       transform: translateX(-120%);
-      background: linear-gradient(105deg, transparent 32%, rgba(212,160,96,0.16) 50%, transparent 68%);
+      background: linear-gradient(105deg, transparent 32%, rgba(255,236,210,0.28) 50%, transparent 68%);
       transition: transform 0.7s ease;
     }
 
@@ -310,13 +353,13 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at 50% 135%, rgba(184,120,58,0.22) 0%, transparent 62%);
+      background: radial-gradient(circle at 50% 135%, rgba(var(--copper-rgb),0.22) 0%, transparent 62%);
       opacity: 0;
       transition: opacity 0.25s ease;
     }
 
     .gsi-shell:hover #gsi-custom {
-      border-color: var(--copper);
+      border-color: var(--copper-light);
       transform: translateY(-1px);
     }
 
@@ -333,18 +376,18 @@
       align-items: center;
       justify-content: center;
       background: var(--bg);
-      border: 0.5px solid var(--border);
+      border: 1px solid rgba(18,12,6,0.35);
       border-radius: 7px;
       transition: var(--transition);
     }
 
-    .gsi-shell:hover .gsi-g { border-color: var(--copper-dim); }
+    .gsi-shell:hover .gsi-g { border-color: rgba(18,12,6,0.5); }
     .gsi-g svg { width: 14px; height: 14px; display: block; }
     .gsi-label { position: relative; }
 
     /* estado de carga: mientras se verifica */
     .gsi-shell.is-loading { pointer-events: none; }
-    .gsi-shell.is-loading #gsi-custom { border-color: var(--border-soft); color: var(--text-muted); }
+    .gsi-shell.is-loading #gsi-custom { filter: saturate(0.5) brightness(0.8); }
     .gsi-shell.is-loading .gsi-g { opacity: 0.35; }
 
     .login-status {
@@ -394,13 +437,13 @@
     .form-group textarea {
       width: 100%;
       padding: 0.75rem 1rem;
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-control);
       border-radius: var(--radius-sm);
       font-family: 'Jost', sans-serif;
       font-size: 0.95rem;
       font-weight: 300;
       color: var(--text-main);
-      background: var(--bg);
+      background: var(--bg-input);
       transition: var(--transition);
       outline: none;
       cursor: none;
@@ -434,7 +477,7 @@
     .form-group select:focus,
     .form-group textarea:focus {
       border-color: var(--copper-dim);
-      background: #1A1612;
+      background: var(--bg-elevated);
     }
 
     /* El outline:none de arriba necesita un reemplazo que se vea: el borde
@@ -454,13 +497,13 @@
     /* select oscuro */
     .form-group select {
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234A4540' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23A39684' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
     }
 
     .form-group select option {
-      background: #1A1612;
+      background: var(--bg-elevated);
       color: var(--text-main);
     }
 
@@ -493,20 +536,30 @@
       flex-shrink: 0;
     }
 
+    /* Cobre como metal (REQ-UX-002): solo la acción principal. */
     .btn-primary {
-      border: 0.5px solid var(--copper-dim);
-      background: transparent;
-      color: var(--copper);
+      border: 1px solid var(--copper);
+      background: linear-gradient(180deg, var(--copper-light) -40%, var(--copper) 55%, var(--copper-deep) 120%);
+      color: var(--on-copper);
+      font-weight: 500;
+      box-shadow: inset 0 1px 0 rgba(255,235,205,0.35), 0 1px 2px rgba(0,0,0,0.45);
       width: 100%;
     }
 
     .btn-primary:hover {
-      background: var(--copper);
-      color: var(--bg);
+      background: linear-gradient(180deg, var(--copper-light) -20%, var(--copper) 60%, var(--copper-deep) 130%);
+      border-color: var(--copper-light);
     }
 
+    .btn-primary .spinner {
+      border-color: rgba(18,12,6,0.3);
+      border-top-color: var(--on-copper);
+    }
+
+    .btn:active { transform: scale(0.98); }
+
     .btn-secondary {
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border-control);
       background: transparent;
       color: var(--text-soft);
     }
@@ -519,9 +572,25 @@
     .btn-danger {
       background: transparent;
       color: var(--red-venc);
-      border: 0.5px solid rgba(170,96,96,0.4);
+      border: 1px solid var(--red-line);
       font-size: 0.72rem;
       padding: 0.35rem 0.8rem;
+    }
+
+    /* Confirmación de algo que borra o descarta (#btn-accept-confirm). */
+    .btn-peligro {
+      border: 1px solid var(--red-line);
+      background: rgba(var(--red-rgb),0.12);
+      color: var(--red-venc);
+      font-weight: 500;
+    }
+
+    /* En hover se aclara el texto junto con el fondo: con solo el fondo más
+       rojo, el texto baja de 4,5:1. */
+    .btn-peligro:hover {
+      background: rgba(var(--red-rgb),0.18);
+      border-color: var(--red-venc);
+      color: #EBA79F;
     }
 
     .btn-danger:hover {
@@ -568,7 +637,7 @@
     .error-msg {
       background: var(--red-venc-bg);
       color: var(--red-venc);
-      border: 0.5px solid rgba(170,96,96,0.3);
+      border: 1px solid rgba(var(--red-rgb),0.3);
       border-radius: var(--radius-sm);
       padding: 0.65rem 1rem;
       font-size: 0.82rem;
@@ -597,7 +666,7 @@
     /* HEADER */
     .app-header {
       background: var(--bg-header);
-      border-bottom: 0.5px solid var(--border);
+      border-bottom: 1px solid var(--border);
       padding: 0.9rem 2rem;
       display: flex;
       align-items: center;
@@ -629,9 +698,10 @@
     }
 
     .logo-heart {
-      width: 1em;
-      height: 1em;
+      width: 1.05em;
+      height: 1.05em;
       color: var(--copper);
+      filter: drop-shadow(0 0 4px var(--glow-strong));
       animation: heartbeat 3.2s ease-in-out infinite;
       display: inline-block;
       flex-shrink: 0;
@@ -648,7 +718,7 @@
       align-items: center;
       gap: 0.6rem;
       background: transparent;
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-full);
       padding: 0.3rem 0.9rem 0.3rem 0.3rem;
       cursor: none;
@@ -663,8 +733,8 @@
       width: 30px;
       height: 30px;
       border-radius: 50%;
-      border: 0.5px solid var(--copper-dim);
-      background: #1E1A14;
+      border: 1px solid var(--copper-dim);
+      background: var(--bg-elevated);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -690,7 +760,7 @@
     /* NAV TABS */
     .app-nav {
       background: var(--bg-header);
-      border-bottom: 0.5px solid var(--border);
+      border-bottom: 1px solid var(--border);
       display: flex;
       padding: 0 2rem;
     }
@@ -715,8 +785,9 @@
     }
 
     .nav-tab.active {
-      color: var(--copper);
+      color: var(--copper-light);
       border-bottom-color: var(--copper);
+      box-shadow: inset 0 -8px 12px -10px var(--glow-strong);
     }
 
     /* CONTENIDO */
@@ -732,8 +803,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 1rem;
       margin-bottom: 1.5rem;
     }
+
+    /* .btn-primary es de ancho completo (modales, login). En la cabecera va
+       a su medida: si no, aprieta el título (se notó con el cobre lleno). */
+    .section-header .btn { width: auto; flex-shrink: 0; }
 
     .section-header h2 {
       font-family: 'DM Serif Display', serif;
@@ -769,7 +845,7 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
       cursor: none;
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border-control);
       background: transparent;
       color: var(--text-muted);
       transition: var(--transition);
@@ -783,6 +859,14 @@
       color: var(--copper);
     }
 
+    /* Lo activo lleva el brillo del metal (REQ-UX-002). */
+    .filter-chip.active,
+    .recuerdos-chip[aria-pressed="true"] {
+      color: var(--copper-light);
+      background: linear-gradient(180deg, rgba(var(--copper-rgb),0.16), rgba(var(--copper-rgb),0.06));
+      box-shadow: inset 0 1px 0 rgba(255,220,180,0.10);
+    }
+
     /* ====================================================
        TARJETAS DE PLANES
     ==================================================== */
@@ -794,8 +878,9 @@
 
     .plan-card {
       background: var(--bg-card);
+      box-shadow: inset 0 1px 0 var(--edge-light);   /* filo de luz */
       border-radius: var(--radius-md);
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       padding: 1.2rem;
       transition: var(--transition);
       position: relative;
@@ -812,7 +897,7 @@
       left: -60%;
       width: 40%;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(184,120,58,0.07), transparent);
+      background: linear-gradient(90deg, transparent, rgba(var(--copper-rgb),0.07), transparent);
       transform: skewX(-15deg);
       transition: left 0.45s ease;
       pointer-events: none;
@@ -831,25 +916,57 @@
     }
 
     .plan-card:hover {
-      border-color: rgba(184,120,58,0.3);
+      border-color: rgba(var(--copper-rgb),0.3);
       transform: translateY(-2px);
     }
 
     .plan-card:hover::before { left: 130%; }
     .plan-card:hover::after  { width: 55%; }
 
+    /* Completada (DEC-014): negro verdoso (par del negro rojizo del
+       vencido), línea verde fija arriba y sello con tilde en lugar de la
+       píldora. Sin transparencia: antes estaba al 55 % y no se leía. */
     .plan-card.completado {
-      opacity: 0.55;
+      background: var(--bg-card-done);
+      border-color: rgba(var(--green-rgb),0.28);
+      box-shadow: inset 0 1px 0 rgba(var(--green-rgb),0.10);
     }
+
+    .plan-card.completado::after,
+    .plan-card.completado:hover::after {
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--green-ok), rgba(var(--green-rgb),0.2));
+    }
+
+    .plan-card.completado:hover { border-color: rgba(var(--green-rgb),0.45); }
 
     .plan-card.completado .plan-titulo {
       text-decoration: line-through;
-      color: var(--text-muted);
+      text-decoration-color: rgba(163,150,132,0.6);
+      color: var(--text-soft);
     }
 
+    .plan-card.completado .categoria-badge { filter: saturate(0.55); }
+
+    .estado-sello {
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 35% 30%, #B5DEC2, var(--green-ok) 60%);
+      color: var(--green-ok-bg);
+      box-shadow: 0 0 0 4px rgba(var(--green-rgb),0.16), inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+
+    .estado-sello svg { width: 16px; height: 16px; }
+
     .plan-card.vencido {
-      border-color: rgba(170,96,96,0.4);
-      background: #1A1010;
+      border-color: rgba(var(--red-rgb),0.4);
+      background: var(--bg-card-vencido);
     }
 
     .plan-card.vencido .plan-titulo {
@@ -889,10 +1006,10 @@
     .vencido-badge {
       background: var(--red-venc-bg);
       color: var(--red-venc);
-      border: 0.5px solid rgba(170,96,96,0.4);
+      border: 1px solid var(--red-line);
       padding: 0.15rem 0.55rem;
       border-radius: var(--radius-sm);
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       font-weight: 400;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -943,8 +1060,8 @@
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: #1E1A14;
-      border: 0.5px solid var(--copper-dim);
+      background: var(--bg-elevated);
+      border: 1px solid var(--copper-dim);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -970,7 +1087,7 @@
     .btn-completar {
       background: transparent;
       color: var(--green-ok);
-      border: 0.5px solid rgba(106,170,128,0.4);
+      border: 1px solid var(--green-line);
       border-radius: var(--radius-sm);
       padding: 0.35rem 0.9rem;
       font-size: 0.7rem;
@@ -1006,8 +1123,8 @@
     .estado-pill {
       padding: 0.15rem 0.55rem;
       border-radius: var(--radius-sm);
-      border: 0.5px solid var(--border);
-      font-size: 0.65rem;
+      border: 1px solid var(--border);
+      font-size: 0.7rem;
       font-weight: 400;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -1017,14 +1134,14 @@
 
     .estado-pill.esperando  { color: var(--copper); border-color: var(--copper-dim); }
     .estado-pill.lista      { color: var(--bg); background: var(--copper); border-color: var(--copper); }
-    .estado-pill.completada { color: var(--green-ok); background: var(--green-ok-bg); border-color: rgba(106,170,128,0.4); }
+    .estado-pill.completada { color: var(--green-ok); background: var(--green-ok-bg); border-color: var(--green-line); }
 
     .plan-acuerdo {
       display: flex;
       align-items: center;
       gap: 0.6rem;
       padding: 0.5rem 0.6rem;
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       margin-bottom: 0.8rem;
     }
@@ -1039,7 +1156,7 @@
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      background: #1E1A14;
+      background: var(--bg-elevated);
       border: 1px dashed var(--text-muted);
       display: flex;
       align-items: center;
@@ -1099,13 +1216,13 @@
       gap: 0.3rem;
     }
 
-    .btn-acuerdo { color: var(--copper); border: 0.5px solid var(--copper-dim); }
-    .btn-acuerdo:hover { background: #1A1612; }
+    .btn-acuerdo { color: var(--copper); border: 1px solid var(--copper-dim); }
+    .btn-acuerdo:hover { background: var(--bg-elevated); }
     .btn-acuerdo[aria-pressed="true"] { color: var(--bg); background: var(--copper); border-color: var(--copper); }
     .btn-acuerdo svg { width: 12px; height: 12px; }
 
-    .btn-reabrir { color: var(--text-soft); border: 0.5px solid var(--border); }
-    .btn-reabrir:hover { border-color: rgba(184,120,58,0.3); }
+    .btn-reabrir { color: var(--text-soft); border: 1px solid var(--border-control); }
+    .btn-reabrir:hover { border-color: rgba(var(--copper-rgb),0.3); }
 
     .btn-completar[aria-disabled="true"] { opacity: 0.45; }
     .btn-completar[aria-disabled="true"]:hover { background: transparent; }
@@ -1124,7 +1241,8 @@
       animation: spin 0.8s linear infinite;
       flex-shrink: 0;
     }
-    .plan-card.completado.reabriendo { opacity: 1; border-color: var(--copper-dim); }
+    .plan-card.completado.reabriendo { border-color: var(--copper-dim); }
+    .plan-card.completado.reabriendo::after { background: var(--copper); }
     .estado-pill.reabriendo {
       color: var(--copper);
       border-color: var(--copper-dim);
@@ -1201,8 +1319,9 @@
 
     .categoria-row {
       background: var(--bg-card);
+      box-shadow: inset 0 1px 0 var(--edge-light);
       border-radius: var(--radius-md);
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       padding: 0.9rem 1.2rem;
       display: flex;
       align-items: center;
@@ -1213,7 +1332,7 @@
     }
 
     .categoria-row:hover {
-      border-color: rgba(184,120,58,0.3);
+      border-color: rgba(var(--copper-rgb),0.3);
     }
 
     .categoria-color-dot {
@@ -1240,8 +1359,9 @@
     ==================================================== */
     .perfil-card {
       background: var(--bg-card);
+      box-shadow: inset 0 1px 0 var(--edge-light);
       border-radius: var(--radius-lg);
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       padding: 2rem;
       max-width: 420px;
     }
@@ -1317,8 +1437,9 @@
     }
 
     .modal {
-      background: var(--bg-card);
-      border: 0.5px solid var(--border-soft);
+      background: var(--bg-elevated);
+      box-shadow: inset 0 1px 0 var(--edge-light), 0 24px 48px -24px rgba(0,0,0,0.8);
+      border: 1px solid var(--border-soft);
       border-radius: var(--radius-xl);
       padding: 2rem;
       width: 100%;
@@ -1394,7 +1515,7 @@
       display: inline-block;
       width: 14px;
       height: 14px;
-      border: 1.5px solid rgba(184,120,58,0.3);
+      border: 1.5px solid rgba(var(--copper-rgb),0.3);
       border-top-color: var(--copper);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
@@ -1438,7 +1559,7 @@
       margin-top: 0.3rem;
       padding: 0.5rem 1.1rem;
       background: transparent;
-      border: 0.5px solid var(--copper-dim);
+      border: 1px solid var(--copper-dim);
       border-radius: var(--radius-md);
       color: var(--text-main);
       font-family: 'Jost', sans-serif;
@@ -1463,7 +1584,7 @@
     .skeleton-card {
       height: 84px;
       border-radius: var(--radius-md);
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       background: linear-gradient(90deg, var(--bg-card) 25%, var(--border-soft) 37%, var(--bg-card) 63%);
       background-size: 400% 100%;
       animation: skeletonShimmer 1.4s ease infinite;
@@ -1527,7 +1648,7 @@
       height: 100px;
       border-radius: 50%;
       border: 1px solid var(--copper-dim);
-      background: #1E1A14;
+      background: var(--bg-elevated);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1558,7 +1679,7 @@
 
     #crop-canvas {
       border-radius: var(--radius-md);
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-soft);
       cursor: none;
       touch-action: none;
       max-width: 100%;
@@ -1724,13 +1845,13 @@
       aspect-ratio: 1;
       width: 100%;
       border-radius: var(--radius-sm);
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-soft);
       overflow: hidden;
-      background: #1A1612;
+      background: var(--bg-elevated);
       transition: var(--transition);
     }
 
-    .foto-ya:hover .foto-ya-thumb { border-color: rgba(184,120,58,0.5); }
+    .foto-ya:hover .foto-ya-thumb { border-color: rgba(var(--copper-rgb),0.5); }
 
     .foto-ya-img {
       position: absolute;
@@ -1779,21 +1900,21 @@
       grid-template-columns: 44px minmax(0, 1fr) auto;
       gap: 0.65rem;
       align-items: center;
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: 0.45rem 0.55rem;
-      background: #13100D;
+      background: var(--bg-card);
       transition: var(--transition);
     }
 
-    .foto-fila.error { border-color: rgba(170,96,96,0.4); }
+    .foto-fila.error { border-color: var(--red-line); }
 
     .foto-fila-thumb {
       width: 44px;
       height: 44px;
       border-radius: var(--radius-sm);
       overflow: hidden;
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-soft);
     }
 
     .foto-fila-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1849,9 +1970,9 @@
       width: 9.5rem;
       max-width: 100%;
       padding: 0.3rem 0.45rem;
-      border: 0.5px solid var(--copper-dim);
+      border: 1px solid var(--copper-dim);
       border-radius: var(--radius-sm);
-      background: #1A1612;
+      background: var(--bg-elevated);
       color: var(--text-main);
       font-family: inherit;
       font-size: 0.8rem;
@@ -1871,7 +1992,7 @@
 
     .btn-mini {
       background: none;
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-soft);
       color: var(--text-soft);
       border-radius: var(--radius-sm);
       font-family: inherit;
@@ -1903,7 +2024,7 @@
       text-transform: uppercase;
       border-radius: var(--radius-sm);
       padding: 0.12rem 0.45rem;
-      border: 0.5px solid;
+      border: 1px solid;
       white-space: nowrap;
     }
 
@@ -1912,21 +2033,21 @@
     .foto-pill.lista    { color: var(--text-soft); border-color: var(--border-soft); }
     .foto-pill.espera   { color: var(--text-muted); border-color: var(--border); }
     .foto-pill.subiendo { color: var(--copper); border-color: var(--copper-dim); }
-    .foto-pill.subida   { color: var(--green-ok); border-color: rgba(106,170,128,0.4); background: var(--green-ok-bg); }
-    .foto-pill.error    { color: var(--red-venc); border-color: rgba(170,96,96,0.4); background: var(--red-venc-bg); }
+    .foto-pill.subida   { color: var(--green-ok); border-color: var(--green-line); background: var(--green-ok-bg); }
+    .foto-pill.error    { color: var(--red-venc); border-color: var(--red-line); background: var(--red-venc-bg); }
 
     .plan-fotos-resumen {
       font-size: 0.8rem;
       border-radius: var(--radius-md);
       padding: 0.6rem 0.75rem;
       margin-top: 0.6rem;
-      border: 0.5px solid rgba(106,170,128,0.4);
+      border: 1px solid var(--green-line);
       color: var(--green-ok);
       background: var(--green-ok-bg);
     }
 
     .plan-fotos-resumen.parcial {
-      border-color: rgba(170,96,96,0.4);
+      border-color: var(--red-line);
       color: var(--text-main);
       background: var(--red-venc-bg);
     }
@@ -1944,7 +2065,7 @@
       height: 52px;
       object-fit: cover;
       border-radius: var(--radius-sm);
-      border: 0.5px solid var(--border-soft);
+      border: 1px solid var(--border-soft);
     }
 
     .plan-fotos-actions {
@@ -1965,7 +2086,7 @@
       align-items: center;
       gap: 0.9rem;
       background: var(--bg-card);
-      border: 0.5px solid var(--border);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: 0.8rem 1rem;
       margin-bottom: 1.2rem;
@@ -1975,7 +2096,7 @@
     }
 
     .fotos-recientes-card:hover {
-      border-color: rgba(184,120,58,0.3);
+      border-color: rgba(var(--copper-rgb),0.3);
     }
 
     .fotos-recientes-thumbs {
@@ -2175,7 +2296,7 @@
       .app-content { padding: 1rem; }
       .app-header  { padding: 0.75rem 1rem; }
       .app-nav     { padding: 0 0.5rem; }
-      .nav-tab     { padding: 0.75rem 0.7rem; font-size: 0.65rem; }
+      .nav-tab     { padding: 0.75rem 0.7rem; font-size: 0.7rem; }
       .plans-grid  { grid-template-columns: 1fr; }
       .login-card  { padding: 2rem 1.5rem; }
       .carrusel-imagen-wrap { aspect-ratio: 1 / 1; }
@@ -2195,6 +2316,7 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
+      .btn:active { transform: none; }
       .spinner, .carrusel-spinner { animation-iteration-count: infinite !important; }
       .spinner          { animation-duration: 0.7s !important; }
       .carrusel-spinner { animation-duration: 900ms !important; }
@@ -2211,11 +2333,22 @@
   <!-- ================================================
        LOGIN
   ================================================ -->
+  <!-- Degradé cobre metálico del corazón (logo y login), REQ-UX-002 / DEC-014 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="np-heart-metal" x1="0.2" y1="0" x2="0.75" y2="1">
+        <stop offset="0" stop-color="#F0CC95"/>
+        <stop offset="0.45" stop-color="#C98A48"/>
+        <stop offset="1" stop-color="#8A5526"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
   <div id="login-screen">
     <canvas id="stars-canvas"></canvas>
     <div class="login-card">
       <div class="login-emblem">
-        <svg class="heart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg>
+        <svg class="heart-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="url(#np-heart-metal)" d="M12 20.4c-.25 0-.5-.08-.7-.23C7.1 17.2 2.75 13.6 2.75 9.1 2.75 6.3 4.9 4.1 7.6 4.1c1.8 0 3.4 1 4.4 2.5 1-1.5 2.6-2.5 4.4-2.5 2.7 0 4.85 2.2 4.85 5 0 4.5-4.35 8.1-8.55 11.07-.2.15-.45.23-.7.23z"/><path fill="none" stroke="rgba(255,236,210,0.55)" stroke-width="0.9" stroke-linecap="round" d="M5.6 8.2c.3-1.2 1.2-1.9 2.3-2"/></svg>
       </div>
       <h1>Nuestros Planes</h1>
       <p class="subtitle">el espacio de <em>los dos</em></p>
@@ -2263,7 +2396,7 @@
     </div>
 
     <header class="app-header">
-      <div class="logo"><svg class="logo-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg> Nuestros Planes</div>
+      <div class="logo"><svg class="logo-heart" viewBox="0 0 24 24" aria-hidden="true"><path fill="url(#np-heart-metal)" d="M12 20.4c-.25 0-.5-.08-.7-.23C7.1 17.2 2.75 13.6 2.75 9.1 2.75 6.3 4.9 4.1 7.6 4.1c1.8 0 3.4 1 4.4 2.5 1-1.5 2.6-2.5 4.4-2.5 2.7 0 4.85 2.2 4.85 5 0 4.5-4.35 8.1-8.55 11.07-.2.15-.45.23-.7.23z"/><path fill="none" stroke="rgba(255,236,210,0.55)" stroke-width="0.9" stroke-linecap="round" d="M5.6 8.2c.3-1.2 1.2-1.9 2.3-2"/></svg> Nuestros Planes</div>
       <div class="header-actions">
         <div class="user-chip" id="btn-perfil-header">
           <div class="avatar" id="header-avatar"></div>
@@ -2582,7 +2715,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="btn-cancel-confirm">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="btn-accept-confirm">Eliminar</button>
+        <button type="button" class="btn btn-peligro" id="btn-accept-confirm">Eliminar</button>
       </div>
     </div>
   </div>
@@ -2671,7 +2804,7 @@
       cursorHalo.style.display = 'none';
     }
 
-    const SPARK_COLORS = ['#B8783A', '#D4A060', '#EDE0CC', '#C9603A', '#F0C88A'];
+    const SPARK_COLORS = ['#C98A48', '#E6BC80', '#F5ECDD', '#C9603A', '#F0C88A']; // cobre, cobre claro y texto de la paleta B
 
     function spawnSparks(cx, cy, count) {
       if (menosMovimiento()) return;
@@ -4868,6 +5001,10 @@
         lista:      'Lista para cerrar',
         completada: 'Completada',
       }[cierre];
+      if (cierre === 'completada') {
+        // DEC-014: la completada lleva un sello con tilde en lugar de la píldora.
+        return `<span class="estado-sello" role="img" aria-label="Completada" title="Completada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>`;
+      }
       return `<span class="estado-pill ${cierre}">${texto}</span>`;
     }
 
@@ -4989,7 +5126,8 @@
       if (acuerdoEnCurso.has(planId)) return;
       const ok = await confirmarModal(
         'La tarea vuelve a pendiente y hay que volver a ponerse de acuerdo para cerrarla. Las fotos no se tocan.',
-        'Reabrir'
+        'Reabrir',
+        false
       );
       if (!ok) return;
       const conFoco = true;  // se llega desde el botón de la tarjeta o el modal
@@ -5330,7 +5468,7 @@
       // Borde decorativo dorado
       cropCtx.beginPath();
       cropCtx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
-      cropCtx.strokeStyle = 'rgba(184,120,58,0.5)';
+      cropCtx.strokeStyle = 'rgba(201,138,72,0.5)';
       cropCtx.lineWidth   = 1.5;
       cropCtx.stroke();
     }
@@ -5442,9 +5580,14 @@
 
     // Muestra el modal con `mensaje` y devuelve una Promise<boolean>:
     // true si el usuario aceptó, false si canceló o cerró de cualquier forma.
-    function confirmarModal(mensaje, textoAceptar = 'Eliminar') {
+    // `peligro`: la acción borra o descarta algo -> botón rojo. Si no (ej.
+    // "Reabrir"), el botón es el principal, en cobre.
+    function confirmarModal(mensaje, textoAceptar = 'Eliminar', peligro = true) {
       document.getElementById('modal-confirm-msg').textContent = mensaje;
-      document.getElementById('btn-accept-confirm').textContent = textoAceptar;
+      const btnAceptar = document.getElementById('btn-accept-confirm');
+      btnAceptar.textContent = textoAceptar;
+      btnAceptar.classList.toggle('btn-peligro', peligro);
+      btnAceptar.classList.toggle('btn-primary', !peligro);
       modalConfirm.classList.add('visible');
       return new Promise(resolve => { _confirmResolve = resolve; });
     }

@@ -1,6 +1,6 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** APROBADO (2026-09-28, Franco). Sin implementar: la próxima sesión arranca por la fase 1 (paleta + mockup para que Franco elija).
+> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global) y 3 (componentes) hechas en `index.html` el 2026-09-28, sin deploy. Sigue la fase 4 (movimiento y pulido, `docs/DESIGN.md`).
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
@@ -76,3 +76,124 @@ cambios de flujo o de funciones (esto es solo cómo se ve).
 6. Verificado a 375, 600/601 y 1366 de ancho, con consola limpia, y visto
    por Franco en su PC y por Noelia en su celular.
 7. `docs/DESIGN.md` coincide con el código al cerrar.
+
+## Resultado de la fase 1 (2026-09-28)
+
+Mockup interactivo (Artifact, no versionado) con la paleta actual al lado
+de A "Cálida" y B "Profunda". Franco eligió **B** (DEC-014).
+
+`check-contraste.js` quedó en la raíz del repo (criterio 3). Contra
+`index.html` 1.2.4 da 12 pares por debajo del mínimo; con la paleta B pasan
+todos.
+
+Variables de la paleta B para `:root` (fase 2):
+
+| Variable | Valor | Para qué |
+|---|---|---|
+| `--bg` | `#0A0908` | fondo |
+| `--bg-header` | `#0E0C0B` | header y pestañas (al 88 %, deja ver el resplandor) |
+| `--bg-card` | `#15120F` | tarjetas |
+| `--bg-elevated` | `#1E1A16` | modales (nuevo) |
+| `--bg-input` | `#080706` | campos (nuevo) |
+| `--bg-card-vencido` | `#1C110F` | reemplaza el literal `#1A1010` |
+| `--bg-card-done` | `#101812` | tarjeta completada: negro verdoso, par del negro rojizo del vencido (pedido de Franco durante la fase 2) |
+| `--border` | `rgba(232,200,160,0.15)` | bordes de tarjeta, 1 px |
+| `--border-soft` | `rgba(232,200,160,0.17)` | modal, login |
+| `--border-control` | `rgba(232,200,160,0.44)` | campos y botones secundarios, 3:1 (nuevo) |
+| `--edge-light` | `rgba(255,232,200,0.08)` | filo de luz `inset 0 1px 0` (nuevo) |
+| `--copper` | `#C98A48` | acento |
+| `--copper-light` | `#E6BC80` | pestaña y filtro activos, brillo del metal |
+| `--copper-deep` | `#94602E` | fondo del degradé metálico (nuevo) |
+| `--copper-dim` | `rgba(201,138,72,0.75)` | bordes cobre, 3:1 |
+| `--on-copper` | `#120C06` | texto sobre cobre lleno (nuevo) |
+| `--glow` / `--glow-strong` | `rgba(201,138,72,0.13)` / `0.5` | resplandor del fondo, halo del corazón (nuevo) |
+| `--grain` | `0.06` | opacidad del grano (nuevo) |
+| `--text-main` | `#F5ECDD` | |
+| `--text-soft` | `#C8BCAC` | |
+| `--text-muted` | `#A39684` | 6,45:1 sobre tarjeta |
+| `--text-faint` | `#8E8274` | placeholders, 5,36:1 |
+| `--green-ok` / `--green-ok-bg` | `#7DBE93` / `#0D2416` | |
+| `--red-venc` / `--red-venc-bg` | `#D5837A` / `#2B1311` | |
+
+Además del color:
+- **Tarjeta completada:** opacidad 1, fondo `--bg-card-done`, borde verde al
+  28 %, línea verde fija de 2 px arriba (el `::after` del hover, a ancho
+  completo), sello verde de 30 px con tilde en lugar de la píldora
+  "Completada" (con `role="img"` y `aria-label`), título tachado en
+  `--text-soft`, fotos con `grayscale(0.7) brightness(0.8)`.
+- **Corazón:** relleno con degradé cobre metálico (`#F0CC95` → `#C98A48` →
+  `#8A5526`), un reflejo arriba a la izquierda y halo con `drop-shadow`;
+  en el login, dentro de un anillo cobre de 1 px. Reemplaza el de contorno.
+- **Acción principal y botón de Google:** degradé metálico con texto
+  `--on-copper`, peso 500.
+
+## Resultado de la fase 2 (2026-09-28)
+
+Hecho en `index.html`, sin deploy:
+- `:root` con la paleta B y las variables nuevas, incluidas `--copper-rgb`,
+  `--green-rgb` y `--red-rgb` para `rgba(var(--copper-rgb), a)`, y
+  `--green-line` / `--red-line` (bordes de "Completar" y "Eliminar", 3:1).
+- Los 37 bordes de 0,5 px pasan a 1 px. Los literales del cobre viejo, de
+  `#1A1612`, `#1E1A14`, `#1A1010` y de los rojos y verdes viejos pasan a
+  variables. Las chispas del click usan el cobre nuevo.
+- Fondo con resplandor cobre y grano (`body::before` y `::after`, fijos).
+- `.btn-primary` de cobre metálico (spinner oscuro adentro), presión
+  `scale(0.98)` en `.btn` (apagada con movimiento reducido), secundario y
+  "Reabrir" con `--border-control`.
+- Campos con `--bg-input` y `--border-control`. Pestaña y filtro activos
+  con brillo.
+- Arreglo de paso: `.btn-primary` tenía `width:100%` también en la cabecera
+  de sección y apretaba el título ("Nuestros / Planes" en dos renglones). No
+  se notaba con el botón transparente; ahora la cabecera lo deja a su
+  medida (`.section-header .btn`).
+
+Verificado en 127.0.0.1 con `fetch` simulado (ninguna llamada a prod), a
+1366, 601, 600 y 375: sin scroll horizontal, consola sin errores, foco con
+teclado visible en los campos del modal. `check-contraste.js` y
+`check-sintaxis.js` en verde. El hover de las tarjetas no se miró a 1366
+(solo cambió el color del borde).
+
+Quedan para la fase 3, que no tocó esta fase: fondo del botón de Google
+(`#1C1712` a `#141110`) y de `.foto-fila` (`#13100D`), la tarjeta
+completada, los modales en `--bg-elevated`, el corazón y el login. En la
+fase 3 hay que decidir el botón "Eliminar" del modal de confirmación
+(`#btn-accept-confirm`): hoy usa `.btn-primary`, así que queda en cobre
+metálico para una acción destructiva.
+
+## Resultado de la fase 3 (2026-09-28)
+
+Hecho en `index.html`, sin deploy:
+- **Tarjeta completada (DEC-014):** fondo `--bg-card-done` (negro
+  verdoso), borde verde al 28 %, línea verde fija de 2 px arriba (el
+  `::after` del hover, a ancho completo; en cobre mientras dice
+  "Reabriendo…"), título tachado en `--text-soft` y badge de categoría
+  desaturado. Sin `opacity`. `htmlEstadoPill` devuelve para `completada` un
+  sello (`.estado-sello`, `role="img"`, `aria-label="Completada"`) en lugar
+  de la píldora.
+- **Tarjetas, perfil y categorías:** filo de luz arriba. La vencida lleva
+  un borde rojo al 40 %.
+- **Modales:** `--bg-elevated`, filo de luz y una sombra corta.
+- **Confirmación:** `confirmarModal(mensaje, texto, peligro = true)`. Con
+  `peligro`, `#btn-accept-confirm` es `.btn-peligro` (rojo): "Eliminar" y
+  "Descartar y cerrar". "Reabrir" pasa `false` y queda en cobre
+  (`.btn-primary`). En hover, `.btn-peligro` aclara el texto (`#EBA79F`),
+  porque con el fondo más rojo el texto bajaba de 4,5:1.
+- **Corazón metálico** (logo y login) con `url(#np-heart-metal)`: el
+  degradé se define una vez, en un `<svg>` oculto al principio del
+  `<body>`. En el login va en un anillo cobre de 64 px.
+- **Botón de Google** en cobre metálico, con la G de colores en su chip
+  oscuro. La carga se ve apagada (`saturate` y `brightness`).
+- **Filas de fotos** con `--bg-card` (antes `#13100D`).
+- **Mayúsculas de al menos 11 px** (punto 5): `.estado-pill`,
+  `.vencido-badge` y pestañas en el celular, de 0,65 a 0,7 rem.
+
+Verificado en 127.0.0.1 con `fetch` simulado (ninguna llamada a prod), a
+1366, 601, 600 y 375: sin scroll horizontal, consola sin errores, sello de
+30 px, pestañas en 11,2 px a 375 y 600. Las tres confirmaciones abren con
+la clase correcta y se cerraron sin aceptar. `check-sintaxis.js` y
+`check-contraste.js` en verde.
+
+Ojo al verificar: con el Browser pane oculto, las transiciones no avanzan
+(un `getComputedStyle` en medio da el valor viejo), y después de varios
+cambios de tamaño las capturas salen achicadas. Medir con JS, no con la
+captura.

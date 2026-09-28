@@ -135,3 +135,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: B (Franco aprobó el plan de REQ-UX-002 el 2026-09-28).
 - Motivo: A arregla la legibilidad pero no suma lo premium que pidió Franco. C es caro en el celular de Noelia, baja la legibilidad, no funciona sin mouse y no encaja con una app íntima. B mantiene fuentes y colores y cumple 4,5:1.
 - Reabrir si: después de la fase 1 el mockup no convence a Franco, o alguna técnica de B cuesta rendimiento medible en el celular.
+
+## DEC-014 — Paleta B "Profunda", tarjeta completada con sello y línea verde, corazón metálico
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: REQ-UX-002, fase 1. Mockup interactivo de Jay (Artifact, no versionado) con la paleta actual (1.2.4) al lado de dos propuestas que pasan todos los pares de `check-contraste.js`. Franco marcó además que la tarea completada cuesta distinguirla a simple vista y que el corazón se veía deforme.
+- Opciones consideradas: paleta (A) "Cálida", con los fondos de hoy y más luz en textos y bordes, o (B) "Profunda", con fondo casi negro y un cobre más dorado. Tarjeta completada: (1) tinte verde en toda la tarjeta, (2) sello verde con tilde en lugar de la píldora, (3) línea verde fija arriba y píldora rellena, o combinaciones.
+- Decisión: paleta B y tarjeta completada con sello + línea verde (Franco, 2026-09-28). Jay había recomendado A, y para la completada, tinte + sello. Durante la fase 2 Franco sumó que el fondo de la completada sea negro verdoso, como el negro rojizo del vencido (`--bg-card-done: #101812`).
+- Motivo: B da más contraste y más dramatismo sin cambiar fuentes ni acento. El sello se reconoce sin leer, y la línea verde retoma la línea cobre del hover que ya existe, así que no es un recurso nuevo. En los dos casos el texto de la completada se lee (deja de estar al 55 % de opacidad).
+- Reabrir si: en el celular de Noelia el fondo casi negro o el grano se ven mal, o la completada sigue costando distinguirse con la app real.

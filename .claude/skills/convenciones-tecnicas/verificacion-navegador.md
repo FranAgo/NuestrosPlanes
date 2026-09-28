@@ -173,3 +173,25 @@ destraban (pedir el OK, es producción). `gh` no está instalado en esta PC.
 
 **Por qué:** el push de 1.2.2 (32d55e6) nunca publicó; lo destrabó el
 commit vacío c63f2a1 el 2026-09-28.
+
+## 10. Browser pane oculto: transiciones quietas y capturas que engañan
+
+**Qué cuidar:**
+- Con el pane oculto o detrás de otra ventana, la página no se dibuja: las
+  transiciones CSS quedan en `currentTime 0` y `getComputedStyle` devuelve
+  el valor de antes (parece que el `:focus` no aplica). Antes de medir un
+  estado con transición, sacar una captura (fuerza el dibujo) o mirar
+  `el.getAnimations()`.
+- Las capturas pueden salir con un cuadro viejo (header corrido, pantalla
+  negra, un modal que ya se cerró) o, después de varios `resize_window`
+  seguidos, achicadas al ~85 % con una franja oscura a la derecha. El
+  layout se confirma midiendo con JS (`getBoundingClientRect`,
+  `scrollWidth` contra `innerWidth`), no con la imagen.
+- El `fetch` simulado se pierde en cada recarga. Tenerlo en un archivo
+  temporal en la raíz (servido por `http-server`) y cargarlo con
+  `eval(await (await fetch('/zz-stub-temp.js')).text())`. Borrar el archivo
+  antes de cerrar, así no llega a un commit.
+
+**Por qué:** REQ-UX-002, fases 2 y 3 (2026-09-28): un foco que "no
+cambiaba" era una transición quieta, y una lista "corrida" a 375 era un
+cuadro viejo. Las mediciones daban bien.
