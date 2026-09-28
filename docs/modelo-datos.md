@@ -83,7 +83,7 @@ function newId(prefijo) {
 | Tipo de campo | Formato guardado | Ejemplo | Quién lo escribe |
 |---|---|---|---|
 | **Timestamp de sistema / auditoría** (`fecha_subida`, `fecha_modificacion`, `fecha_creacion`, `fecha_eliminacion`, y todo lo que vaya en `Auditoria`) | **texto ISO 8601 UTC** — `new Date().toISOString()`, termina en `Z` | `2026-09-07T21:21:46.731Z` | solo el backend |
-| **Fecha del dominio, editable por el usuario** (`fecha_contenido`, `fecha_programada`, `fecha_vencimiento`) | **solo-fecha** `AAAA-MM-DD` | `2026-09-07` | usuario (vía frontend) |
+| **Fecha del dominio, editable por el usuario** (`fecha_contenido`, `fecha_programada`, `fecha_fin`, `fecha_vencimiento`) | **solo-fecha** `AAAA-MM-DD` | `2026-09-07` | usuario (vía frontend) |
 
 Reglas:
 
@@ -120,7 +120,7 @@ reserva o un ticket. El modelo no debería mentir sobre eso.
 | `owner_id` | string (FK) | `usuario_id` o `plan_id`; vacío si `owner_tipo='libre'` |
 | `proposito` | enum | `avatar` \| `adjunto` \| `portada` |
 | `titulo` | string | texto libre, editable por el usuario (nullable) |
-| `fecha_contenido` | date | `AAAA-MM-DD` — la fecha "de la foto" (para la vista por fecha); default = `fecha_subida` |
+| `fecha_contenido` | date | `AAAA-MM-DD` — el día en que se sacó la foto (REQ-MEDIA-005): la fecha de captura que lee el navegador del EXIF, validada en el servidor; si no hay, el día de subida en hora Argentina. Se corrige con `setFechaFoto` |
 | `drive_file_id` | string | **fuente de verdad del binario.** UNIQUE |
 | `mime_type` | enum | `image/jpeg` \| `image/png` \| `image/webp` |
 | `tamano_bytes` | number | control de cuota / diagnóstico |
@@ -131,6 +131,11 @@ reserva o un ticket. El modelo no debería mentir sobre eso.
 | `estado` | enum | `activo` \| `archivado` \| `eliminado` |
 | `eliminado_por` | string (FK) | `usuario_id` — quién hizo el borrado lógico |
 | `fecha_eliminacion` | datetime | ISO 8601 UTC |
+| `fecha_origen` | enum | REQ-MEDIA-005: `captura` \| `subida` \| `manual` — de dónde salió `fecha_contenido`. Vacía en filas anteriores y en avatares |
+
+`Planes.fecha_fin` (REQ-MEDIA-005): último día de una tarea de varios días,
+al final de la hoja. Vacía = un solo día (`fecha_programada`). Se guarda
+igual que `fecha_programada`; un fin igual al inicio se guarda vacío.
 
 ### Constraints
 

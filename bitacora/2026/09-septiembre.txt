@@ -2574,3 +2574,38 @@ Cambios:
 - TEST: clasp push, versiones 8 y 9, redeploy de la implementación AKfycbw5O9… (Web App de test).
 - PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v26); clasp redeploy ...LxD0d -V 26. Verificado: conteoFotosPorPlan en prod devuelve los conteos reales. Rollback: redeploy -V 25.
 ========================================================
+
+========================================================
+2026-09-28 02:38 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- REQ-MEDIA-005 — mockup en el chat y prototipo interactivo (Artifact, no versionado) con variantes de formulario y de corrección de fecha. Franco eligió A y A. docs/decisiones.md — DEC-008.
+- Code.gs — Planes.fecha_fin y Archivos.fecha_origen (al final; setupSheets ahora hace ensureColumn también en Archivos). createPlan/updatePlan con fechaFin validada contra el inicio (validarFechaFin, normalizarFechaFin). getPlanes devuelve fechaFin; getFotosPlan, fechaOrigen. uploadPlanPhotos acepta fechaContenido/fechaOrigen por archivo y los valida (resolverFechaFoto: día real, no futuro en hora Argentina, >= 1990; si no, día de subida). La carpeta nueva de una tarea lleva el día de inicio (DEC-005). Endpoint nuevo setFechaFoto (con sesión, lock, solo fotos de tarea activas, Auditoria foto.fecha).
+- Tests.gs — probarMEDIA005 (59/59 en test). probarMEDIA002: la carpeta esperada pasa a llevar el día de inicio de la tarea (DEC-005). Regresión en test: MEDIA001 22/22, MEDIA002 43/43, BUGFECHA001 21/21, PLAN001 44/44, MEDIA004 21/21, DATA002 70/70, BL015 12/12.
+- index.html — "Empieza"/"Termina" lado a lado; tarjeta "Del sáb 10/10 al lun 12/10"; "Ya subidas" agrupadas por día ("Día N", "fuera de las fechas"), se reagrupa al editar las fechas; leerFechaCaptura (EXIF propio, solo DateTimeOriginal/Digitized, antes de comprimir); en "Por subir" la fecha de cada foto con "Cambiar" (Enter/Escape); en el visor de la tarea, "Cambiar fecha" y de dónde salió la fecha. Verificado con fetch simulado a 375 px, sin prod: JPEG armado con EXIF y GPS, pedido de subida con solo 4 campos y JPEG comprimido sin EXIF, consola limpia.
+- docs/requerimientos/REQ-MEDIA-005.md — diseño elegido, implementación y pruebas. docs/requerimientos/REQ-MEDIA-004.md — estado corregido a "en producción". docs/modelo-datos.md — fecha_fin, fecha_origen y fecha_contenido nueva. docs/backlog.md — BL-025 actualizado, BL-028 (cambiar fecha desde recuerdos).
+- .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — dónde está bien leída la fecha del EXIF y cómo probarlo sin fotos reales.
+- TEST: clasp push (Code.gs + Tests.gs).
+========================================================
+
+========================================================
+2026-09-28 09:09 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — fix de miniaturas en "Sin vista previa" (reportado por Franco en prod, REQ-MEDIA-004): cargarMiniaturasYa pide de a 3 con un reintento (antes, 16 getArchivo simultáneos sin reintento); miniaturaYaLlego repinta la miniatura cuando la foto llega por el visor o su prefetch. clasp logs sin errores de getArchivo en la Web App. Verificado con fetch simulado: 16/16 con la mitad fallando al primer intento y el visor abierto en medio; máx. 4 pedidos en paralelo; consola limpia.
+- docs/requerimientos/REQ-MEDIA-004.md — sección "Hallazgo en producción". .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — tope de pedidos en paralelo y reintento en grillas de miniaturas.
+========================================================
+
+========================================================
+2026-09-28 09:15 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN, REQ-MEDIA-005 (cada paso con OK de Franco): clasp push -f (Code.gs); clasp run setupSheets -u duck (sin errores, log "Hojas creadas/actualizadas" 12:13Z; agrega Planes.fecha_fin y Archivos.fecha_origen); clasp version (v27); clasp redeploy ...LxD0d -V 27. Smoke sin escritura: setFechaFoto y getFotosPlan con token inválido -> 401. Rollback: redeploy -V 26.
+- docs/requerimientos/REQ-MEDIA-005.md — estado: servidor en prod @27, front con el push.
+========================================================

@@ -73,3 +73,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A (Franco, 2026-09-28, después de ver el mockup interactivo de Jay).
 - Motivo: frena justo antes de lo que no se puede deshacer, y con las miniaturas a la vista se nota si se coló una foto equivocada. B deja el aviso en letra chica; C no tiene vuelta atrás pasados los 5 segundos y no arranca si se cierra la app en ese lapso.
 - Reabrir si: se implementa BL-009 (borrar una foto subida), porque ahí subir deja de ser irreversible y B alcanza.
+
+## DEC-008 — Día de fin en el mismo renglón que el inicio, y la fecha de la foto se corrige antes y después de subir
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: REQ-MEDIA-005 suma un día de fin opcional a las tareas y una fecha por foto que se puede corregir a mano. Había que decidir cómo se carga el fin y dónde se corrige la fecha.
+- Opciones consideradas: formulario: (A) "Empieza" y "Termina" lado a lado, con "Termina" vacío para un día; (B) un solo campo con el enlace "Dura más de un día" que abre el segundo. Corrección de fecha: (A) se ve y se cambia en "Por subir" antes de subir, y también en el visor después; (B) solo en el visor, con la foto ya subida.
+- Decisión: A y A (Franco, 2026-09-28, después de probar el prototipo interactivo de Jay).
+- Motivo: con los dos campos a la vista se entiende sin descubrir nada que una tarea puede durar varios días. Ver la fecha antes de subir avisa en el momento de una foto sin fecha de captura (iPhone al compartir, capturas de pantalla), cuando corregirla cuesta menos; en el visor queda para las que ya se subieron.
+- Reabrir si: el formulario queda apretado en el teléfono o casi nadie usa el día de fin.

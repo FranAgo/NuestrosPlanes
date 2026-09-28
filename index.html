@@ -406,6 +406,25 @@
       cursor: none;
     }
 
+    /* REQ-MEDIA-005: "Empieza" y "Termina" en la misma fila, también a 375 px. */
+    .form-row-fechas {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      column-gap: 0.6rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .form-row-fechas .form-group { margin-bottom: 0.35rem; min-width: 0; }
+    .form-row-fechas input { padding-left: 0.7rem; padding-right: 0.5rem; }
+
+    .form-hint {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-align: left;
+    }
+
     .form-group input::placeholder,
     .form-group textarea::placeholder {
       color: var(--text-faint);
@@ -1608,6 +1627,31 @@
       gap: 0.5rem;
     }
 
+    /* REQ-MEDIA-005: encabezado de día dentro de la grilla de "Ya subidas". */
+    .plan-fotos-dia {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin: 0.35rem 0 -0.1rem;
+      font-size: 0.66rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--copper-light);
+    }
+
+    .plan-fotos-dia:first-child { margin-top: 0; }
+    .plan-fotos-dia.fuera { color: var(--text-muted); }
+
+    .plan-fotos-dia em {
+      font-style: normal;
+      text-transform: none;
+      letter-spacing: 0.02em;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
     .plan-fotos-vacio {
       grid-column: 1 / -1;
       display: flex;
@@ -1736,6 +1780,51 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* REQ-MEDIA-005: fecha de la foto en "Por subir" (reemplaza al nombre del
+       archivo, que queda en el title). */
+    .foto-fila-fecha {
+      max-width: 100%;
+      font-size: 0.8rem;
+      color: var(--text-main);
+      line-height: 1.3;
+    }
+
+    .foto-fila-fecha small {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .foto-fila-fecha .sin-fecha { color: var(--copper-light); }
+
+    .foto-fila.editando .foto-fila-info { grid-column: 2 / -1; justify-items: stretch; }
+    .foto-fila.editando .foto-fila-acciones { display: none; }
+    .foto-fila.editando .foto-pill { justify-self: start; }
+
+    .foto-fila-editar {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      max-width: 100%;
+    }
+
+    .foto-fila-editar .foto-fila-fecha-input { flex: 1; }
+
+    .foto-fila-fecha-input {
+      min-width: 0;
+      width: 9.5rem;
+      max-width: 100%;
+      padding: 0.3rem 0.45rem;
+      border: 0.5px solid var(--copper-dim);
+      border-radius: var(--radius-sm);
+      background: #1A1612;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.8rem;
+    }
+
+    .foto-fila-fecha-input:focus-visible { outline: 1px solid var(--copper); outline-offset: 1px; }
 
     .foto-fila-motivo {
       grid-column: 1 / -1;
@@ -1988,6 +2077,31 @@
       min-height: 1.1em;
     }
 
+    .carrusel-fecha {
+      margin-top: 0.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .carrusel-fecha[hidden], .carrusel-fecha-editar[hidden] { display: none; }
+
+    .carrusel-fecha-origen { font-size: 0.74rem; color: var(--text-muted); }
+
+    .carrusel-fecha-editar { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; }
+
+    .carrusel-fecha-error {
+      flex-basis: 100%;
+      margin: 0;
+      text-align: center;
+      font-size: 0.74rem;
+      color: var(--red-venc);
+    }
+
+    .carrusel-fecha-error:empty { display: none; }
+
     /* ====================================================
        RESPONSIVE
     ==================================================== */
@@ -2196,9 +2310,18 @@
         <label for="plan-categoria-select">Categoría (opcional)</label>
         <select id="plan-categoria-select"></select>
       </div>
-      <div class="form-group">
-        <label for="plan-fecha-programada">Fecha programada *</label>
-        <input type="date" id="plan-fecha-programada" />
+      <!-- REQ-MEDIA-005 (DEC-008, variante A): inicio y fin lado a lado. Sin
+           fin, la tarea es de un solo día. -->
+      <div class="form-row-fechas">
+        <div class="form-group">
+          <label for="plan-fecha-programada">Empieza *</label>
+          <input type="date" id="plan-fecha-programada" />
+        </div>
+        <div class="form-group">
+          <label for="plan-fecha-fin">Termina</label>
+          <input type="date" id="plan-fecha-fin" aria-describedby="plan-fecha-fin-hint" />
+        </div>
+        <p class="form-hint" id="plan-fecha-fin-hint">Dejá "Termina" vacío si es de un solo día.</p>
       </div>
       <div class="form-group">
         <label for="plan-fecha-vencimiento">Fecha de vencimiento (opcional)</label>
@@ -2268,6 +2391,17 @@
         </button>
       </div>
       <div class="carrusel-caption" id="carrusel-caption"></div>
+      <!-- REQ-MEDIA-005: solo al abrir las fotos desde una tarea. -->
+      <div class="carrusel-fecha" id="carrusel-fecha" hidden>
+        <span class="carrusel-fecha-origen" id="carrusel-fecha-origen"></span>
+        <button type="button" class="btn-mini" id="btn-carrusel-cambiar-fecha">Cambiar fecha</button>
+        <span class="carrusel-fecha-editar" id="carrusel-fecha-editar" hidden>
+          <input type="date" class="foto-fila-fecha-input" id="carrusel-fecha-input" min="1990-01-01" aria-label="Fecha de la foto" />
+          <button type="button" class="btn-mini" id="btn-carrusel-guardar-fecha">Guardar</button>
+          <button type="button" class="btn-mini" id="btn-carrusel-cancelar-fecha">Cancelar</button>
+        </span>
+        <p class="carrusel-fecha-error" id="carrusel-fecha-error" role="alert"></p>
+      </div>
     </div>
   </div>
 
@@ -3132,6 +3266,9 @@
     async function openModalCarrusel() {
       const modal = document.getElementById('modal-carrusel');
       document.getElementById('carrusel-titulo').textContent = 'Nuestros recuerdos';
+      carruselDeTarea = false;
+      carruselEditandoFecha = false;
+      pintarFechaVisor();
       modal.classList.add('visible');
 
       const imagen = document.getElementById('carrusel-imagen');
@@ -3210,6 +3347,8 @@
       // resuelve; recién ahí se hace el swap, en un solo paso.
       loader.classList.remove('is-hidden');
       caption.textContent = '';
+      carruselEditandoFecha = false;
+      pintarFechaVisor();
 
       document.getElementById('btn-carrusel-prev').disabled = indiceSolicitado === 0;
       document.getElementById('btn-carrusel-next').disabled = indiceSolicitado === carruselFotos.length - 1;
@@ -3223,6 +3362,7 @@
               resolve(fetchArchivoDataUrl(foto.archivoId));
             }, NAV_DEBOUNCE_MS);
           });
+      if (src) miniaturaYaLlego(foto.archivoId);   // aunque ya se haya navegado a otra
       if (miToken !== carruselRenderToken) return; // ya se navegó a otra foto
 
       const partes = [
@@ -3258,8 +3398,93 @@
       // adyacentes para que "anterior" se sienta igual de instantáneo que
       // "siguiente" en el caso común.
       [carruselFotos[indiceSolicitado + 1], carruselFotos[indiceSolicitado - 1]]
-        .forEach(adyacente => { if (adyacente) fetchArchivoDataUrl(adyacente.archivoId); });
+        .forEach(adyacente => {
+          if (adyacente) fetchArchivoDataUrl(adyacente.archivoId).then(() => miniaturaYaLlego(adyacente.archivoId));
+        });
     }
+
+    // ---- REQ-MEDIA-005 (DEC-008, variante A): corregir la fecha desde el visor ----
+    // Solo cuando el visor se abrió desde las fotos de una tarea.
+    let carruselDeTarea       = false;
+    let carruselEditandoFecha = false;
+    let carruselGuardandoFecha = false;
+
+    const TEXTO_ORIGEN_FECHA = {
+      captura: 'Fecha de la cámara',
+      subida:  'Sin fecha de captura: quedó el día de subida',
+      manual:  'Fecha corregida a mano',
+    };
+
+    function pintarFechaVisor(error) {
+      const cont = document.getElementById('carrusel-fecha');
+      const foto = carruselFotos[carruselIndex];
+      cont.hidden = !carruselDeTarea || !foto;
+      if (cont.hidden) return;
+      document.getElementById('carrusel-fecha-origen').textContent =
+        carruselEditandoFecha ? '' : (TEXTO_ORIGEN_FECHA[foto.fechaOrigen] || '');
+      document.getElementById('btn-carrusel-cambiar-fecha').hidden = carruselEditandoFecha;
+      document.getElementById('carrusel-fecha-editar').hidden = !carruselEditandoFecha;
+      document.getElementById('carrusel-fecha-error').textContent = error || '';
+      const btnGuardar = document.getElementById('btn-carrusel-guardar-fecha');
+      btnGuardar.disabled = carruselGuardandoFecha;
+      btnGuardar.innerHTML = carruselGuardandoFecha ? '<span class="spinner" aria-hidden="true"></span>Guardando' : 'Guardar';
+    }
+
+    document.getElementById('btn-carrusel-cambiar-fecha').addEventListener('click', () => {
+      const foto  = carruselFotos[carruselIndex];
+      const input = document.getElementById('carrusel-fecha-input');
+      input.max   = hoyIso();
+      input.value = (foto && foto.fecha) || hoyIso();
+      carruselEditandoFecha = true;
+      pintarFechaVisor();
+      input.focus();
+    });
+
+    function cancelarFechaVisor() {
+      carruselEditandoFecha = false;
+      pintarFechaVisor();
+      document.getElementById('btn-carrusel-cambiar-fecha').focus();
+    }
+
+    async function guardarFechaVisor() {
+      if (carruselGuardandoFecha) return;
+      const foto  = carruselFotos[carruselIndex];
+      const fecha = document.getElementById('carrusel-fecha-input').value;
+      if (!foto) return;
+      if (!fecha) return pintarFechaVisor('Elegí una fecha.');
+      if (fecha > hoyIso()) return pintarFechaVisor('La fecha no puede ser posterior a hoy.');
+      if (fecha === foto.fecha) return cancelarFechaVisor();
+
+      carruselGuardandoFecha = true;
+      pintarFechaVisor();
+      let data;
+      try { data = await api('setFechaFoto', { archivoId: foto.archivoId, fecha }); } catch (e) { data = e; }
+      carruselGuardandoFecha = false;
+      if (!state.session) return;
+
+      if (data && data.status === 200) {
+        foto.fecha       = fecha;
+        foto.fechaOrigen = 'manual';
+        const enTarea = planFotosYa.fotos.find(f => f.archivoId === foto.archivoId);
+        if (enTarea) { enTarea.fechaContenido = fecha; enTarea.fechaOrigen = 'manual'; }
+        if (state.editingPlanId === planFotosYa.planId) renderFotosYaSubidas();
+        loadFotosRecientes();
+        carruselEditandoFecha = false;
+        const caption = document.getElementById('carrusel-caption');
+        caption.textContent = [foto.tituloPlan, foto.categoriaNombre, formatDateDisplay(fecha)].filter(Boolean).join(' · ');
+        pintarFechaVisor();
+        document.getElementById('btn-carrusel-cambiar-fecha').focus();
+      } else {
+        pintarFechaVisor(mensajeDeError(data, 'No se pudo cambiar la fecha. Probá de nuevo en un momento.'));
+      }
+    }
+
+    document.getElementById('btn-carrusel-guardar-fecha').addEventListener('click', guardarFechaVisor);
+    document.getElementById('btn-carrusel-cancelar-fecha').addEventListener('click', cancelarFechaVisor);
+    document.getElementById('carrusel-fecha-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); guardarFechaVisor(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelarFechaVisor(); }
+    });
 
     document.getElementById('fotos-recientes-card').addEventListener('click', openModalCarrusel);
     document.getElementById('btn-close-modal-carrusel').addEventListener('click', closeModalCarrusel);
@@ -3394,6 +3619,35 @@
       return `${d}/${m}/${y}`;
     }
 
+    // REQ-MEDIA-005. Fechas 'AAAA-MM-DD' como día de calendario: se arman con
+    // getters locales, nunca con toISOString (convenciones-tecnicas, fechas).
+    const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+
+    function fechaLocalIso(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function hoyIso() { return fechaLocalIso(new Date()); }
+
+    // 'AAAA-MM-DD' -> 'sáb 10/10'
+    function diaCorto(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return `${DIAS_CORTOS[new Date(y, m - 1, d).getDay()]} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+    }
+
+    function diasEntre(desde, hasta) {
+      const a = desde.split('-').map(Number), b = hasta.split('-').map(Number);
+      return Math.round((Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000);
+    }
+
+    function esVariosDias(inicio, fin) { return !!(inicio && fin && fin > inicio); }
+
+    function textoFechasPlan(plan) {
+      return esVariosDias(plan.fechaProgramada, plan.fechaFin)
+        ? `Del ${diaCorto(plan.fechaProgramada)} al ${diaCorto(plan.fechaFin)}`
+        : `Para el ${formatDateDisplay(plan.fechaProgramada)}`;
+    }
+
     function getUserDisplay(userId) {
       if (userId === state.session.userId) return state.session.nombreDisplay;
       return state.users[userId]?.nombreDisplay || userId;
@@ -3486,7 +3740,7 @@
                     <path d="M3.5 1v3M7.5 1v3" stroke="currentColor" stroke-width="0.9" stroke-linecap="round"/>
                     <path d="M1 5.5h9" stroke="currentColor" stroke-width="0.9"/>
                   </svg>
-                </span> Para el ${formatDateDisplay(plan.fechaProgramada)}
+                </span> ${textoFechasPlan(plan)}
               </div>
               ${plan.fechaVencimiento
                 ? `<div class="plan-meta-item">
@@ -3549,6 +3803,18 @@
       savePlan();
     });
 
+    // REQ-MEDIA-005: el calendario de "Termina" arranca en el día de inicio, y
+    // "Ya subidas" se reagrupa con las fechas que se están editando.
+    function sincronizarMinFechaFin() {
+      document.getElementById('plan-fecha-fin').min = document.getElementById('plan-fecha-programada').value || '';
+    }
+    ['plan-fecha-programada', 'plan-fecha-fin'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        sincronizarMinFechaFin();
+        if (state.editingPlanId && planFotosYa.estado === 'ok') renderFotosYaSubidas();
+      });
+    });
+
     // ====================================================
     // PLAN — FOTOS (REQ-MEDIA-002, REQ-MEDIA-004)
     // "Ya subidas": lo que está en el servidor (getFotosPlan), miniaturas de a
@@ -3575,7 +3841,19 @@
 
     function textoFotos(n) { return n === 1 ? '1 foto' : `${n} fotos`; }
 
+    const SVG_CALENDARIO_CHICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>';
+
+    // REQ-MEDIA-005: id de la foto de "Por subir" cuya fecha se está editando.
+    let planFotosEditandoFecha = null;
+
+    function htmlTextoFechaCola(f) {
+      if (f.origen === 'manual')  return `${diaCorto(f.fecha)} <small>Fecha puesta a mano</small>`;
+      if (f.origen === 'captura') return `Sacada el ${diaCorto(f.fecha)}`;
+      return `<span class="sin-fecha">Sin fecha de captura</span> <small>Queda con el día de subida</small>`;
+    }
+
     function resetPlanFotosSeleccion() {
+      planFotosEditandoFecha = null;
       planFotosSeleccion = [];
       planFotosLote++;
       pintarResumenFotos('');
@@ -3603,16 +3881,30 @@
         const reintentar = f.estado === 'error' && !enCurso
           ? `<button type="button" class="btn-mini" data-reintentar="${f.id}" aria-label="Reintentar ${nombre}">Reintentar</button>`
           : '';
-        const sacar = f.estado === 'lista' || f.estado === 'error'
+        const editable = (f.estado === 'lista' || f.estado === 'error') && !enCurso;
+        let sacar = f.estado === 'lista' || f.estado === 'error'
           ? `<button type="button" class="btn-mini solo-icono" data-sacar="${f.id}" aria-label="Sacar ${nombre}" title="Sacar">${SVG_X_CHICA}</button>`
           : '';
-        return `<div class="foto-fila ${f.estado}">
+        // REQ-MEDIA-005 (DEC-008, variante A): la fecha se ve y se corrige
+        // antes de subir.
+        const editando = editable && planFotosEditandoFecha === f.id;
+        if (editando) sacar = '';   // mientras se edita, la fila es solo fecha + "Listo"
+        const cambiar = editable && !editando
+          ? `<button type="button" class="btn-mini solo-icono" data-cambiar-fecha="${f.id}" aria-label="Cambiar la fecha de ${nombre}" title="Cambiar fecha">${SVG_CALENDARIO_CHICO}</button>`
+          : '';
+        const lineaFecha = editando
+          ? `<span class="foto-fila-editar">
+               <input type="date" class="foto-fila-fecha-input" id="foto-fecha-${f.id}" value="${f.fecha || hoyIso()}" max="${hoyIso()}" min="1990-01-01" aria-label="Fecha de ${nombre}" />
+               <button type="button" class="btn-mini" data-listo-fecha="${f.id}">Listo</button>
+             </span>`
+          : `<span class="foto-fila-fecha" title="${nombre}">${htmlTextoFechaCola(f)}</span>`;
+        return `<div class="foto-fila ${f.estado}${editando ? ' editando' : ''}">
           <span class="foto-fila-thumb"><img src="${f.previewUrl}" alt="" /></span>
           <div class="foto-fila-info">
-            <span class="foto-fila-nombre" title="${nombre}">${nombre}</span>
+            ${lineaFecha}
             ${htmlFotoPill(f)}
           </div>
-          <div class="foto-fila-acciones">${reintentar}${sacar}</div>
+          <div class="foto-fila-acciones">${reintentar}${cambiar}${sacar}</div>
           ${f.estado === 'error' ? `<p class="foto-fila-motivo">${escapeHtml(f.error || '')}</p>` : ''}
         </div>`;
       }).join('');
@@ -3650,20 +3942,47 @@
       if (data && data.status === 200) {
         planFotosYa = { planId, estado: 'ok', fotos: data.fotos || [] };
         renderFotosYaSubidas();
-        // De a una (convenciones-tecnicas, red y archivos): una que falla no
-        // arrastra a las demás y cada una aparece apenas llega.
-        planFotosYa.fotos.forEach(f => {
-          if (avatarCache.get(f.archivoId)) return;
-          planFotosYaFallidas.delete(f.archivoId);
-          fetchArchivoDataUrl(f.archivoId).then(url => {
-            if (!url) planFotosYaFallidas.add(f.archivoId);
-            if (token === planFotosYaToken) pintarMiniaturaYa(f.archivoId);
-          });
-        });
+        cargarMiniaturasYa(token);
       } else if (!silencioso || planFotosYa.estado !== 'ok') {
         planFotosYa = { planId, estado: 'error', fotos: [], error: motivoDeFallo('las fotos', data) };
         renderFotosYaSubidas();
       }
+    }
+
+    // Miniaturas de "Ya subidas": de a una (una que falla no arrastra a las
+    // demás y cada una aparece apenas llega), pero con 3 pedidos a la vez
+    // como máximo y un reintento. Antes salían todos juntos (16 fotos = 16
+    // getArchivo simultáneos) y los que fallaban, o los que cancelaba el
+    // visor al abrirse (abortFetchesExcepto), quedaban en "Sin vista previa"
+    // (Franco, 2026-09-28, sin errores del lado del servidor). Es lectura:
+    // reintentar no duplica nada.
+    const MINIATURAS_EN_PARALELO = 3;
+
+    function cargarMiniaturasYa(token) {
+      const cola = planFotosYa.fotos.map(f => f.archivoId).filter(id => !avatarCache.get(id));
+      cola.forEach(id => planFotosYaFallidas.delete(id));
+      const trabajador = async () => {
+        while (cola.length && token === planFotosYaToken && state.session) {
+          const id = cola.shift();
+          let url = await fetchArchivoDataUrl(id);
+          if (!url && token === planFotosYaToken) {
+            await new Promise(r => setTimeout(r, REINTENTO_LECTURA_MS));
+            if (token === planFotosYaToken) url = await fetchArchivoDataUrl(id);
+          }
+          if (token !== planFotosYaToken) return;
+          if (url) planFotosYaFallidas.delete(id); else planFotosYaFallidas.add(id);
+          pintarMiniaturaYa(id);
+        }
+      };
+      for (let i = 0; i < MINIATURAS_EN_PARALELO; i++) trabajador();
+    }
+
+    // Una foto que llegó por otro lado (el visor, su prefetch) también se
+    // pinta en la grilla, aunque su miniatura haya fallado antes.
+    function miniaturaYaLlego(archivoId) {
+      if (!avatarCache.get(archivoId) || !planFotosYa.fotos.some(f => f.archivoId === archivoId)) return;
+      planFotosYaFallidas.delete(archivoId);
+      pintarMiniaturaYa(archivoId);
     }
 
     function htmlMiniaturaYa(archivoId) {
@@ -3701,14 +4020,55 @@
         cont.innerHTML = '<p class="plan-fotos-vacio">Todavía no hay fotos.</p>';
         return;
       }
-      cont.innerHTML = fotos.map((f, i) => {
-        const quien = escapeHtml(getUserDisplay(f.subidoPor) || '');
-        const fecha = f.fechaContenido ? formatDateDisplay(f.fechaContenido).slice(0, 5) : '';
-        return `<button type="button" class="foto-ya" data-foto-ya="${i}" data-archivo-id="${safeId(f.archivoId)}"
-                  aria-label="Ver en grande la foto de ${quien}${fecha ? ', ' + fecha : ''}" title="Ver en grande">
-          <span class="foto-ya-thumb">${htmlMiniaturaYa(f.archivoId)}<span class="foto-ya-quien" aria-hidden="true">${htmlQuienSubio(f.subidoPor)}</span></span>
-          <span class="foto-ya-fecha">${fecha}</span>
-        </button>`;
+      // REQ-MEDIA-005: por el día en que se sacó cada foto; dentro del día, en
+      // orden de subida. El visor usa el mismo orden (índice en planFotosYa.fotos).
+      fotos.sort((a, b) => {
+        const fa = a.fechaContenido || '', fb = b.fechaContenido || '';
+        if (fa !== fb) return fa < fb ? -1 : 1;
+        return a.fechaSubida < b.fechaSubida ? -1 : a.fechaSubida > b.fechaSubida ? 1 : 0;
+      });
+
+      // Con las fechas del formulario, así se reagrupa mientras se editan.
+      const inicio = document.getElementById('plan-fecha-programada').value;
+      const finRaw = document.getElementById('plan-fecha-fin').value;
+      const varios = esVariosDias(inicio, finRaw);
+      const hasta  = varios ? finRaw : inicio;
+
+      const grupos = [];
+      fotos.forEach((f, i) => {
+        const dia = f.fechaContenido || '';
+        let g = grupos[grupos.length - 1];
+        if (!g || g.dia !== dia) { g = { dia, items: [] }; grupos.push(g); }
+        g.items.push({ f, i });
+      });
+
+      grupos.forEach(g => {
+        g.dentro = !!(g.dia && inicio && g.dia >= inicio && g.dia <= hasta);
+        if (g.dia && inicio && !g.dentro) g.titulo = `${diaCorto(g.dia)} · fuera de las fechas`;
+        else if (g.dia && varios)         g.titulo = `Día ${diasEntre(inicio, g.dia) + 1} · ${diaCorto(g.dia)}`;
+        else                              g.titulo = '';
+      });
+      // Tarea de un día con fotos fuera de fecha: las del día también llevan
+      // encabezado, para que no parezcan parte del grupo de arriba.
+      if (grupos.some(g => g.titulo)) {
+        grupos.forEach(g => { if (!g.titulo && g.dia) g.titulo = diaCorto(g.dia); });
+      }
+
+      cont.innerHTML = grupos.map(g => {
+        const dentro = g.dentro;
+        const titulo = g.titulo;
+        const encabezado = titulo
+          ? `<p class="plan-fotos-dia${dentro ? '' : ' fuera'}"><span>${titulo}</span><em>${textoFotos(g.items.length)}</em></p>`
+          : '';
+        return encabezado + g.items.map(({ f, i }) => {
+          const quien = escapeHtml(getUserDisplay(f.subidoPor) || '');
+          const fecha = f.fechaContenido ? formatDateDisplay(f.fechaContenido).slice(0, 5) : '';
+          return `<button type="button" class="foto-ya" data-foto-ya="${i}" data-archivo-id="${safeId(f.archivoId)}"
+                    aria-label="Ver en grande la foto de ${quien}${fecha ? ', ' + fecha : ''}" title="Ver en grande">
+            <span class="foto-ya-thumb">${htmlMiniaturaYa(f.archivoId)}<span class="foto-ya-quien" aria-hidden="true">${htmlQuienSubio(f.subidoPor)}</span></span>
+            ${titulo ? '' : `<span class="foto-ya-fecha">${fecha}</span>`}
+          </button>`;
+        }).join('');
       }).join('');
     }
 
@@ -3734,9 +4094,11 @@
         tituloPlan:      plan ? plan.titulo : null,
         categoriaNombre: cat ? cat.nombre : null,
         fecha:           f.fechaContenido,
+        fechaOrigen:     f.fechaOrigen || null,
       }));
       if (!carruselFotos[indice]) return;
       carruselIndex = indice;
+      carruselDeTarea = true;
       document.getElementById('carrusel-titulo').textContent = plan ? plan.titulo : 'Fotos de la tarea';
       const imagen = document.getElementById('carrusel-imagen');
       imagen.classList.remove('is-loaded');
@@ -3761,7 +4123,15 @@
     document.getElementById('plan-fotos-cola').addEventListener('click', e => {
       const reintentar = e.target.closest('[data-reintentar]');
       const sacar      = e.target.closest('[data-sacar]');
-      if (reintentar) {
+      const cambiar    = e.target.closest('[data-cambiar-fecha]');
+      const listo      = e.target.closest('[data-listo-fecha]');
+      if (cambiar) {
+        planFotosEditandoFecha = Number(cambiar.dataset.cambiarFecha);
+        renderPlanFotosGrid();
+        document.getElementById('foto-fecha-' + planFotosEditandoFecha)?.focus();
+      } else if (listo) {
+        confirmarFechaCola(Number(listo.dataset.listoFecha));
+      } else if (reintentar) {
         const f = planFotosSeleccion.find(x => x.id === Number(reintentar.dataset.reintentar));
         if (f && f.estado === 'error') subirFotosPlan([f]);
       } else if (sacar) {
@@ -3769,6 +4139,35 @@
         pintarResumenFotos('');
         renderPlanFotosGrid();
         document.getElementById('btn-agregar-foto-plan').focus();
+      }
+    });
+
+    // Una fecha vacía, futura o anterior a 1990 no se toma: queda la que había.
+    function confirmarFechaCola(id) {
+      const f     = planFotosSeleccion.find(x => x.id === id);
+      const input = document.getElementById('foto-fecha-' + id);
+      const v     = input ? input.value : '';
+      if (f && v && v >= '1990-01-01' && v <= hoyIso() && v !== f.fecha) {
+        f.fecha  = v;
+        f.origen = 'manual';
+      }
+      planFotosEditandoFecha = null;
+      renderPlanFotosGrid();
+      document.querySelector(`[data-cambiar-fecha="${id}"]`)?.focus();
+    }
+
+    document.getElementById('plan-fotos-cola').addEventListener('keydown', e => {
+      if (!e.target.classList.contains('foto-fila-fecha-input')) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmarFechaCola(planFotosEditandoFecha);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = planFotosEditandoFecha;
+        planFotosEditandoFecha = null;
+        renderPlanFotosGrid();
+        document.querySelector(`[data-cambiar-fecha="${id}"]`)?.focus();
       }
     });
 
@@ -3810,6 +4209,62 @@
       });
     }
 
+    // REQ-MEDIA-005: el día en que se sacó la foto, leído del EXIF del archivo
+    // ORIGINAL (comprimir con canvas lo borra). Lee solo DateTimeOriginal (o
+    // DateTimeDigitized) y devuelve 'AAAA-MM-DD', o null. No toca ningún otro
+    // campo del EXIF: ni GPS ni el modelo del celular (Ley 25.326). Solo JPEG;
+    // PNG y WEBP casi nunca lo traen y quedan con el día de subida.
+    async function leerFechaCaptura(file) {
+      try {
+        if (file.type !== 'image/jpeg') return null;
+        const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+        if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+        let p = 2;
+        while (p + 4 <= v.byteLength) {
+          const marca = v.getUint16(p);
+          const largo = v.getUint16(p + 2);
+          if (marca === 0xFFE1 && p + 10 <= v.byteLength && v.getUint32(p + 4) === 0x45786966) { // "Exif"
+            return fechaDeTiff(v, p + 10);
+          }
+          if ((marca & 0xFF00) !== 0xFF00 || marca === 0xFFDA) return null; // empezó la imagen
+          p += 2 + largo;
+        }
+      } catch { /* archivo raro: sin fecha */ }
+      return null;
+    }
+
+    function fechaDeTiff(v, base) {
+      const le = v.getUint16(base) === 0x4949;
+      const u16 = o => v.getUint16(base + o, le);
+      const u32 = o => v.getUint32(base + o, le);
+      // Busca un tag en un IFD; devuelve el offset de su entrada o -1.
+      const buscar = (ifd, tag) => {
+        const n = u16(ifd);
+        for (let i = 0; i < n; i++) if (u16(ifd + 2 + i * 12) === tag) return ifd + 2 + i * 12;
+        return -1;
+      };
+      const ifd0 = u32(4);
+      const ptrExif = buscar(ifd0, 0x8769);
+      if (ptrExif === -1) return null;
+      const exif = u32(ptrExif + 8);
+      for (const tag of [0x9003, 0x9004]) {        // DateTimeOriginal, DateTimeDigitized
+        const e = buscar(exif, tag);
+        if (e === -1 || u32(e + 4) < 10) continue;
+        const off = u32(e + 8);
+        let s = '';
+        for (let i = 0; i < 10; i++) s += String.fromCharCode(v.getUint8(base + off + i));
+        const m = /^(\d{4}):(\d{2}):(\d{2})$/.exec(s);    // 'AAAA:MM:DD'
+        if (!m) continue;
+        const fecha = `${m[1]}-${m[2]}-${m[3]}`;
+        const [a, mm, d] = fecha.split('-').map(Number);
+        const real = new Date(a, mm - 1, d);
+        if (real.getMonth() !== mm - 1 || real.getDate() !== d) continue;
+        if (fecha < '1990-01-01' || fecha > hoyIso()) continue;  // mismo criterio que el servidor
+        return fecha;
+      }
+      return null;
+    }
+
     document.getElementById('plan-foto-input').addEventListener('change', (e) => {
       const files = Array.from(e.target.files || []);
       e.target.value = '';
@@ -3831,7 +4286,9 @@
         }
 
         let comprimido;
+        let fechaCaptura;
         try {
+          fechaCaptura = await leerFechaCaptura(file);   // antes de comprimir
           comprimido = await comprimirImagenPlan(file);
         } catch {
           errorEl.textContent = `No se pudo procesar "${file.name}".`;
@@ -3845,6 +4302,10 @@
           mimeType:    comprimido.mimeType,
           fileBase64:  comprimido.base64,
           previewUrl:  comprimido.dataUrl,
+          // REQ-MEDIA-005: sin fecha de captura, null (queda el día de subida,
+          // que decide el servidor). 'manual' si se corrigió en la fila.
+          fecha:       fechaCaptura,
+          origen:      fechaCaptura ? 'captura' : 'subida',
           estado:      'lista',
           error:       null,
         });
@@ -3858,6 +4319,7 @@
     const modalSubirFotos = document.getElementById('modal-subir-fotos');
 
     document.getElementById('btn-confirmar-fotos-plan').addEventListener('click', () => {
+      if (planFotosEditandoFecha) confirmarFechaCola(planFotosEditandoFecha);
       const listas = planFotosSeleccion.filter(f => f.estado === 'lista');
       if (!state.editingPlanId || listas.length === 0) return;
 
@@ -3904,7 +4366,9 @@
         f.estado = 'subiendo';
         renderPlanFotosGrid();
         try {
-          const data = await api('uploadPlanPhotos', { planId, files: [{ fileBase64: f.fileBase64, mimeType: f.mimeType }] });
+          const archivo = { fileBase64: f.fileBase64, mimeType: f.mimeType };
+          if (f.fecha) { archivo.fechaContenido = f.fecha; archivo.fechaOrigen = f.origen; }
+          const data = await api('uploadPlanPhotos', { planId, files: [archivo] });
           const errorFoto = data.status === 200 && data.errores && data.errores[0] ? data.errores[0].error : null;
           if (data.status === 200 && !errorFoto) {
             f.estado = 'subida';
@@ -3990,12 +4454,15 @@
         if (plan) {
           select.value = plan.categoriaId || '';
           document.getElementById('plan-fecha-programada').value  = plan.fechaProgramada  || '';
+          document.getElementById('plan-fecha-fin').value         = plan.fechaFin         || '';
           document.getElementById('plan-fecha-vencimiento').value = plan.fechaVencimiento || '';
         }
       } else {
         document.getElementById('plan-fecha-programada').value  = '';
+        document.getElementById('plan-fecha-fin').value         = '';
         document.getElementById('plan-fecha-vencimiento').value = '';
       }
+      sincronizarMinFechaFin();
 
       // Fotos (REQ-MEDIA-002): solo tiene sentido editando un plan que ya
       // existe — "Nuevo Plan" todavía no tiene planId para asociarle fotos.
@@ -4017,6 +4484,7 @@
       const titulo           = document.getElementById('plan-titulo-input').value.trim();
       const categoriaId      = document.getElementById('plan-categoria-select').value; // puede ser ''
       const fechaProgramada  = document.getElementById('plan-fecha-programada').value;
+      const fechaFin         = document.getElementById('plan-fecha-fin').value;
       const fechaVencimiento = document.getElementById('plan-fecha-vencimiento').value;
       const errorEl          = document.getElementById('plan-error');
       const btn              = document.getElementById('btn-save-plan');
@@ -4025,8 +4493,15 @@
 
       // categoría ya NO es obligatoria
       if (!titulo || !fechaProgramada) {
-        errorEl.textContent = 'El título y la fecha programada son obligatorios.';
+        errorEl.textContent = 'El título y el día en que empieza son obligatorios.';
         errorEl.classList.add('visible');
+        return;
+      }
+      // REQ-MEDIA-005. El servidor lo vuelve a validar.
+      if (fechaFin && fechaFin < fechaProgramada) {
+        errorEl.textContent = 'El día en que termina no puede ser antes del día en que empieza.';
+        errorEl.classList.add('visible');
+        document.getElementById('plan-fecha-fin').focus();
         return;
       }
 
@@ -4041,6 +4516,7 @@
             titulo,
             categoriaId:      categoriaId || null,
             fechaProgramada,
+            fechaFin:         fechaFin || '',   // '' borra el fin: vuelve a ser de un día
             fechaVencimiento: fechaVencimiento || null,
           });
         } else {
@@ -4049,6 +4525,7 @@
             categoriaId:      categoriaId || null,
             userId:           state.session.userId,
             fechaProgramada,
+            fechaFin:         fechaFin || '',
             fechaVencimiento: fechaVencimiento || null,
           });
         }

@@ -1,6 +1,6 @@
 # REQ-MEDIA-004 — Ver qué fotos ya tiene una tarea y en qué estado está cada subida
 
-> **Estado:** IMPLEMENTADO, PROBADO EN TEST (2026-09-28). Franco eligió la variante A del mockup (DEC-007). Falta: deploy del servidor y push del front (cada paso con OK de Franco).
+> **Estado:** EN PRODUCCIÓN (2026-09-28). Servidor en la Web App @26 y front en `main` (commit `3d1f2a0`). Franco eligió la variante A del mockup (DEC-007). *(Estado corregido el 2026-09-28: el doc seguía diciendo "falta deploy y push".)*
 > **Nivel:** cambio de fondo (endpoint nuevo + cambio en `getPlanes` + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** nada. Conviene hacerlo antes de REQ-PLAN-001, que usa el mismo conteo.
@@ -194,3 +194,26 @@ las fotos de cualquier tarea (igual que hoy en el carrusel).
 - **Sin verificar:** con fotos reales de un teléfono y la sesión real (se ve
   después del deploy). En test quedaron los archivos de Drive de las fotos
   de prueba (las filas de `Archivos` se borraron con `simPLAN001_limpiar`).
+
+## Hallazgo en producción (2026-09-28): miniaturas en "Sin vista previa"
+
+Franco abrió una tarea con 16 fotos y 10 quedaron en "Sin vista previa". Al
+tocarlas, el visor las mostraba bien, pero la miniatura no se actualizaba.
+`clasp logs` no tenía ningún error de `getArchivo` de la Web App en ese
+momento: los pedidos no fallaron en el servidor. Las que se veían eran casi
+todas las recién subidas desde ese dispositivo, que ya estaban en caché.
+
+Causas en el código:
+1. `cargarFotosYaSubidas` disparaba un `getArchivo` por foto, todos a la vez
+   (16 simultáneos), y el que fallaba quedaba como fallido sin reintento.
+2. Abrir el visor llama a `abortFetchesExcepto`, que cancela las miniaturas que
+   siguen en vuelo, y esas se marcaban como fallidas.
+3. Cuando el visor traía la foto, la miniatura no se volvía a pintar.
+
+Arreglo (solo front, `index.html`): `cargarMiniaturasYa` pide de a 3 a la vez
+y reintenta una vez cada una, porque es una lectura. `miniaturaYaLlego` repinta
+la miniatura cuando la foto llega por el visor o por su prefetch. Verificado
+con `fetch` simulado: 16 fotos, la mitad falla en el primer intento y el visor
+se abre en medio de la carga. Resultado: 16/16 con imagen y como máximo 4
+pedidos a la vez (3 miniaturas y el visor). Una que falla dos veces queda en
+"Sin vista previa" y pasa a verse apenas se abre en el visor.

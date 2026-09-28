@@ -1,6 +1,6 @@
 # REQ-MEDIA-005 — Cada foto lleva el día en que se sacó, y las tareas pueden durar varios días
 
-> **Estado:** DEFINIDO (2026-09-27). Franco aprobó A y B, incluida la estructura de Drive (DEC-005).
+> **Estado:** EN PRODUCCIÓN (2026-09-28). Servidor en la Web App @27 (con `setupSheets` corrido en prod; rollback `-V 26`) y front con el push a `main` de esta sesión. Franco eligió formulario A y corrección A en el prototipo (DEC-008).
 > **Nivel:** cambio de fondo (modelo de datos + servidor + front).
 > **Dueño técnico:** Jay (leer la fecha en el navegador, agrupar por día) + Bob (servidor) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** BUG-FECHA-001 (el respaldo "día de subida" tiene que estar en hora Argentina) y REQ-MEDIA-004 (el modal ya muestra las fotos subidas).
@@ -104,3 +104,74 @@ media/planes-fotos/2026/octubre/10-10-2026-viajes-escapada-a-tandil-a1b2c3/
 | 10 | Sin regresión: `probarMEDIA001` y `probarMEDIA002` en verde. |
 | 11 | La primera foto de una tarea con inicio el 30/09, subida el 03/10, crea la carpeta `septiembre/30-09-2026-...`. |
 | 12 | Editar la fecha de inicio de una tarea que ya tiene carpeta no la renombra ni la mueve. |
+
+## Diseño elegido (2026-09-28, DEC-008)
+
+Franco probó un prototipo interactivo con variantes y eligió:
+- **Formulario A:** "Empieza *" y "Termina" lado a lado (también a 375 px),
+  con la ayuda "Dejá 'Termina' vacío si es de un solo día".
+- **Corrección A:** en "Por subir" cada foto muestra "Sacada el sáb 26/09",
+  "Sin fecha de captura · Queda con el día de subida" o "dom 27/09 · Fecha
+  puesta a mano", con un botón de calendario para cambiarla antes de subir.
+  Después, en el visor de las fotos de la tarea, "Cambiar fecha" y de dónde
+  salió la fecha (cámara, día de subida o corregida a mano).
+
+## Implementación (2026-09-28)
+
+**Gary:** `fecha_origen` entra (`captura` | `subida` | `manual`), al final de
+`Archivos`. `setupSheets()` ahora también pasa `ensureColumn` por `Archivos`.
+`Planes.fecha_fin` al final de `Planes`; un fin igual al inicio se guarda vacío,
+así "un día" tiene una sola forma en la hoja.
+
+**Servidor (`Code.gs`):**
+- `createPlan`/`updatePlan` aceptan `fechaFin` (`''` la borra). Se valida con
+  `validarFechaFin` contra el inicio que va a quedar: si solo se mueve el
+  inicio después del fin guardado, 400 y no se escribe nada.
+- `getPlanes` devuelve `fechaFin`; `getFotosPlan`, `fechaOrigen`.
+- `uploadPlanPhotos`: cada archivo puede traer `fechaContenido` y
+  `fechaOrigen`. `resolverFechaFoto` acepta la fecha si es un día real, no es
+  futura en hora Argentina y no es anterior a 1990; el origen solo puede ser
+  `captura` o `manual`. Si no, el día de subida con origen `subida`. Cualquier
+  otro campo que llegue se ignora.
+- La carpeta nueva de una tarea lleva el día de inicio (`fecha_programada`), no
+  el de la primera subida (DEC-005).
+- Endpoint nuevo `setFechaFoto { archivoId, fecha }`: con sesión, solo fotos de
+  tarea activas de una tarea no eliminada, con lock, `fecha_origen = manual`,
+  `modificado_por` de la sesión y registro en `Auditoria` (`foto.fecha`, con
+  valor anterior y nuevo). No renombra el archivo en Drive.
+
+**Front (`index.html`):**
+- `leerFechaCaptura(file)`: lector propio de EXIF (sin librería externa), solo
+  JPEG, solo `DateTimeOriginal` y, si falta, `DateTimeDigitized`. Se corre sobre
+  el archivo original, antes de `comprimirImagenPlan`. No lee el GPS ni ningún
+  otro campo.
+- Tarjeta: "Del sáb 10/10 al lun 12/10" en las de varios días; las de un día
+  siguen con "Para el DD/MM/AAAA".
+- "Ya subidas" ordenadas por día de la foto y agrupadas: "Día N · sáb 10/10",
+  y "mar 13/10 · fuera de las fechas" para las que quedan afuera. Se reagrupa
+  al cambiar las fechas del formulario, antes de guardar. En una tarea de un
+  día sin fotos fuera de fecha no hay encabezados (como antes); si hay alguna
+  fuera, las del día llevan su encabezado para no parecer del grupo de arriba.
+- Mientras se edita la fecha de una foto en "Por subir", la fila muestra solo
+  el campo y "Listo" (Enter confirma, Escape cancela). "Subir fotos" confirma
+  una edición abierta antes de preguntar.
+
+**Pruebas:**
+- `probarMEDIA005` (Tests.gs), en test: 59/59. Cubre los criterios 1 a 12 del
+  lado del servidor, incluidos 401 sin sesión, 404 sobre un avatar y sobre
+  una tarea eliminada, y que un campo extra (GPS) no queda en la hoja.
+- Regresión en test: MEDIA001 22/22, MEDIA002 43/43, BUGFECHA001 21/21,
+  PLAN001 44/44, MEDIA004 21/21, DATA002 70/70, BL015 12/12. A
+  `probarMEDIA002` se le cambió la fecha esperada de la carpeta, del día de
+  subida al día de inicio de la tarea, como pide DEC-005.
+- En el navegador, con `fetch` simulado a 375 px (sin prod): tarjeta, reagrupado
+  al cambiar el fin, fin anterior al inicio frenado en el front, `fechaFin` en
+  `updatePlan`. Un JPEG armado con EXIF (fecha y bloque GPS) da `2026-09-26`,
+  uno sin EXIF y uno con fecha futura dan "sin fecha". El pedido de subida
+  lleva solo `fileBase64`, `mimeType`, `fechaContenido` y `fechaOrigen`, y el
+  JPEG comprimido empieza con APP0 (sin EXIF): criterio 5. Visor: una fecha
+  futura se frena con mensaje, un cambio válido actualiza leyenda, origen y
+  grupos. Consola sin errores.
+
+**Fuera de alcance:** "Cambiar fecha" en el carrusel de recuerdos (solo está en
+el visor que se abre desde la tarea).

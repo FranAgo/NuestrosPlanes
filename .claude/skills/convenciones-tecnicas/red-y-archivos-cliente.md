@@ -105,3 +105,28 @@ Además, iOS puede sacar datos al compartir desde la galería, así que
 siempre hace falta un respaldo.
 
 **Por qué:** investigación de BL-025 / REQ-MEDIA-005 (2026-09-27).
+
+
+**Dónde ya está bien:** `leerFechaCaptura(file)` en `index.html` (REQ-MEDIA-005,
+2026-09-28): lector propio, sin librería, que recorre el EXIF del JPEG
+original hasta `DateTimeOriginal`/`DateTimeDigitized` y no lee nada más. Se
+llama antes de `comprimirImagenPlan`. Para probarlo sin fotos reales: armar
+un JPEG con `canvas.toBlob` e insertarle un segmento APP1 con un TIFF chico
+(se hizo así en la verificación de REQ-MEDIA-005).
+
+## Muchas miniaturas: pocas a la vez, con un reintento
+
+**Qué cuidar:** pedir una imagen por `getArchivo` para cada miniatura de
+una grilla está bien (una que falla no arrastra a las demás), pero no
+todas juntas: con 16 fotos salen 16 ejecuciones simultáneas del Web App y
+algunas se caen en el camino, sin error del lado del servidor. Poner un
+tope de pedidos en paralelo (3) y reintentar una vez, que en una lectura es
+seguro. Además, si otra parte de la app trae la misma foto (el visor),
+volver a pintar la miniatura: un fallo no es definitivo.
+
+**Por qué:** hallazgo en producción de REQ-MEDIA-004 (2026-09-28): 10 de
+16 miniaturas en "Sin vista previa", y abrir el visor cancelaba las que
+seguían cargando (`abortFetchesExcepto`).
+
+**Dónde ya está bien:** `cargarMiniaturasYa` y `miniaturaYaLlego` en
+`index.html`.

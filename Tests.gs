@@ -1261,7 +1261,10 @@ function grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolder
   // Nombre y ubicación exactos esperados, calculados con los mismos helpers
   // que usa handleUploadPlanPhotos (Code.gs) — si alguno cambia de criterio
   // más adelante, este test lo va a notar solo.
-  const fechaHoyIso = fechaDiaArgentina();
+  // REQ-MEDIA-005 (DEC-005): la carpeta lleva el día de inicio de la tarea
+  // (fechaProgramada '2026-10-01', ver grupoGateCompletarSinFoto), no el de
+  // la primera subida.
+  const fechaHoyIso = '2026-10-01';
   const [anioEsperado, mesEsperado] = fechaHoyIso.split('-');
   const sufijoEsperado = planId.split('_').pop().slice(-6);
   const nombreEsperado = formatFechaDDMMAAAA(fechaHoyIso) + '-mantenimiento-arreglar-el-techo-' + sufijoEsperado;
@@ -2074,6 +2077,213 @@ function probarMEDIA004() {
       if (claves.length) CacheService.getScriptCache().removeAll(claves);
     } catch (e) { /* ignorado */ }
     TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}
+
+
+// ============================================================
+// probarMEDIA005() — REQ-MEDIA-005: la foto lleva el día en que se sacó
+// (validado en el servidor), se corrige a mano con setFechaFoto, y las
+// tareas pueden tener un día de fin. Sube fotos reales a Drive (1 px) y las
+// borra al final. "Hoy" queda fijo en el mar 13/10/2026 con RELOJ_OVERRIDE.
+// Uso: clasp run probarMEDIA005 -P .clasp-test.json -u duck
+// ============================================================
+
+function probarMEDIA005() {
+  const R = nuevoReporte('REQ-MEDIA-005');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const relojAnterior = RELOJ_OVERRIDE;
+  const sesionesCreadas = [];
+  const driveFileIdsCreados = [];
+  const driveFolderIdsCreados = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA005 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    ss.setSpreadsheetTimeZone(TZ_APP);
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+    RELOJ_OVERRIDE = '2026-10-13T15:00:00Z'; // mar 13/10, 12:00 hora Argentina
+
+    R.check('M · setupSheets agrega Planes.fecha_fin', col('Planes', 'fecha_fin') !== -1);
+    R.check('M · setupSheets agrega Archivos.fecha_origen', col('Archivos', 'fecha_origen') !== -1);
+
+    const crear = extra => parseResp(handleCreatePlan(Object.assign({
+      titulo: 'Escapada a Tandil', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-10',
+    }, extra || {})));
+    const planDe = planId => parseResp(handleGetPlanes({})).planes.filter(p => p.planId === planId)[0];
+    const fotosDe = planId => parseResp(handleGetFotosPlan({ planId: planId })).fotos || [];
+    const subir = (planId, archivos) => {
+      const r = parseResp(handleUploadPlanPhotos({
+        planId: planId,
+        files: archivos.map(a => Object.assign({ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }, a)),
+        authUserId: 'usr_noe',
+      }));
+      (r.subidas || []).forEach(x => driveFileIdsCreados.push(x.driveFileId));
+      const carpetaId = filaPorId('Planes', planId)[col('Planes', 'carpeta_fotos_drive_id')];
+      if (carpetaId && driveFolderIdsCreados.indexOf(carpetaId) === -1) driveFolderIdsCreados.push(carpetaId);
+      return r;
+    };
+    const archivo = id => filaPorId('Archivos', id);
+    const fechaDe = id => formatDate(archivo(id)[col('Archivos', 'fecha_contenido')]);
+    const origenDe = id => archivo(id)[col('Archivos', 'fecha_origen')];
+    const upd = body => parseResp(handleUpdatePlan(Object.assign({ authUserId: 'usr_fran' }, body)));
+
+    // B — día de fin.
+    const pUnDia = crear({ titulo: 'Cena' });
+    R.eq('C6 · sin día de fin -> 200', pUnDia.status, 200);
+    R.eq('C6 · sin día de fin -> fechaFin null', planDe(pUnDia.planId).fechaFin, null);
+    const pViaje = crear({ fechaFin: '2026-10-12' });
+    R.eq('B · con día de fin -> 200', pViaje.status, 200);
+    R.eq('B · getPlanes devuelve fechaFin sin correrse', planDe(pViaje.planId).fechaFin, '2026-10-12');
+    R.eq('B · fin antes del inicio -> 400', crear({ fechaFin: '2026-10-09' }).status, 400);
+    R.eq('B · fin inexistente (31/02) -> 400', crear({ fechaFin: '2026-02-31' }).status, 400);
+    R.eq('B · fin con otro formato -> 400', crear({ fechaFin: '12/10/2026' }).status, 400);
+    const pIgual = crear({ fechaFin: '2026-10-10' });
+    R.eq('B · fin igual al inicio se guarda como un día', planDe(pIgual.planId).fechaFin, null);
+
+    R.eq('B · update: fin nuevo -> 200', upd({ planId: pUnDia.planId, fechaFin: '2026-10-11' }).status, 200);
+    R.eq('B · update: fin guardado', planDe(pUnDia.planId).fechaFin, '2026-10-11');
+    R.eq('B · update: mover solo el inicio después del fin -> 400',
+         upd({ planId: pUnDia.planId, fechaProgramada: '2026-10-12' }).status, 400);
+    R.eq('B · el update rechazado no tocó el inicio', planDe(pUnDia.planId).fechaProgramada, '2026-10-10');
+    upd({ planId: pUnDia.planId, titulo: 'Cena larga' });
+    R.eq('B · update sin fechaFin no la toca', planDe(pUnDia.planId).fechaFin, '2026-10-11');
+    upd({ planId: pUnDia.planId, fechaFin: '' });
+    R.eq('B · update con fin vacío -> vuelve a un día', planDe(pUnDia.planId).fechaFin, null);
+
+    // A — fecha de cada foto (criterios 1, 2, 4, 5 y 9). Una sola subida con
+    // varias fotos, como hace el front.
+    const s = subir(pViaje.planId, [
+      { fechaContenido: '2026-10-10', fechaOrigen: 'captura' },  // 0: sábado
+      { fechaContenido: '2026-10-11', fechaOrigen: 'manual' },   // 1: corregida antes de subir
+      {},                                                        // 2: sin fecha
+      { fechaContenido: '2026-10-14', fechaOrigen: 'captura' },  // 3: futura
+      { fechaContenido: '2026-02-31', fechaOrigen: 'captura' },  // 4: día inexistente
+      { fechaContenido: '10/10/2026' },                          // 5: otro formato
+      { fechaContenido: '1985-01-01', fechaOrigen: 'captura' },  // 6: demasiado vieja
+      { fechaContenido: '2026-10-12', fechaOrigen: 'hackeado', gps: '-37.3,-59.1' }, // 7: origen raro y dato extra
+    ]);
+    R.eq('A · uploadPlanPhotos -> 200', s.status, 200);
+    R.eq('A · las 8 se subieron', (s.subidas || []).length, 8);
+    if ((s.subidas || []).length === 8) {
+      const ids = s.subidas.map(x => x.archivoId);
+      R.eq('C1 · foto del sábado subida el martes -> 2026-10-10|captura', fechaDe(ids[0]) + '|' + origenDe(ids[0]), '2026-10-10|captura');
+      R.eq('C3 · corregida antes de subir -> 2026-10-11|manual', fechaDe(ids[1]) + '|' + origenDe(ids[1]), '2026-10-11|manual');
+      R.eq('C2 · sin fecha -> día de subida en hora Argentina', fechaDe(ids[2]) + '|' + origenDe(ids[2]), '2026-10-13|subida');
+      R.eq('C4 · futura -> día de subida', fechaDe(ids[3]) + '|' + origenDe(ids[3]), '2026-10-13|subida');
+      R.eq('C4 · 31/02 -> día de subida', fechaDe(ids[4]) + '|' + origenDe(ids[4]), '2026-10-13|subida');
+      R.eq('C4 · formato DD/MM/AAAA -> día de subida', fechaDe(ids[5]) + '|' + origenDe(ids[5]), '2026-10-13|subida');
+      R.eq('C4 · anterior a 1990 -> día de subida', fechaDe(ids[6]) + '|' + origenDe(ids[6]), '2026-10-13|subida');
+      R.eq('C4 · origen desconocido con fecha válida -> captura', fechaDe(ids[7]) + '|' + origenDe(ids[7]), '2026-10-12|captura');
+      R.check('C5 · el dato extra (GPS) no quedó en la hoja', JSON.stringify(archivo(ids[7])).indexOf('-37.3') === -1);
+
+      const nombres = s.subidas.map(x => DriveApp.getFileById(x.driveFileId).getName());
+      R.check('C9 · el nombre lleva la fecha de captura (' + nombres[0] + ')', nombres[0].indexOf('0001-10-10-2026-') === 0);
+      R.check('C9 · la corregida antes de subir, su fecha (' + nombres[1] + ')', nombres[1].indexOf('0002-11-10-2026-') === 0);
+      R.check('C9 · la sin fecha, el día de subida (' + nombres[2] + ')', nombres[2].indexOf('0003-13-10-2026-') === 0);
+      const padres = s.subidas.map(x => DriveApp.getFileById(x.driveFileId).getParents().next().getId());
+      R.check('C9 · las 8 en la misma carpeta de la tarea', padres.every(p => p === padres[0]));
+
+      R.eq('A · getFotosPlan devuelve fechaOrigen',
+           fotosDe(pViaje.planId).filter(f => f.archivoId === ids[1])[0].fechaOrigen, 'manual');
+
+      // C3 — corregir a mano después de subir.
+      const set = body => parseResp(handleSetFechaFoto(Object.assign({ authUserId: 'usr_fran' }, body)));
+      R.eq('C3 · setFechaFoto -> 200', set({ archivoId: ids[2], fecha: '2026-10-12' }).status, 200);
+      const corregida = fotosDe(pViaje.planId).filter(f => f.archivoId === ids[2])[0];
+      R.eq('C3 · getFotosPlan la ve con la fecha nueva', corregida.fechaContenido, '2026-10-12');
+      R.eq('C3 · y con origen manual', corregida.fechaOrigen, 'manual');
+      R.eq('C3 · modificado_por = quien corrigió', archivo(ids[2])[col('Archivos', 'modificado_por')], 'usr_fran');
+      const recientes = parseResp(handleGetRecentPlanPhotos({ limit: 20 })).fotos;
+      R.eq('C3 · el carrusel también la ve corregida', recientes.filter(f => f.archivoId === ids[2])[0].fecha, '2026-10-12');
+      R.check('C3 · el nombre del archivo en Drive no cambia',
+              DriveApp.getFileById(s.subidas[2].driveFileId).getName().indexOf('0003-13-10-2026-') === 0);
+      const aud = filasDe('Auditoria').filter(r => r[col('Auditoria', 'accion')] === 'foto.fecha');
+      R.eq('C3 · queda en Auditoria', aud.length, 1);
+      R.check('C3 · con valor anterior y nuevo', aud.length === 1 &&
+              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-13') !== -1 &&
+              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-12') !== -1);
+
+      R.eq('C4 · setFechaFoto futura -> 400', set({ archivoId: ids[2], fecha: '2026-10-14' }).status, 400);
+      R.eq('C4 · setFechaFoto 31/02 -> 400', set({ archivoId: ids[2], fecha: '2026-02-31' }).status, 400);
+      R.eq('C4 · setFechaFoto sin fecha -> 400', set({ archivoId: ids[2] }).status, 400);
+      R.eq('C4 · las rechazadas no cambiaron nada', fechaDe(ids[2]), '2026-10-12');
+      R.eq('S · setFechaFoto sin archivoId -> 400', set({ fecha: '2026-10-11' }).status, 400);
+      R.eq('S · setFechaFoto foto inexistente -> 404', set({ archivoId: 'arc_no_existe', fecha: '2026-10-11' }).status, 404);
+      const avatar = insertArchivo({ ownerTipo: 'usuario', ownerId: 'usr_fran', proposito: 'avatar',
+                                     driveFileId: 'fake-avatar-media005', mimeType: 'image/png', tamanoBytes: 1,
+                                     subidoPor: 'usr_fran', estado: 'activo' });
+      R.eq('S · setFechaFoto sobre un avatar -> 404', set({ archivoId: avatar, fecha: '2026-10-11' }).status, 404);
+
+      // Por doPost, como el front.
+      const t = crearSesion('usr_noe');
+      sesionesCreadas.push(t.split('.')[0]);
+      const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+      R.eq('S · setFechaFoto sin sesión -> 401', pedir({ action: 'setFechaFoto', archivoId: ids[0], fecha: '2026-10-11' }).status, 401);
+      R.eq('S · la de sin sesión no cambió nada', fechaDe(ids[0]), '2026-10-10');
+      const conSesion = pedir({ action: 'setFechaFoto', archivoId: ids[0], fecha: '2026-10-11', sessionToken: t, authUserId: 'usr_fran' });
+      R.eq('S · setFechaFoto con sesión -> 200', conSesion.status, 200);
+      R.eq('S · modificado_por sale de la sesión, no del body', archivo(ids[0])[col('Archivos', 'modificado_por')], 'usr_noe');
+
+      // Foto de una tarea eliminada.
+      parseResp(handleDeletePlan({ planId: pViaje.planId, authUserId: 'usr_fran' }));
+      R.eq('S · setFechaFoto de una tarea eliminada -> 404', set({ archivoId: ids[0], fecha: '2026-10-10' }).status, 404);
+    } else {
+      R.fail('A · no se subieron las 8 fotos: ' + JSON.stringify(s));
+    }
+
+    // C11 — carpeta con el día de inicio, aunque la primera foto se suba después.
+    RELOJ_OVERRIDE = '2026-10-03T15:00:00Z';
+    const pFinDeMes = crear({ titulo: 'Viaje de fin de mes', fechaProgramada: '2026-09-30', fechaFin: '2026-10-02' });
+    const s2 = subir(pFinDeMes.planId, [{ fechaContenido: '2026-10-01', fechaOrigen: 'captura' }]);
+    R.eq('C11 · subida -> 200', s2.status, 200);
+    const carpetaId = filaPorId('Planes', pFinDeMes.planId)[col('Planes', 'carpeta_fotos_drive_id')];
+    if (carpetaId) {
+      const carpeta = DriveApp.getFolderById(carpetaId);
+      R.check('C11 · la carpeta se llama 30-09-2026-… (' + carpeta.getName() + ')', carpeta.getName().indexOf('30-09-2026-') === 0);
+      R.eq('C11 · y cuelga de Septiembre', carpeta.getParents().next().getName(), 'Septiembre');
+
+      // C12 — editar el inicio no la renombra ni la mueve.
+      R.eq('C12 · update del inicio -> 200', upd({ planId: pFinDeMes.planId, fechaProgramada: '2026-09-29' }).status, 200);
+      R.eq('C12 · la tarea sigue apuntando a la misma carpeta',
+           filaPorId('Planes', pFinDeMes.planId)[col('Planes', 'carpeta_fotos_drive_id')], carpetaId);
+      R.check('C12 · la carpeta no se renombró', DriveApp.getFolderById(carpetaId).getName().indexOf('30-09-2026-') === 0);
+      const s3 = subir(pFinDeMes.planId, [{ fechaContenido: '2026-10-02', fechaOrigen: 'captura' }]);
+      R.check('C12 · la foto siguiente cae en la misma carpeta',
+              s3.status === 200 && DriveApp.getFileById(s3.subidas[0].driveFileId).getParents().next().getId() === carpetaId);
+    } else {
+      R.fail('C11 · no se guardó la carpeta de la tarea');
+    }
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    RELOJ_OVERRIDE = relojAnterior;
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    driveFileIdsCreados.forEach(fileId => {
+      try { DriveApp.getFileById(fileId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive el archivo de prueba ' + fileId + ' — borralo a mano: ' + e); }
+    });
+    driveFolderIdsCreados.forEach(folderId => {
+      try { DriveApp.getFolderById(folderId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar de Drive la carpeta de prueba ' + folderId + ' — borrala a mano: ' + e); }
+    });
     if (scratchId) {
       try { DriveApp.getFileById(scratchId).setTrashed(true); }
       catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }

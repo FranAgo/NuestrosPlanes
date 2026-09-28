@@ -93,6 +93,11 @@ const ARCHIVOS_HEADERS = [
   'fecha_contenido', 'drive_file_id', 'mime_type', 'tamano_bytes',
   'subido_por', 'fecha_subida', 'modificado_por', 'fecha_modificacion',
   'estado', 'eliminado_por', 'fecha_eliminacion',
+  // REQ-MEDIA-005: de dónde salió fecha_contenido. 'captura' (EXIF de la
+  // foto, leído en el navegador), 'subida' (el día de subida, hora
+  // Argentina) o 'manual' (corregida desde la app). Vacía en las filas
+  // anteriores al REQ y en los avatares.
+  'fecha_origen',
 ];
 
 // Extensión de archivo según el tipo MIME, para nombrar el archivo en Drive.
@@ -131,6 +136,10 @@ const PLANES_HEADERS = [
   // reabrir (quedan como "último cierre"); el front solo los muestra si la
   // tarea está completada.
   'fecha_completado', 'completado_por',
+  // REQ-MEDIA-005: último día de una tarea de varios días. Vacía = un solo
+  // día (fecha_programada). Se guarda igual que fecha_programada
+  // (new Date('AAAA-MM-DD'), ver formatDate).
+  'fecha_fin',
 ];
 
 // Nombres de mes capitalizados para el árbol de Drive de fotos de tarea
@@ -229,6 +238,7 @@ function doPost(e) {
       case 'uploadPlanPhotos':    return handleUploadPlanPhotos(body);
       case 'getRecentPlanPhotos': return handleGetRecentPlanPhotos(body);
       case 'getFotosPlan':        return handleGetFotosPlan(body);
+      case 'setFechaFoto':        return handleSetFechaFoto(body);
 
       default:
         return respond(400, { error: 'Acción no reconocida.' });
@@ -1129,6 +1139,7 @@ function handleGetPlanes(body) {
   const iFCre = h.indexOf('fecha_creacion');
   const iFPro = h.indexOf('fecha_programada');
   const iFVen = h.indexOf('fecha_vencimiento');
+  const iFFin = h.indexOf('fecha_fin');
   const iEst  = h.indexOf('estado');
   const iAcu  = h.indexOf('acuerdos_cierre');
   const iFCom = h.indexOf('fecha_completado');
@@ -1151,6 +1162,7 @@ function handleGetPlanes(body) {
       fechaCreacion:    formatDate(row[iFCre]),
       fechaProgramada:  formatDate(row[iFPro]),
       fechaVencimiento: row[iFVen] ? formatDate(row[iFVen]) : null,
+      fechaFin:         iFFin !== -1 && row[iFFin] ? formatDate(row[iFFin]) : null,
       estado:           row[iEst],
       // REQ-PLAN-001. En una tarea completada los acuerdos ya se vaciaron.
       acuerdos:         row[iEst] === 'pendiente' ? parseAcuerdos(iAcu !== -1 ? row[iAcu] : '') : [],
@@ -1166,11 +1178,14 @@ function handleGetPlanes(body) {
 }
 
 function handleCreatePlan(body) {
-  const { titulo, categoriaId, userId, fechaProgramada, fechaVencimiento } = body;
+  const { titulo, categoriaId, userId, fechaProgramada, fechaVencimiento, fechaFin } = body;
 
   if (!titulo || !userId || !fechaProgramada) {
     return respond(400, { error: 'Título, usuario y fecha programada son requeridos.' });
   }
+
+  const errorFin = validarFechaFin(fechaFin, fechaProgramada);
+  if (errorFin) return respond(400, { error: errorFin });
 
   // Validar que la categoría existe (y no está eliminada) solo si se proporcionó
   if (categoriaId && !categoriaExists(categoriaId)) {
@@ -1194,6 +1209,7 @@ function handleCreatePlan(body) {
       case 'fecha_creacion':     return ahora;
       case 'fecha_programada':   return new Date(fechaProgramada);
       case 'fecha_vencimiento':  return fechaVencimiento ? new Date(fechaVencimiento) : '';
+      case 'fecha_fin':          return normalizarFechaFin(fechaFin, fechaProgramada);
       case 'estado':             return 'pendiente';
       case 'modificado_por':     return '';
       case 'fecha_modificacion': return '';
@@ -1208,7 +1224,7 @@ function handleCreatePlan(body) {
 }
 
 function handleUpdatePlan(body) {
-  const { planId, titulo, categoriaId, fechaProgramada, fechaVencimiento, authUserId } = body;
+  const { planId, titulo, categoriaId, fechaProgramada, fechaVencimiento, fechaFin, authUserId } = body;
 
   if (!planId) return respond(400, { error: 'ID de plan requerido.' });
 
@@ -1217,6 +1233,16 @@ function handleUpdatePlan(body) {
   if (rowIndex === -1) return respond(404, { error: 'Plan no encontrado.' });
 
   const col = name => h.indexOf(name) + 1;  // 1-based; 0 si no existe
+
+  // REQ-MEDIA-005: el fin se valida contra el inicio que va a quedar (el
+  // que llega o, si no llega, el de la hoja) antes de escribir nada. Si
+  // solo cambia el inicio y queda después del fin guardado, se rechaza.
+  const inicioFinal = fechaProgramada ||
+    formatDate(sheet.getRange(rowIndex, col('fecha_programada')).getValue());
+  const finFinal = fechaFin !== undefined ? fechaFin :
+    (col('fecha_fin') ? formatDate(sheet.getRange(rowIndex, col('fecha_fin')).getValue()) : '');
+  const errorFin = validarFechaFin(finFinal, inicioFinal);
+  if (errorFin) return respond(400, { error: errorFin });
 
   if (titulo) sheet.getRange(rowIndex, col('titulo')).setValue(titulo);
 
@@ -1233,6 +1259,9 @@ function handleUpdatePlan(body) {
   if (fechaVencimiento !== undefined) {
     sheet.getRange(rowIndex, col('fecha_vencimiento'))
       .setValue(fechaVencimiento ? new Date(fechaVencimiento) : '');
+  }
+  if (fechaFin !== undefined && col('fecha_fin')) {
+    sheet.getRange(rowIndex, col('fecha_fin')).setValue(normalizarFechaFin(fechaFin, inicioFinal));
   }
 
   if (col('modificado_por'))     sheet.getRange(rowIndex, col('modificado_por')).setValue(authUserId || '');
@@ -1563,6 +1592,44 @@ function formatDate(value) {
   return null;
 }
 
+// REQ-MEDIA-005: 'AAAA-MM-DD' que además es un día real (no 2026-02-31).
+function esFechaDia(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const [a, m, d] = valor.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1, d));
+  return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d;
+}
+
+// Día de fin de una tarea: vacío (un día) o un día real que no sea anterior
+// al inicio. Devuelve el mensaje de error, o '' si está bien.
+function validarFechaFin(fechaFin, fechaProgramada) {
+  if (!fechaFin) return '';
+  if (!esFechaDia(fechaFin)) return 'El día de fin no es una fecha válida.';
+  if (fechaProgramada && fechaFin < String(fechaProgramada)) {
+    return 'El día de fin no puede ser antes del día de inicio.';
+  }
+  return '';
+}
+
+// Lo que se guarda en Planes.fecha_fin. Un fin igual al inicio es una tarea
+// de un día: se guarda vacío, así "un día" tiene una sola forma en la hoja.
+function normalizarFechaFin(fechaFin, fechaProgramada) {
+  if (!fechaFin || fechaFin === String(fechaProgramada)) return '';
+  return new Date(fechaFin);
+}
+
+// REQ-MEDIA-005: la fecha de una foto que propone el cliente. Se acepta si
+// es un día real, no es futura (en hora Argentina) y no es anterior a 1990;
+// si no, queda el día de subida. El origen solo puede ser 'captura' o
+// 'manual' cuando la fecha se acepta; si no, es 'subida'.
+function resolverFechaFoto(fechaPropuesta, origenPropuesto) {
+  const hoy = fechaDiaArgentina();
+  if (esFechaDia(fechaPropuesta) && fechaPropuesta <= hoy && fechaPropuesta >= '1990-01-01') {
+    return { fecha: fechaPropuesta, origen: origenPropuesto === 'manual' ? 'manual' : 'captura' };
+  }
+  return { fecha: hoy, origen: 'subida' };
+}
+
 // Una categoría eliminada lógicamente no "existe" para las FK de Planes.
 function categoriaExists(categoriaId) {
   const data  = getDatosHoja(SHEETS.CATEGORIAS);
@@ -1783,7 +1850,10 @@ function handleUploadPlanPhotos(body) {
       // estado ACTUAL del plan y queda "congelado" guardando el ID de la
       // carpeta en la fila — de acá en más, aunque se edite título o
       // categoría, las fotos nuevas caen en esta misma carpeta.
-      const fechaHoy         = fechaDiaArgentina(); // AAAA-MM-DD, hora Argentina (BUG-FECHA-001)
+      // REQ-MEDIA-005 (DEC-005): la carpeta lleva el día de inicio de la
+      // tarea, no el de la primera subida. Si la fila no lo tuviera, el de
+      // hoy en hora Argentina (BUG-FECHA-001).
+      const fechaHoy         = formatDate(val('fecha_programada')) || fechaDiaArgentina();
       const [aaaa, mm]       = fechaHoy.split('-');
       const categoriaNombre  = getCategoriaNombre(val('categoria_id')) || 'sin-categoria';
       const sufijoAntiColision = (planId.split('_').pop() || '').slice(-6);
@@ -1808,7 +1878,7 @@ function handleUploadPlanPhotos(body) {
 
     files.forEach((archivo, index) => {
       try {
-        const { fileBase64, mimeType } = archivo || {};
+        const { fileBase64, mimeType, fechaContenido, fechaOrigen } = archivo || {};
         if (!fileBase64 || !mimeType) {
           throw new Error('Archivo y tipo MIME requeridos.');
         }
@@ -1818,7 +1888,10 @@ function handleUploadPlanPhotos(body) {
 
         const bytes        = Utilities.base64Decode(fileBase64);
         const archivoId     = newId('arc');
-        const fechaHoyFoto  = fechaDiaArgentina();
+        // REQ-MEDIA-005: la fecha que manda el cliente (captura o corregida
+        // antes de subir), validada; si no sirve, el día de subida.
+        const fechaFoto     = resolverFechaFoto(fechaContenido, fechaOrigen);
+        const fechaHoyFoto  = fechaFoto.fecha;
         const numero        = ('0000' + siguienteNumero).slice(-4);
         const nombreArchivo = numero + '-' + formatFechaDDMMAAAA(fechaHoyFoto) + '-' +
           normalizarSegmentoRuta(val('titulo')) + '.' + MIME_EXT[mimeType];
@@ -1849,6 +1922,7 @@ function handleUploadPlanPhotos(body) {
           estado:      'activo',
           // La misma fecha que lleva el nombre del archivo (BUG-FECHA-001).
           fechaContenido: fechaHoyFoto,
+          fechaOrigen:    fechaFoto.origen,
         });
 
         subidas.push({ archivoId: archivoId, driveFileId: file.getId() });
@@ -1963,6 +2037,7 @@ function handleGetFotosPlan(body) {
   const iSubPor  = h.indexOf('subido_por');
   const iFSub    = h.indexOf('fecha_subida');
   const iFCon    = h.indexOf('fecha_contenido');
+  const iFOri    = h.indexOf('fecha_origen');
 
   const fotos = [];
   for (let i = 1; i < data.length; i++) {
@@ -1973,6 +2048,7 @@ function handleGetFotosPlan(body) {
       archivoId:      r[iArcId],
       subidoPor:      r[iSubPor] ? String(r[iSubPor]) : null,
       fechaContenido: r[iFCon] ? formatDate(r[iFCon]) : null,
+      fechaOrigen:    iFOri !== -1 && r[iFOri] ? String(r[iFOri]) : null,
       fechaSubida:    r[iFSub] ? String(r[iFSub]) : '',
     });
   }
@@ -1980,6 +2056,49 @@ function handleGetFotosPlan(body) {
   fotos.sort((a, b) => (a.fechaSubida < b.fechaSubida ? -1 : a.fechaSubida > b.fechaSubida ? 1 : 0));
 
   return respond(200, { fotos: fotos });
+}
+
+// REQ-MEDIA-005: corregir a mano el día de una foto de tarea. Cualquiera de
+// los dos puede corregir cualquier foto (los dos ven todas, mismo criterio
+// que el resto de la app). Solo fotos de tarea activas de una tarea no
+// eliminada: un avatar u otro archivo no se tocan por acá. El nombre del
+// archivo en Drive no se renombra (DEC-005).
+function handleSetFechaFoto(body) {
+  const { archivoId, fecha, authUserId } = body;
+  if (!archivoId) return respond(400, { error: 'ID de foto requerido.' });
+  if (!esFechaDia(fecha) || fecha < '1990-01-01') return respond(400, { error: 'La fecha no es válida.' });
+  if (fecha > fechaDiaArgentina()) return respond(400, { error: 'La fecha no puede ser posterior a hoy.' });
+
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  let anterior;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const data = sheet.getDataRange().getValues();
+    const h    = data[0];
+    const c    = name => h.indexOf(name);
+    let i = 1;
+    while (i < data.length && data[i][c('archivo_id')] !== archivoId) i++;
+    const r = data[i];
+    if (!r || r[c('owner_tipo')] !== 'plan' || r[c('proposito')] !== 'adjunto' || r[c('estado')] !== 'activo' ||
+        buscarPlanActivo(getSheet(SHEETS.PLANES), r[c('owner_id')]).rowIndex === -1) {
+      return respond(404, { error: 'Foto no encontrada.' });
+    }
+
+    anterior = formatDate(r[c('fecha_contenido')]);
+    const fila = i + 1;
+    sheet.getRange(fila, c('fecha_contenido') + 1).setValue(fecha);
+    if (c('fecha_origen') !== -1) sheet.getRange(fila, c('fecha_origen') + 1).setValue('manual');
+    sheet.getRange(fila, c('modificado_por') + 1).setValue(authUserId || '');
+    sheet.getRange(fila, c('fecha_modificacion') + 1).setValue(new Date().toISOString());
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+
+  registrarAuditoria(authUserId, 'foto.fecha', 'Archivos', archivoId,
+                     { valor_anterior: anterior || '', valor_nuevo: fecha });
+  return respond(200, { success: true, fecha: fecha, fechaOrigen: 'manual' });
 }
 
 // REQ-MEDIA-004: { planId: cantidad } de fotos activas, para getPlanes. Mismo
@@ -2104,6 +2223,7 @@ function insertArchivo(fields) {
       case 'estado':             return fields.estado || 'activo';
       case 'eliminado_por':      return '';
       case 'fecha_eliminacion':  return '';
+      case 'fecha_origen':       return fields.fechaOrigen || '';
       default:                   return '';
     }
   });
@@ -2350,7 +2470,9 @@ function setupSheets() {
      'fecha_creacion', 'fecha_programada', 'fecha_vencimiento', 'estado']);
   PLANES_HEADERS.forEach(col => ensureColumn(planes, col));
 
-  ensureSheet(SHEETS.ARCHIVOS,  ARCHIVOS_HEADERS);
+  // REQ-MEDIA-005: Archivos también suma columnas al final (fecha_origen).
+  const archivos = ensureSheet(SHEETS.ARCHIVOS, ARCHIVOS_HEADERS);
+  ARCHIVOS_HEADERS.forEach(col => ensureColumn(archivos, col));
   ensureSheet(SHEETS.SESIONES,  SESIONES_HEADERS);
   ensureSheet(SHEETS.AUDITORIA, AUDITORIA_HEADERS);
 

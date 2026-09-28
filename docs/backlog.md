@@ -231,7 +231,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Nota: hoy no hay forma de reabrirla desde la app. Con REQ-PLAN-001 se cruza así: reabrir borra los acuerdos. Pregunta abierta en REQ-PLAN-001.
 
 ### BL-025 — Qué fecha lleva una foto (captura, programada o subida) y tareas de varios días
-- Estado: En curso (formalizado en REQ-MEDIA-005 el 2026-09-27; Franco aprobó la fecha de captura y el día de fin opcional)
+- Estado: Hecho — REQ-MEDIA-005 en producción desde el 2026-09-28 (Web App @27 y front en `main`)
 - Prioridad: Media
 - Origen: Franco (2026-09-27), después de BUG-FECHA-001
 - Nota: hoy `fecha_contenido` es el día de la subida. Opciones: la fecha en que se sacó la foto (EXIF), la fecha programada de la tarea o la de subida. Además, una tarea puede durar varios días y cada foto debería mostrar a qué día corresponde. BUG-FECHA-001 arregla solo el corrimiento UTC, no esta decisión.
@@ -252,3 +252,11 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Media
 - Origen: pedido de Franco durante REQ-MEDIA-004 (2026-09-28): "cuando pulsemos la foto, que se agrande y la veamos en el centro de la pantalla".
 - Nota: hoy tocar una foto (en "Ya subidas" o en el carrusel de recuerdos) la abre en el visor del carrusel, centrado, pero a 375 px la foto ocupa unos 212 px de ancho: las flechas y los márgenes del recuadro se comen el resto. La idea es un visor a pantalla completa (fondo negro, foto de borde a borde, deslizar para pasar, cerrar con la X o bajando). Cambia también el carrusel de recuerdos: va con mockup antes. Postergado porque la sesión ya venía cargada.
+
+## Sesión 2026-09-28 (2)
+
+### BL-028 — Corregir la fecha de una foto desde el carrusel de recuerdos
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: REQ-MEDIA-005 (2026-09-28)
+- Nota: "Cambiar fecha" está solo en el visor que se abre desde las fotos de una tarea. En el carrusel de recuerdos (la card de fotos recientes) no aparece. Si se quiere ahí también, el endpoint `setFechaFoto` ya sirve; falta que `getRecentPlanPhotos` devuelva `fechaOrigen` y mostrar el control. Se cruza con BL-027 (visor a pantalla completa).
