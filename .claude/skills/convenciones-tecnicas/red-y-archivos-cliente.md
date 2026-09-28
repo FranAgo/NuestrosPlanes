@@ -43,7 +43,11 @@ cada navegación.
 **Qué cuidar:** si varias respuestas pueden llegar en otro orden, cada
 render guarda un token y descarta lo que llega con un token viejo.
 
-**Dónde ya está bien:** `carruselRenderToken`.
+**Dónde ya está bien:** `carruselRenderToken`; `loadPlanes`
+(`planesPedido`/`planesAplicado`, BL-031). Para datos que se vuelven a
+leer, alcanza con no aplicar una respuesta que salió antes que la última
+aplicada. Descartar todo lo que no sea el último pedido es peor: si el
+último falla, se pierde también el anterior que sí llegó bien.
 
 ## Un `<img>` nunca queda sin fuente a la vista
 

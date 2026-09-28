@@ -50,7 +50,7 @@ puede llamar a `doPost` con cualquier parámetro.
   Test: `probarBL015` (BL-015). La matriz de acceso lleva la fila "cuenta
   dada de baja con sesión todavía válida".
 - Al cerrar sesión (manual o por 401) el front borra `cp_session`,
-  `cp_image_cache` y `avatarCache` (`borrarImageCache`, BL-016). Todo lo
+  `cp_image_cache`, `cp_mini_cache`, `cp_fotos_plan` y `avatarCache` (`borrarImageCache`, BL-016). Todo lo
   que escriba en `localStorage` datos del usuario tiene que borrarse ahí
   también, y no volver a escribirse si un pedido resuelve después del
   logout (chequear `state.session` al volver). Después, `forceLogout`

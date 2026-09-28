@@ -2575,7 +2575,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.2.1';
+    const APP_VERSION = '1.2.2';
     document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -3119,6 +3119,8 @@
       miniCache.clear();
       try { localStorage.removeItem(IMAGE_CACHE_KEY); } catch (e) { /* ignorado */ }
       try { localStorage.removeItem(MINI_CACHE_KEY); } catch (e) { /* ignorado */ }
+      fotosPlanCache.clear();
+      try { localStorage.removeItem(FOTOS_PLAN_CACHE_KEY); } catch (e) { /* ignorado */ }
     }
 
     // Lectura sincrónica del cache. Devuelve null si todavía no se resolvió
@@ -3648,7 +3650,10 @@
         foto.fecha       = fecha;
         foto.fechaOrigen = 'manual';
         const enTarea = planFotosYa.fotos.find(f => f.archivoId === foto.archivoId);
-        if (enTarea) { enTarea.fechaContenido = fecha; enTarea.fechaOrigen = 'manual'; }
+        if (enTarea) {
+          enTarea.fechaContenido = fecha; enTarea.fechaOrigen = 'manual';
+          guardarFotosPlan(planFotosYa.planId, planFotosYa.fotos);
+        }
         if (state.editingPlanId === planFotosYa.planId) renderFotosYaSubidas();
         loadFotosRecientes();
         carruselEditandoFecha = false;
@@ -3771,9 +3776,17 @@
     // Devuelve la respuesta para que initApp distinga "error" de "lista vacía"
     // (BUG-CARGA-001). No tira: los que recargan tras guardar/borrar siguen
     // funcionando igual que antes.
+    // BL-031: con varios getPlanes en vuelo (completar tareas seguidas), uno
+    // que salió antes puede llegar último y traer el estado de antes. Se
+    // aplica una respuesta solo si salió después de la última aplicada.
+    let planesPedido   = 0;
+    let planesAplicado = 0;
+
     async function loadPlanes() {
+      const miPedido = ++planesPedido;
       const data = await apiLectura('getPlanes');
-      if (data.status === 200) {
+      if (data.status === 200 && miPedido > planesAplicado) {
+        planesAplicado = miPedido;
         state.planes = data.planes || [];
         // REQ-PLAN-001: quiénes tienen que estar de acuerdo para cerrar.
         state.participantes = data.participantes || [];
@@ -4123,21 +4136,62 @@
 
     // --- Ya subidas ---
 
+    // BL-032 (DEC-011): cada pedido a Apps Script tarda de 1,5 a 4,5 s aunque
+    // no haga nada. La última lista de fotos de cada tarea queda guardada y
+    // se muestra al abrirla, mientras se relee de fondo. Solo ids y fechas,
+    // sin imágenes; se borra al cerrar sesión con el resto (BL-016).
+    const FOTOS_PLAN_CACHE_KEY = 'cp_fotos_plan';
+    const FOTOS_PLAN_CACHE_MAX = 60;           // tareas
+    const fotosPlanCache       = new Map();    // planId -> fotos (la última usada, al final)
+
+    function loadFotosPlanCachePersistido() {
+      try {
+        const obj = JSON.parse(localStorage.getItem(FOTOS_PLAN_CACHE_KEY) || 'null');
+        if (obj && typeof obj === 'object') {
+          Object.entries(obj).forEach(([planId, fotos]) => {
+            if (Array.isArray(fotos) && fotos.every(f => f && typeof f.archivoId === 'string')) {
+              fotosPlanCache.set(planId, fotos);
+            }
+          });
+        }
+      } catch (e) { /* sin caché persistido: se pide como antes */ }
+    }
+
+    function guardarFotosPlan(planId, fotos) {
+      if (!state.session) return;   // respuesta que volvió después del logout (BL-016)
+      fotosPlanCache.delete(planId);
+      fotosPlanCache.set(planId, JSON.parse(JSON.stringify(fotos)));
+      while (fotosPlanCache.size > FOTOS_PLAN_CACHE_MAX) fotosPlanCache.delete(fotosPlanCache.keys().next().value);
+      try { localStorage.setItem(FOTOS_PLAN_CACHE_KEY, JSON.stringify(Object.fromEntries(fotosPlanCache))); }
+      catch (e) { /* cuota: queda en memoria */ }
+    }
+
     async function cargarFotosYaSubidas(planId, silencioso) {
-      const token = ++planFotosYaToken;
+      let token = ++planFotosYaToken;
       if (!silencioso) {
-        planFotosYa = { planId, estado: 'cargando', fotos: [] };
+        const guardadas = fotosPlanCache.get(planId);
+        planFotosYa = guardadas
+          ? { planId, estado: 'ok', fotos: JSON.parse(JSON.stringify(guardadas)) }
+          : { planId, estado: 'cargando', fotos: [] };
         renderFotosYaSubidas();
+        if (guardadas) cargarMiniaturasYa(token);
       }
       let data;
       try { data = await apiLectura('getFotosPlan', { planId }); } catch (e) { data = e; }
       if (token !== planFotosYaToken || !state.session) return;
 
       if (data && data.status === 200) {
-        planFotosYa = { planId, estado: 'ok', fotos: data.fotos || [] };
+        const fotos = data.fotos || [];
+        guardarFotosPlan(planId, fotos);
+        // Si es lo que ya se ve, no se repinta: ni parpadeo ni foco perdido.
+        if (planFotosYa.planId === planId && planFotosYa.estado === 'ok' &&
+            JSON.stringify(planFotosYa.fotos) === JSON.stringify(fotos)) return;
+        token = ++planFotosYaToken;   // corta las miniaturas que pedía la lista vieja
+        planFotosYa = { planId, estado: 'ok', fotos };
         renderFotosYaSubidas();
         cargarMiniaturasYa(token);
-      } else if (!silencioso || planFotosYa.estado !== 'ok') {
+      } else if (planFotosYa.planId !== planId || planFotosYa.estado !== 'ok') {
+        // Con la lista guardada a la vista, una relectura fallida la deja.
         planFotosYa = { planId, estado: 'error', fotos: [], error: motivoDeFallo('las fotos', data) };
         renderFotosYaSubidas();
       }
@@ -5486,7 +5540,7 @@
       initGoogleAuth();
       // Sin sesión guardada, las fotos que hayan quedado de antes (versiones
       // previas a BL-016 no las borraban) se borran en vez de cargarse.
-      if (loadSession()) { loadImageCachePersistido(); loadMiniCachePersistido(); }
+      if (loadSession()) { loadImageCachePersistido(); loadMiniCachePersistido(); loadFotosPlanCachePersistido(); }
       else borrarImageCache();
       // Mensaje que dejó forceLogout antes de recargar (BL-021), una sola vez.
       try {

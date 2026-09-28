@@ -2624,3 +2624,132 @@ function probarPERF004() {
 
   return R.finalizar();
 }
+
+
+// ============================================================
+// medirBL032() — BL-032: dónde se van los ~4 s de getFotosPlan. No es una
+// prueba (no afirma nada): mide cada etapa del pedido dentro del servidor
+// contra una planilla scratch con tamaños holgados (400 filas en Archivos,
+// 80 en Planes, 150 en Sesiones) y una tarea con 16 fotos. Lo que tarda el
+// viaje al Web App, sin lógica, se mide aparte desde afuera.
+// Uso: clasp run medirBL032 -P .clasp-test.json -u duck
+// ============================================================
+function medirBL032() {
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+  const res = { tiempos: [] };
+  const medir = (etiqueta, fn) => {
+    const t0 = Date.now();
+    const v = fn();
+    res.tiempos.push(etiqueta + ': ' + (Date.now() - t0) + ' ms');
+    return v;
+  };
+  // Clona la última fila de una hoja n veces, cambiando las columnas de `cambios`.
+  const rellenar = (nombre, n, cambios) => {
+    const sh = getSheet(nombre);
+    const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    const base = sh.getRange(sh.getLastRow(), 1, 1, h.length).getValues()[0];
+    const filas = [];
+    for (let i = 0; i < n; i++) {
+      const f = base.slice();
+      Object.keys(cambios).forEach(c => { f[h.indexOf(c)] = cambios[c](i); });
+      filas.push(f);
+    }
+    sh.getRange(sh.getLastRow() + 1, 1, n, h.length).setValues(filas);
+  };
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH medirBL032 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const planId = parseResp(handleCreatePlan({
+      titulo: 'Dieciséis fotos', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+    })).planId;
+    rellenar(SHEETS.PLANES, 79, { plan_id: i => 'plan_relleno_' + i });
+    for (let i = 0; i < 16; i++) {
+      insertArchivo({ ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+        driveFileId: 'fake-drive-bl032-' + i, mimeType: 'image/jpeg', tamanoBytes: 1,
+        subidoPor: 'usr_fran', estado: 'activo' });
+    }
+    rellenar(SHEETS.ARCHIVOS, 384, { archivo_id: i => 'arc_relleno_' + i, owner_id: i => 'plan_relleno_' + (i % 79) });
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    rellenar(SHEETS.SESIONES, 149, { session_id: i => 'ses_relleno_' + i });
+    SpreadsheetApp.flush();
+
+    res.filas = {
+      Planes: getSheet(SHEETS.PLANES).getLastRow() - 1,
+      Archivos: getSheet(SHEETS.ARCHIVOS).getLastRow() - 1,
+      Sesiones: getSheet(SHEETS.SESIONES).getLastRow() - 1,
+    };
+
+    // Etapas por separado. Dentro de una misma ejecución, la segunda llamada
+    // puede salir más barata que en un pedido real (cada pedido del Web App
+    // es una ejecución nueva): por eso se mide la primera y la repetida.
+    const sid = t.split('.')[0];
+    CacheService.getScriptCache().remove('sesion-ok:' + sid);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+    medir('openById (repetido en la misma ejecución)', () => abrirPlanilla());
+    medir('validarSesion, camino lento (lee Sesiones)', () => validarSesion(t));
+    medir('validarSesion, camino rápido (caché 90 s)', () => validarSesion(t));
+    medir('usuarioHabilitado sin caché (lee Usuarios)', () => usuarioHabilitado('usr_noe'));
+    medir('usuarioHabilitado con caché', () => usuarioHabilitado('usr_noe'));
+    medir('buscarPlanActivo (lee Planes)', () => buscarPlanActivo(getSheet(SHEETS.PLANES), planId));
+    medir('leer Archivos entera', () => getSheet(SHEETS.ARCHIVOS).getDataRange().getValues());
+    medir('handleGetFotosPlan', () => handleGetFotosPlan({ planId: planId }));
+
+    // Pedido completo por doPost, como llega del Web App.
+    const pedir = () => parseResp(doPost({ postData: { contents: JSON.stringify(
+      { action: 'getFotosPlan', planId: planId, sessionToken: t }) } }));
+    CacheService.getScriptCache().remove('sesion-ok:' + sid);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+    const r1 = medir('doPost getFotosPlan, sin cachés', pedir);
+    medir('doPost getFotosPlan, con cachés', pedir);
+    medir('doPost getFotosPlan, con cachés (otra vez)', pedir);
+    res.fotosDevueltas = (r1.fotos || []).length;
+    res.status = r1.status;
+  } catch (err) {
+    res.error = String(err && err.stack ? err.stack : err);
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { res.nota = 'no se pudo borrar la planilla scratch ' + scratchId + ': ' + e; }
+    }
+  }
+  return res;
+}
+
+// BL-032: lo que corre al cargar el script en cada pedido (4 getProperty).
+// Uso: clasp run medirBL032_arranque -P .clasp-test.json -u duck
+function medirBL032_arranque() {
+  const out = [];
+  for (let n = 0; n < 3; n++) {
+    let t0 = Date.now();
+    const p = PropertiesService.getScriptProperties();
+    ['SPREADSHEET_ID', 'DRIVE_FOLDER_ID', 'OAUTH_CLIENT_ID', 'SESSION_SECRET'].forEach(k => p.getProperty(k));
+    const cuatro = Date.now() - t0;
+    t0 = Date.now();
+    PropertiesService.getScriptProperties().getProperties();
+    out.push('4 getProperty: ' + cuatro + ' ms · 1 getProperties: ' + (Date.now() - t0) + ' ms');
+  }
+  // Las constantes de Code.gs (leídas con getProperties) son las mismas que
+  // devolvería getProperty. No se imprime ningún valor.
+  const p = PropertiesService.getScriptProperties();
+  const iguales = { SPREADSHEET_ID: SPREADSHEET_ID, DRIVE_FOLDER_ID: DRIVE_FOLDER_ID,
+                    OAUTH_CLIENT_ID: OAUTH_CLIENT_ID, SESSION_SECRET: SESSION_SECRET };
+  Object.keys(iguales).forEach(k => {
+    out.push(k + ': ' + (iguales[k] === p.getProperty(k) ? 'igual' : 'DISTINTA') + (iguales[k] ? '' : ' (vacía)'));
+  });
+  return out;
+}

@@ -115,3 +115,18 @@ una pestaña de la app.
 **Por qué:** BL-030 (2026-09-28): los "Error al leer archivo" con
 `fake-drive-id-sim-plan001` parecían de prod y eran del Web App de test
 (`...Dlhi_AngmCxwp...`, simulación de PLAN-001).
+
+## Antes de optimizar un endpoint lento, medir el piso de la plataforma
+
+**Qué cuidar:** un pedido al Web App que no hace nada ya tarda 1,5 a 4,5 s
+(mediana ~2,2 s). Para medirlo: un POST sin sesión, que responde 401 sin
+leer hojas, desde node con `redirect: 'manual'` y después un GET al
+`location` (así se separan la ejecución y el redirect). Lo que haga el
+handler se mide adentro, con `Date.now()` por etapa, en una función de
+`Tests.gs` contra una planilla scratch (`medirBL032` es el molde). Si el
+handler se lleva menos de la mitad, achicarlo no cambia la sensación:
+hay que evitar el viaje (caché en el front, pedirlo antes o sumarlo a
+otra respuesta).
+
+**Por qué:** BL-032 (2026-09-28): `getFotosPlan` tardaba ~4 s y el
+handler se llevaba 0,4 a 1,2 s de eso.

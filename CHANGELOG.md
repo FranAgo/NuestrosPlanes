@@ -5,6 +5,17 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.2.2] - 2026-09-28
+
+### Cambiado
+- Al abrir una tarea que ya abriste antes, "Ya subidas" aparece al instante
+  con lo último que viste y se actualiza sola si el otro subió algo. La
+  primera vez sigue tardando unos segundos. (BL-032)
+
+### Corregido
+- Al completar varias tareas seguidas, alguna ya no vuelve a verse
+  pendiente un momento después de ponerse gris. (BL-031)
+
 ## [1.2.1] - 2026-09-28
 
 ### Cambiado

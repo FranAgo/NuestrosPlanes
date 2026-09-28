@@ -105,3 +105,15 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
   - No tiene costo: usa la cuota gratis de `UrlFetchApp`, de 20.000 llamadas por día.
 - Reabrir si: Drive deja de generar `thumbnailLink` para las fotos de la app, la cuota empieza a quedar corta, o hace falta mostrar las miniaturas sin pasar por el servidor.
 
+
+## DEC-011 — Se sigue con Apps Script y Sheets; migrar a Firebase solo si se cumple una condición concreta
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: BL-032. Medido en test: cada pedido al Web App tarda de 1,5 a 4,5 s aunque no haga nada (mediana ~2,2 s), y leer una hoja ~200 ms. La lentitud es de la plataforma por pedido, no de la planilla. Franco preguntó si vale la pena cambiar de sistema.
+- Opciones consideradas: (A) seguir con Apps Script y Sheets, y esquivar el costo por pedido desde el front (mostrar lo ya cargado y releer de fondo, menos pedidos); (B) migrar ahora a Firebase (Firestore, Storage y Auth con Google); (C) otro backend (Supabase, Cloudflare Workers).
+- Decisión: A (Franco, 2026-09-28). Primer paso: opción (a) de BL-032.
+- Motivo:
+  - Lo que traba se puede esquivar desde el front, porque las fotos y miniaturas ya se guardan en el navegador. Migrar costaría rehacer 22 endpoints (~2.950 líneas de `Code.gs`), perder las pruebas de `Tests.gs`, migrar las hojas y las fotos de Drive, y volver a revisar la seguridad (sesión, lista blanca, BL-015, auditoría de la Ley 25.326).
+  - Si se migra, el candidato es B: lecturas de cientos de ms, datos guardados en el teléfono, cambios del otro al instante (REQ-SYNC-001), y el equipo ya lo conoce por sis-web. C no suma nada frente a B para este caso.
+  - La migración iría por etapas (datos y login primero, fotos en Drive al principio) y en paralelo hasta confirmar que la nueva versión anda.
+- Reabrir si: (1) con la opción (a) de BL-032 y BL-001 hechas, abrir la app o una tarea en el teléfono se sigue sintiendo lento; (2) hace falta ver los cambios del otro en 1–2 s (REQ-SYNC-001); (3) los videos (BL-023) pasan a ser una necesidad real; (4) aparecen errores por cuotas de Apps Script.

@@ -2683,3 +2683,25 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — sección de miniaturas actualizada (REST sin Servicio Avanzado, tamaño =sNNN, imagen de Charts no sirve para medir peso, cachés separados).
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — tema 7: medir tiempos en el Chrome de Franco (límite de 45 s, window.__res, recargar entre corridas, pestaña al frente, red de Franco, wrapper de solo lectura).
 ========================================================
+
+========================================================
+2026-09-28 12:57 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- index.html — BL-031: loadPlanes numera cada getPlanes (planesPedido/planesAplicado) y no aplica una respuesta que salió antes que la última aplicada. Reproducido antes con fetch simulado (completar A y B con el getPlanes de A lento: B volvía a pendiente); verificado con 3 casos (desorden, en orden, el más nuevo con 500).
+- index.html — BL-032 opción (a): fotosPlanCache en memoria y localStorage (cp_fotos_plan, tope 60 tareas, solo ids y fechas). "Ya subidas" muestra la lista guardada al abrir la tarea y relee de fondo; sin repintar si no cambió; si falla queda la guardada. Se borra en borrarImageCache (logout) y se actualiza al cambiar la fecha de una foto. Verificado en localhost con fetch simulado (7 casos, consola limpia). APP_VERSION 1.2.2.
+- Code.gs — BL-032: una getProperties() en vez de cuatro getProperty al cargar el script (~100 ms -> ~20 ms en test; constantes iguales). APP_VERSION 1.2.2. Regresión en test: probarBUGLOGIN001B 38/38, probarBL015 12/12, probarMEDIA004 APTO.
+- Tests.gs — medirBL032 (tiempos por etapa de getFotosPlan contra planilla scratch) y medirBL032_arranque (costo de Script Properties + chequeo de constantes). Subido solo a test.
+- Medición BL-032 (test): piso del Web App 1,5-4,5 s por pedido aunque no haga nada (mediana ~2,2 s); getFotosPlan en el servidor 0,4-1,2 s (usuarioHabilitado sin caché 780 ms, validarSesion por hoja 300 ms, Planes ~235 ms, Archivos ~215 ms).
+- docs/decisiones.md — DEC-011: se sigue con Apps Script y Sheets; migrar a Firebase solo si se cumple una de 4 condiciones.
+- docs/backlog.md — BL-031 hecho (falta push); BL-032 medido y en curso; BL-033 nuevo (tarea completada que se ve pendiente si falla la relectura).
+- CHANGELOG.md — 1.2.2.
+- .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — respuestas viejas: loadPlanes como ejemplo, criterio de "no aplicar lo que salió antes que lo último aplicado".
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md — medir el piso de la plataforma antes de optimizar un endpoint.
+- .claude/skills/convenciones-tecnicas/seguridad.md — cp_mini_cache y cp_fotos_plan en la lista de lo que se borra al cerrar sesión.
+- clasp push a TEST (no a prod) de Code.gs + Tests.gs, varias veces, para las mediciones y la regresión.
+- PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v31, "v1.2.2 BL-032: Script Properties en una lectura"); clasp redeploy ...LxD0d -V 31. Rollback: redeploy -V 30. El smoke sin sesión contra prod lo bloqueó el modo automático; Franco confirmó que las tareas cargan.
+- PRODUCCIÓN (con OK de Franco): commit + tag v1.2.2 + push a main (front 1.2.2 en GitHub Pages).
+========================================================
