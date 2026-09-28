@@ -5,6 +5,23 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.3.0] - 2026-09-28
+
+### Cambiado
+- La app se ve más cuidada y se lee mejor: los textos apagados, los bordes
+  y los contornos tienen más contraste (también en la PC, donde las líneas
+  finas casi no se veían), con el mismo tono oscuro y cobre de siempre.
+  (REQ-UX-002)
+- Las tareas completadas ya no se ven transparentes: van sobre un fondo
+  verde muy oscuro, con una línea verde arriba y un sello con tilde.
+- El botón principal, el de Google y "De acuerdo" son de cobre metálico, y
+  el corazón del logo también.
+- Confirmar "Eliminar" o "Descartar y cerrar" se ve en rojo, para que se
+  note que borra algo.
+- Las animaciones son más cortas y suaves, y los modales se cierran más
+  rápido. Si el teléfono o la PC tienen activado "reducir movimiento", se
+  apagan.
+
 ## [1.2.4] - 2026-09-28
 
 ### Corregido

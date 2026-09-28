@@ -1,6 +1,6 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Sigue la fase 5 (verificación completa y deploy 1.3.0 con OK de Franco).
+> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificación completa hecha el 2026-09-28 y `APP_VERSION` 1.3.0 en `index.html`; falta el deploy (con OK de Franco) y que lo vean Franco en la PC y Noelia en el celular.
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
@@ -248,3 +248,28 @@ un renglón y sin desborde (filas "Por subir" con "Lista para subir",
 scroll horizontal. Consola: solo tres 404 de las fotos de prueba
 inyectadas sin `src`. `check-sintaxis.js` y `check-contraste.js` en
 verde.
+
+## Fase 5: verificación antes del deploy (2026-09-28)
+
+`APP_VERSION` 1.3.0 solo en `index.html`; `Code.gs` sigue en 1.2.2 porque
+el servidor no cambia (igual que 1.2.3 y 1.2.4). CHANGELOG con la entrada
+1.3.0.
+
+Verificado en 127.0.0.1 con `fetch` simulado (ninguna llamada a Google),
+recorriendo en cada ancho las pestañas Planes, Categorías y Mi perfil y
+los modales de editar plan, nuevo plan, categoría y confirmar eliminar:
+
+| Criterio | Resultado |
+|---|---|
+| 1. Texto 4,5:1 | `check-contraste.js` en verde (incluye completada y metal). |
+| 2. Bordes 3:1 y visibles a densidad 1 | Bordes de campos y botones medidos 3:1; 1px en todo (`grep "0.5px solid"` vacío). |
+| 3. Script de medición | `check-contraste.js` en el repo. |
+| 4. Sin costo de scroll nuevo | Sin `backdrop-filter` fuera de los overlays de modal (que ya lo tenían: BL-035); grano sin animación. No medido en un celular real. |
+| 5. Movimiento reducido | El bloque apaga todo con `!important`, incluidos los tiempos nuevos. |
+| 6. 375, 600/601 y 1366, consola limpia | Sin scroll horizontal, nada fuera de la pantalla, ninguna mayúscula por debajo de 11,2px y los cuatro modales entran enteros, en los cuatro anchos (el corte de 600 confirmado con `matchMedia` a los dos lados). Hover de tarjeta a 1366: borde cobre, sube 2px, línea al 55 %. Consola sin errores. **Falta:** que lo vean Franco en su PC y Noelia en su celular, después del deploy. |
+| 7. `DESIGN.md` al día | Reescrito en la fase 4 y contrastado con el código. Falta la revisión de Franco (BL-012). |
+
+Julia: sin superficie de seguridad (solo CSS y el aspecto del botón de
+confirmar; ningún dato ni endpoint nuevo). Gary: sin cambios en las hojas.
+Roy: el deploy es solo `git push origin main` (GitHub Pages) y el tag
+`v1.3.0`; sin `clasp`.

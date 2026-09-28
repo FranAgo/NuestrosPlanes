@@ -2762,3 +2762,16 @@ Cambios:
 - Verificado en 127.0.0.1 con fetch simulado (sin llamadas a Apps Script): tiempos medidos con getComputedStyle, etiquetas a 11,2 px sin corte a 375, sin scroll horizontal. check-sintaxis y check-contraste en verde. Sin deploy.
 - Pendiente: fase 5 (verificación completa a 375/600/601/1366, APP_VERSION 1.3.0, CHANGELOG, deploy con OK de Franco).
 ========================================================
+
+========================================================
+2026-09-28 19:08 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html — APP_VERSION 1.3.0 (REQ-UX-002). Code.gs sigue en 1.2.2: el servidor no cambia.
+- CHANGELOG.md — entrada 1.3.0 (rediseño: contraste, completadas, metal, confirmación en rojo, movimiento).
+- docs/requerimientos/REQ-UX-002.md — fase 5: verificación criterio por criterio antes del deploy (375, 600, 602 y 1366; pestañas y cuatro modales; hover a 1366; sin llamadas a Google). Falta el deploy y que lo vean Franco y Noelia.
+- docs/backlog.md — BL-035 nuevo: overlays de modal con backdrop-filter aun cerrados (anterior al rediseño, hipótesis sin medir).
+- Commit local previo bafc474 (fase 4), sin push.
+========================================================
