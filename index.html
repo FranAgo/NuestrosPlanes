@@ -56,8 +56,15 @@
       --radius-full:  9999px;
       /* Solo lo que cambian los estados (:hover, .active, .visible…) de quienes
          la usan. Una propiedad nueva que tenga que animarse se suma acá. */
-      --transition:   color 0.22s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-                      border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition:   color var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out),
+                      border-color var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+      /* Movimiento (REQ-UX-002 fase 4): corto y con salida suave, nunca
+         más de 300 ms. Lo que entra usa --ease-out; ease-in no se usa. */
+      --ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
+      --dur-fast:     120ms;   /* presión de botón, salida de un modal */
+      --dur:          200ms;   /* hover, foco, cambios de estado */
+      --dur-enter:    220ms;   /* tarjetas y filas que aparecen */
+      --dur-modal:    240ms;   /* modales y pantallas */
     }
 
     *, *::before, *::after {
@@ -182,7 +189,7 @@
       position: relative;
       overflow: hidden;
       opacity: 0;
-      animation: fadeIn 0.6s ease forwards;
+      animation: fadeIn 300ms var(--ease-out) forwards;
     }
 
     #login-screen::before {
@@ -556,7 +563,7 @@
       border-top-color: var(--on-copper);
     }
 
-    .btn:active { transform: scale(0.98); }
+    .btn:active { transform: scale(0.98); transition-duration: var(--dur-fast); }
 
     .btn-secondary {
       border: 1px solid var(--border-control);
@@ -660,7 +667,7 @@
 
     #app-screen.visible {
       display: flex;
-      animation: fadeIn 0.4s ease;
+      animation: fadeIn var(--dur-modal) var(--ease-out);
     }
 
     /* HEADER */
@@ -884,7 +891,7 @@
       padding: 1.2rem;
       transition: var(--transition);
       position: relative;
-      animation: slideUp 0.3s ease;
+      animation: slideUp var(--dur-enter) var(--ease-out);
       overflow: hidden;
       cursor: none;
     }
@@ -912,7 +919,7 @@
       width: 0%;
       height: 1px;
       background: var(--copper);
-      transition: width 0.3s ease;
+      transition: width 250ms var(--ease-out);
     }
 
     .plan-card:hover {
@@ -1218,7 +1225,13 @@
 
     .btn-acuerdo { color: var(--copper); border: 1px solid var(--copper-dim); }
     .btn-acuerdo:hover { background: var(--bg-elevated); }
-    .btn-acuerdo[aria-pressed="true"] { color: var(--bg); background: var(--copper); border-color: var(--copper); }
+    /* Mi acuerdo dado: el mismo metal que la acción principal (REQ-UX-002). */
+    .btn-acuerdo[aria-pressed="true"] {
+      color: var(--on-copper);
+      background: linear-gradient(180deg, var(--copper-light) -40%, var(--copper) 55%, var(--copper-deep) 120%);
+      border-color: var(--copper);
+      box-shadow: inset 0 1px 0 rgba(255,235,205,0.35);
+    }
     .btn-acuerdo svg { width: 12px; height: 12px; }
 
     .btn-reabrir { color: var(--text-soft); border: 1px solid var(--border-control); }
@@ -1327,7 +1340,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      animation: slideUp 0.3s ease;
+      animation: slideUp var(--dur-enter) var(--ease-out);
       transition: var(--transition);
     }
 
@@ -1428,12 +1441,13 @@
       padding: 1rem;
       opacity: 0;
       pointer-events: none;
-      transition: var(--transition);
+      transition: opacity var(--dur-fast) var(--ease-out);   /* sale más rápido que entra */
     }
 
     .modal-overlay.visible {
       opacity: 1;
       pointer-events: all;
+      transition-duration: var(--dur-modal);
     }
 
     .modal {
@@ -1446,8 +1460,8 @@
       max-width: 440px;
       max-height: 100%;
       overflow-y: auto;
-      transform: scale(0.96) translateY(10px);
-      transition: var(--transition);
+      transform: scale(0.97) translateY(8px);
+      transition: transform var(--dur-fast) var(--ease-out);
       position: relative;
     }
 
@@ -1464,6 +1478,7 @@
 
     .modal-overlay.visible .modal {
       transform: scale(1) translateY(0);
+      transition-duration: var(--dur-modal);
     }
 
     .modal-header {
@@ -1604,7 +1619,7 @@
     }
 
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
@@ -1760,7 +1775,7 @@
       justify-content: space-between;
       align-items: baseline;
       gap: 0.5rem;
-      font-size: 0.66rem;
+      font-size: 0.7rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-muted);
@@ -1789,7 +1804,7 @@
       align-items: baseline;
       gap: 0.5rem;
       margin: 0.35rem 0 -0.1rem;
-      font-size: 0.66rem;
+      font-size: 0.7rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--copper-light);
@@ -1996,7 +2011,7 @@
       color: var(--text-soft);
       border-radius: var(--radius-sm);
       font-family: inherit;
-      font-size: 0.66rem;
+      font-size: 0.7rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       padding: 0.35rem 0.5rem;
@@ -2019,7 +2034,7 @@
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      font-size: 0.64rem;
+      font-size: 0.7rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       border-radius: var(--radius-sm);
@@ -2092,7 +2107,7 @@
       margin-bottom: 1.2rem;
       cursor: none;
       transition: var(--transition);
-      animation: slideUp 0.3s ease;
+      animation: slideUp var(--dur-enter) var(--ease-out);
     }
 
     .fotos-recientes-card:hover {
@@ -2132,7 +2147,7 @@
 
     /* REQ-MEDIA-003: qué grupo de recuerdos muestra la card. */
     .fotos-recientes-grupo {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-muted);

@@ -1,6 +1,6 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global) y 3 (componentes) hechas en `index.html` el 2026-09-28, sin deploy. Sigue la fase 4 (movimiento y pulido, `docs/DESIGN.md`).
+> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Sigue la fase 5 (verificación completa y deploy 1.3.0 con OK de Franco).
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
@@ -197,3 +197,54 @@ Ojo al verificar: con el Browser pane oculto, las transiciones no avanzan
 (un `getComputedStyle` en medio da el valor viejo), y después de varios
 cambios de tamaño las capturas salen achicadas. Medir con JS, no con la
 captura.
+
+## Resultado de la fase 4 (2026-09-28)
+
+Hecho en `index.html` y `docs/DESIGN.md`, sin deploy:
+- **Tiempos en `:root`:** `--ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`),
+  `--dur-fast` 120 ms, `--dur` 200 ms, `--dur-enter` 220 ms y
+  `--dur-modal` 240 ms. `--transition` pasa de 0,22 s con la curva
+  estándar a `--dur` con `--ease-out`.
+- **Entradas:** `slideUp` (tarjetas, filas, card de recuerdos) de 0,3 s y
+  12 px a 220 ms y 8 px; la pantalla de la app de 0,4 s a 240 ms; el login
+  de 0,6 s a 300 ms. La línea cobre del hover de la tarjeta, de 0,3 s a
+  250 ms.
+- **Modales:** entran en 240 ms y salen en 120 ms (salir más rápido que
+  entrar); el modal sube de `scale(0.97) translateY(8px)`.
+- **Presión de botón:** `scale(0.98)` en 120 ms (vuelve en 200 ms).
+- **Se quedan como estaban**, porque son parte del efecto que Franco quiere
+  conservar o son loops de marca: el brillo que cruza la tarjeta en hover
+  (0,45 s), el latido del corazón, las chispas, el skeleton y los
+  spinners. **No se sumó** una entrada escalonada de la lista: la lista se
+  vuelve a dibujar en cada guardado y se sentiría lenta.
+- **Movimiento reducido:** el bloque existente ya apaga todo con
+  `!important`, incluidos los tiempos nuevos; no hizo falta tocarlo.
+- **Pulido:** "De acuerdo" activo pasa al cobre metálico (el alcance lo
+  pedía y había quedado plano). Las cinco etiquetas en mayúsculas que
+  seguían por debajo de 0,7 rem (`.plan-fotos-sub`, `.plan-fotos-dia`,
+  `.btn-mini`, `.foto-pill`, `.fotos-recientes-grupo`) pasan a 0,7 rem;
+  lo encontró Duck al contrastar `DESIGN.md` con el código.
+- **`check-contraste.js`:** dos pares nuevos para el texto sobre el metal
+  (`--on-copper` sobre `--copper`, 6,67:1, y sobre el degradé al 80 % del
+  alto, `#B57A3E`, 5,38:1). El script acepta ahora un color literal
+  `#…` para medir un punto de un degradé. `--on-copper` sobre
+  `--copper-deep` da 3,67:1, pero ese tono está en el 120 % del degradé,
+  fuera del botón.
+- **`docs/DESIGN.md`** reescrito con la paleta B, bordes de 1 px, filo de
+  luz, fondo, metal (solo en tres lugares), estados, sello, `.btn-peligro`,
+  corazón, tiempos y las reglas nuevas de "No hacer" (criterio 7).
+
+Diferencias con lo escrito antes: la tabla de la fase 1 dice que el header
+va "al 88 %", pero en el código es opaco (`--bg-header` lleno);
+`DESIGN.md` describe el código. Lo de "fotos con `grayscale`" de la
+tarjeta completada no aplica: la tarjeta no muestra miniaturas, solo "N
+fotos".
+
+Verificado en 127.0.0.1 con `fetch` simulado (ninguna llamada a Apps
+Script): tiempos y curvas medidos con `getComputedStyle` (entradas,
+modal abierto y cerrado, botón); a 375, las cinco etiquetas en 11,2 px, en
+un renglón y sin desborde (filas "Por subir" con "Lista para subir",
+"Error" y "Reintentar", card de recuerdos con "De otro momento"), sin
+scroll horizontal. Consola: solo tres 404 de las fotos de prueba
+inyectadas sin `src`. `check-sintaxis.js` y `check-contraste.js` en
+verde.

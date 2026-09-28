@@ -53,6 +53,8 @@ const PARES = [
   ['--copper', '--bg-card', 4.5, 'cobre sobre tarjeta'],
   ['--copper', '--bg-elevated', 4.5, 'cobre sobre modal'],
   ['--bg', '--copper', 4.5, 'texto oscuro sobre botón cobre lleno'],
+  ['--on-copper', '--copper', 4.5, 'texto sobre cobre metálico (primario, Google, "De acuerdo")'],
+  ['--on-copper', '#B57A3E', 4.5, 'texto sobre el degradé metálico al 80 % del alto (pie del renglón)'],
   ['--copper-light', '--bg-card', 4.5, 'cobre claro (estado del login)'],
   ['--text-soft', '--bg-card-done', 4.5, 'título de tarjeta completada'],
   ['--text-muted', '--bg-card-done', 4.5, 'texto apagado en tarjeta completada'],
@@ -98,6 +100,7 @@ function parsearColor(v) {
 }
 
 function resolver(tokens, nombre) {
+  if (nombre.startsWith('#')) return parsearColor(nombre);   // literal: un punto de un degradé
   if (tokens[nombre]) return tokens[nombre];
   const alt = REEMPLAZOS[nombre];
   if (!alt) return null;

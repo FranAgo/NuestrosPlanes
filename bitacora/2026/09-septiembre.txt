@@ -2747,3 +2747,18 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10: con el Browser pane oculto las transiciones no avanzan y las capturas salen viejas o achicadas; medir con JS. Stub de fetch en un archivo temporal que se borra al cerrar. SKILL.md: índice actualizado.
 - Pendiente: fase 4 (movimiento, pulido y docs/DESIGN.md) y fase 5 (verificación completa y deploy 1.3.0 con OK de Franco).
 ========================================================
+========================================================
+2026-09-28 18:59 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html, REQ-UX-002 fase 4 (movimiento): tiempos en :root (--ease-out, --dur-fast 120 ms, --dur 200 ms, --dur-enter 220 ms, --dur-modal 240 ms); --transition con esa curva; entradas de tarjetas y filas a 220 ms y 8 px, app a 240 ms, login de 0,6 s a 300 ms; modales que entran en 240 ms y salen en 120 ms; presión de botón en 120 ms. El brillo de la tarjeta en hover, el latido y las chispas quedan como estaban.
+- index.html, pulido: "De acuerdo" activo en cobre metálico (como la acción principal); cinco etiquetas en mayúsculas de fotos y recuerdos de 0,64-0,66 rem a 0,7 rem.
+- check-contraste.js — pares del texto sobre el metal (--on-copper sobre --copper y sobre un punto del degradé); acepta un color literal #… como fondo.
+- docs/DESIGN.md — reescrito con el rediseño: paleta B, bordes de 1 px, filo de luz, fondo, metal, estados, sello, .btn-peligro, corazón, tiempos y reglas de "No hacer".
+- docs/requerimientos/REQ-UX-002.md — estado (fases 1-4 hechas) y resultado de la fase 4.
+- docs/backlog.md — BL-012: DESIGN.md al día; falta la revisión de Franco, con la fase 5.
+- Verificado en 127.0.0.1 con fetch simulado (sin llamadas a Apps Script): tiempos medidos con getComputedStyle, etiquetas a 11,2 px sin corte a 375, sin scroll horizontal. check-sintaxis y check-contraste en verde. Sin deploy.
+- Pendiente: fase 5 (verificación completa a 375/600/601/1366, APP_VERSION 1.3.0, CHANGELOG, deploy con OK de Franco).
+========================================================

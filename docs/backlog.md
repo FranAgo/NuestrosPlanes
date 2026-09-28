@@ -130,7 +130,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27
 
 ### BL-012 — `docs/DESIGN.md` de Nuestros Planes
-- Estado: En curso (escrito el 2026-09-27 y commiteado en a4baa76; falta la revisión de Franco)
+- Estado: En curso (escrito el 2026-09-27 y commiteado en a4baa76; puesto al día con REQ-UX-002 el 2026-09-28, fase 4; falta la revisión de Franco, que se pide junto con la fase 5)
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). Jay y `hjay-identidad-visual` usan el `DESIGN.md` del proyecto "si tiene uno"; en sis-web salió de extraer del código colores, tipografía y componentes.
 - Nota: extraer de `index.html` el sistema de diseño real (tokens de color, radios, tipografía, botones, modales, excepciones) para que los cambios visuales tengan una referencia escrita. Lo mantiene Jay.
