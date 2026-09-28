@@ -130,7 +130,7 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 ## Sesión 2026-09-27
 
 ### BL-012 — `docs/DESIGN.md` de Nuestros Planes
-- Estado: En curso (escrito el 2026-09-27 y commiteado en a4baa76; puesto al día con REQ-UX-002 el 2026-09-28, fase 4; falta la revisión de Franco, que se pide junto con la fase 5)
+- Estado: Hecho (escrito el 2026-09-27 en a4baa76; puesto al día con REQ-UX-002 el 2026-09-28 y revisado por Franco ese día)
 - Prioridad: Media
 - Origen: reemplazo de skills por las de sis-web (DEC-001). Jay y `hjay-identidad-visual` usan el `DESIGN.md` del proyecto "si tiene uno"; en sis-web salió de extraer del código colores, tipografía y componentes.
 - Nota: extraer de `index.html` el sistema de diseño real (tokens de color, radios, tipografía, botones, modales, excepciones) para que los cambios visuales tengan una referencia escrita. Lo mantiene Jay.
@@ -312,7 +312,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 ## Sesión 2026-09-28 (6)
 
 ### BL-034 — Contraste: fondos y letras que a veces cuestan leer
-- Estado: En curso — pasa a REQ-UX-002 (rediseño premium, 2026-09-28): Franco pidió no perder el efecto premium y rediseñar en vez de solo subir el contraste
+- Estado: Hecho con REQ-UX-002 (rediseño premium, en prod como 1.3.1 el 2026-09-28). Franco había pedido no perder el efecto premium y rediseñar en vez de solo subir el contraste
 - Prioridad: Media (pedido explícito de Franco)
 - Origen: Franco (2026-09-28, después de probar 1.2.4): "los colores de fondo, letra etc etc, son difíciles de ver a veces, si podemos mejorarlo de alguna forma". Aclaró enseguida: "letras, contornos, todo en general", o sea que no es una pantalla puntual sino la paleta entera. Franco usa más la PC y Noelia el celular.
 - Nota: sin investigar. Primer paso: medir el contraste (WCAG AA: 4,5:1 texto normal, 3:1 texto grande y bordes de controles) de cada par texto/fondo de los tokens de `:root` en `index.html` (`--text-soft`, `--text-muted`, `--copper-dim` sobre `--bg` y el fondo de las tarjetas), más casos que bajan contraste a propósito: `.plan-card.completado` (opacidad 0,55), botones `:disabled` (0,45) y las etiquetas en mayúsculas a 0,65-0,7 rem. Como es general, revisar la paleta completa (textos, bordes de 0,5px, íconos, placeholders) y no pantalla por pantalla; preguntarle si lo nota más en el teléfono o en la computadora, y mostrarle un mockup antes/después, respetando `docs/DESIGN.md` y `hjay-identidad-visual`. Se cruza con BL-012 (revisión de `docs/DESIGN.md`).

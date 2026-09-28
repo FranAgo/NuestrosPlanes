@@ -1,6 +1,6 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** EN CURSO. Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificada y **en producción como 1.3.0** desde el 2026-09-28 19:12 (push de `4f93539` con OK de Franco, tag `v1.3.0`, Pages confirmado con curl). Falta que lo vean Franco en la PC y Noelia en el celular (criterio 6) y la revisión de `DESIGN.md` (BL-012) para cerrarlo.
+> **Estado:** CERRADO el 2026-09-28 (en prod como 1.3.1). Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificada y **en producción como 1.3.0** desde el 2026-09-28 19:12 (push de `4f93539` con OK de Franco, tag `v1.3.0`, Pages confirmado con curl). Franco lo vio en la PC y en el iPhone (de ahí salió 1.3.1) y revisó `DESIGN.md`. Si Noelia nota algo en su celular, Franco avisa: no queda como pendiente (Franco, 2026-09-28).
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
@@ -266,8 +266,8 @@ los modales de editar plan, nuevo plan, categoría y confirmar eliminar:
 | 3. Script de medición | `check-contraste.js` en el repo. |
 | 4. Sin costo de scroll nuevo | Sin `backdrop-filter` fuera de los overlays de modal (que ya lo tenían: BL-035); grano sin animación. No medido en un celular real. |
 | 5. Movimiento reducido | El bloque apaga todo con `!important`, incluidos los tiempos nuevos. |
-| 6. 375, 600/601 y 1366, consola limpia | Sin scroll horizontal, nada fuera de la pantalla, ninguna mayúscula por debajo de 11,2px y los cuatro modales entran enteros, en los cuatro anchos (el corte de 600 confirmado con `matchMedia` a los dos lados). Hover de tarjeta a 1366: borde cobre, sube 2px, línea al 55 %. Consola sin errores. **Falta:** que lo vean Franco en su PC y Noelia en su celular, después del deploy. |
-| 7. `DESIGN.md` al día | Reescrito en la fase 4 y contrastado con el código. Falta la revisión de Franco (BL-012). |
+| 6. 375, 600/601 y 1366, consola limpia | Sin scroll horizontal, nada fuera de la pantalla, ninguna mayúscula por debajo de 11,2px y los cuatro modales entran enteros, en los cuatro anchos (el corte de 600 confirmado con `matchMedia` a los dos lados). Hover de tarjeta a 1366: borde cobre, sube 2px, línea al 55 %. Consola sin errores. Después del deploy lo vio Franco en la PC y en el iPhone (1.3.1). Lo de Noelia no queda pendiente: si nota algo, Franco avisa. |
+| 7. `DESIGN.md` al día | Reescrito en la fase 4 y contrastado con el código. Revisado por Franco el 2026-09-28 (BL-012). |
 
 Julia: sin superficie de seguridad (solo CSS y el aspecto del botón de
 confirmar; ningún dato ni endpoint nuevo). Gary: sin cambios en las hojas.

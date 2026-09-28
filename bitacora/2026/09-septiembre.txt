@@ -2809,3 +2809,13 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §11: Safari de iPhone no se reproduce en el Browser pane; campo de fecha que no respeta width:100% y su arreglo. SKILL.md: índice.
 - Queda para cerrar REQ-UX-002: que Noelia lo vea en su celular y la revisión de docs/DESIGN.md por Franco (BL-012).
 ========================================================
+
+========================================================
+2026-09-28 20:04 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-UX-002.md — CERRADO. Franco revisó docs/DESIGN.md. Lo de Noelia no queda pendiente: si nota algo, Franco avisa.
+- docs/backlog.md — BL-012 (DESIGN.md) y BL-034 (contraste) pasan a Hecho.
+========================================================
