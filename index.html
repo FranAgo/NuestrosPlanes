@@ -2596,7 +2596,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.2.3';
+    const APP_VERSION = '1.2.4';
     document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -3815,6 +3815,14 @@
       return data;
     }
 
+    // BL-033: después de una escritura que salió bien y se aplicó en el estado
+    // local, ningún getPlanes que ya estaba en vuelo puede pisarla (salió antes
+    // de la escritura y trae el estado de antes). Solo se aplican los pedidos
+    // que salgan a partir de ahora.
+    function descartarLecturasDePlanesEnVuelo() {
+      planesAplicado = planesPedido;
+    }
+
     // Recarga planes y actualiza el mapa de usuarios en un solo paso
     async function refreshPlanes() {
       await loadPlanes();
@@ -4944,6 +4952,10 @@
       const antes   = (plan.acuerdos || []).slice();
       const nuevo   = !antes.includes(yo);
       plan.acuerdos = nuevo ? antes.concat(yo) : antes.filter(id => id !== yo);  // optimista
+      const revertir = () => {
+        const actual = state.planes.find(p => p.planId === planId);
+        if (actual) actual.acuerdos = antes;
+      };
       delete acuerdoError[planId];
       acuerdoEnCurso.set(planId, 'acuerdo');
       renderPlanes();
@@ -4951,16 +4963,20 @@
       try {
         const data = await api('setAcuerdoCierre', { planId, deAcuerdo: nuevo });
         if (data.status === 200) {
-          plan.acuerdos = data.acuerdos || plan.acuerdos;
+          // Se busca de nuevo: si en el medio se releyó la lista, `plan` ya no
+          // es el objeto que está en pantalla.
+          const actual = state.planes.find(p => p.planId === planId);
+          if (actual && data.acuerdos) actual.acuerdos = data.acuerdos;
+          descartarLecturasDePlanesEnVuelo();
         } else if (data.status === 401) {
           return;  // api() ya cerró la sesión
         } else {
-          plan.acuerdos = antes;
+          revertir();
           acuerdoError[planId] = mensajeDeError(data, 'No se pudo guardar tu acuerdo. Probá de nuevo en un momento.');
           if (data.status === 404 || data.status === 409) await refreshPlanes();  // cambió algo del otro lado
         }
       } catch (e) {
-        plan.acuerdos = antes;
+        revertir();
         acuerdoError[planId] = 'No se pudo guardar tu acuerdo: revisá la conexión y probá de nuevo.';
       } finally {
         acuerdoEnCurso.delete(planId);
@@ -4992,6 +5008,7 @@
             plan.estado   = 'pendiente';
             plan.acuerdos = [];
           }
+          descartarLecturasDePlanesEnVuelo();
         } else {
           acuerdoError[planId] = mensajeDeError(data, 'No se pudo reabrir la tarea. Probá de nuevo en un momento.');
           await refreshPlanes();  // cambió algo del otro lado (404, 409)
@@ -5027,6 +5044,17 @@
         volver();
       }
       if (data.status === 200) {
+        // BL-033: se marca ya, igual que en el servidor, así no depende de que
+        // la relectura llegue bien. La relectura trae después el resto.
+        const actual = state.planes.find(p => p.planId === planId);
+        if (actual) {
+          actual.estado          = 'completado';
+          actual.fechaCompletado = new Date().toISOString();
+          actual.completadoPor   = state.session.userId;
+        }
+        descartarLecturasDePlanesEnVuelo();
+        renderPlanes();
+        volver();
         await refreshPlanes();
         renderPlanes();
         volver();

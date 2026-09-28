@@ -185,4 +185,11 @@ Franco eligió la opción A en los dos casos (mockup en la sesión):
 Verificado en 127.0.0.1 con `fetch` simulado, a 1366 y 375: 6 clics seguidos
 = 1 pedido; reabrir OK sin `getPlanes` extra; reabrir con 409 muestra el
 error, relee y devuelve el foco a "Reabrir"; sin scroll horizontal; consola
-limpia. Falta que Franco lo pruebe en prod.
+limpia. Franco lo probó en prod con 1.2.3 (2026-09-28, ~15:35): "de 10 puntos todo".
+
+Hallazgo del mismo día (BL-033, 1.2.4): al dejar de releer la lista después
+de reabrir, 1.2.3 abrió una ventana. Un `getPlanes` que salió antes de
+reabrir y llegaba después volvía a mostrar la tarea como completada (el
+acuerdo ya tenía el mismo problema). En 1.2.4, cada escritura que sale bien
+descarta las lecturas de planes que ya estaban en vuelo; ver BL-033 en
+`docs/backlog.md`.

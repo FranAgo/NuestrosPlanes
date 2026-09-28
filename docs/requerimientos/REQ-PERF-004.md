@@ -1,6 +1,6 @@
 # REQ-PERF-004 — Performance: miniatura real de fotos, generada al subir
 
-> **Estado:** EN PRODUCCIÓN (1.2.0) desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Falta medir el criterio 1 en el Chrome de Franco. Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030.
+> **Estado:** EN PRODUCCIÓN (1.2.0) desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030.
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
 > **Versión:** 1.2.0 (DEC-009: un REQ nuevo sube la versión menor).
 
@@ -169,3 +169,9 @@ Verificadas a mano; son cuidados para cuando se implemente, no hallazgos:
 ## Cómo lo resuelven otros (2026-09-27)
 
 Ver `docs/investigacion/2026-09-27-como-lo-resuelven-otros.md`. La documentación de Drive confirma el enfoque: `thumbnailLink` dura unas horas, necesita credenciales y no está pensado para usarse directo en la web, así que el proxy del servidor es lo recomendado. Para invalidar el caché se puede usar la versión de la miniatura.
+
+## Confirmación de Franco (2026-09-28, ~15:15, versión 1.2.2)
+
+En la computadora, con una wifi parecida a la de su casa: al abrir tareas con
+fotos, las miniaturas de "Ya subidas" ya estaban listas, sin mostrar
+"Cargando". Criterio 1 cumplido.

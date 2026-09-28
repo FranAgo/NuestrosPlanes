@@ -5,6 +5,13 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.2.4] - 2026-09-28
+
+### Corregido
+- Una tarea que acabás de completar, reabrir o marcar "de acuerdo" ya no
+  puede volver a verse como estaba antes si la app estaba releyendo la
+  lista en ese momento, o si la relectura falla por la conexión. (BL-033)
+
 ## [1.2.3] - 2026-09-28
 
 ### Corregido
