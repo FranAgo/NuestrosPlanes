@@ -278,7 +278,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
   *(2026-09-28, Franco: lo ve **en la computadora**, no en el teléfono. La red del teléfono no lo explica; sigue siendo candidato el peso de cada miniatura (7,6 MB y 33 s para 16). Próxima sesión: REQ-PERF-004, y si después de eso sigue pasando, registrar en su navegador qué responde el `getArchivo` que falla.)*
 
 ### BL-031 — Completar varias tareas seguidas: la tarjeta vuelve a verse pendiente
-- Estado: Hecho en el repo (1.2.2, 2026-09-28), falta el push a `main`
+- Estado: Hecho — en producción con 1.2.2 (2026-09-28; GitHub Pages lo publicó recién con el commit vacío c63f2a1, porque el push de 32d55e6 no disparó el build)
 - Prioridad: Media
 - Origen: Franco (2026-09-28, cierre de sesión, versión 1.1.0 en la computadora): "puse completar en todas, se puso gris pero después se puso de color de nuevo cuando se actualizó". Tuvo que pasar el filtro de "Todos" a "Pendientes" y volver a "Todos" para que se viera bien.
 - Nota: sin investigar todavía. Hipótesis de Jay, leyendo el código: `completarPlan` (`index.html:4843`) hace `refreshPlanes()` después de cada cierre, y `loadPlanes` (`index.html:3711`) pisa `state.planes` con lo que llegue, sin ningún token de orden. Con varios cierres seguidos, un `getPlanes` que salió antes (con las otras tareas todavía pendientes en el servidor) puede llegar último y dejar el estado o la pantalla viejos. El mismo patrón de `planFotosYaToken`/`carruselRenderToken` lo resolvería: descartar las respuestas de `getPlanes` que no son la última pedida. Reproducir primero con `fetch` simulado y respuestas en desorden, sin tocar prod. Se cruza con REQ-SYNC-001.
@@ -287,7 +287,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 ## Sesión 2026-09-28 (4)
 
 ### BL-032 — `getFotosPlan` tarda unos 4 s en traer la lista de fotos de una tarea
-- Estado: En curso: la opción (a) y la lectura única de Script Properties están hechas en el repo (1.2.2, 2026-09-28); falta el push del front y el deploy del servidor
+- Estado: En curso: la opción (a) y la lectura única de Script Properties están en producción con 1.2.2 (servidor Web App @31, front en Pages con c63f2a1); falta medirlo con Franco (computadora y teléfono)
 - Prioridad: Media
 - Origen: medición de REQ-PERF-004 en producción (2026-09-28 11:20, hora Argentina, en el Chrome de Franco): con la tarea de 16 fotos, `getFotosPlan` tardó 3,6 s y 4,0 s, y devuelve apenas 2 KB. Con las miniaturas en caché, esos 4 s son todo lo que tarda en aparecer la grilla de "Ya subidas".
 - Nota: sin investigar. Candidatos: el costo fijo de cada invocación de Apps Script más `validarSesion` y `usuarioHabilitado`, y las hojas que lee el handler (`Archivos` completa, `Planes`). Habría que medirlo en el servidor (`console.time` en test) antes de tocar nada. Se cruza con BL-001 (endpoint único de carga) y con REQ-SYNC-001.

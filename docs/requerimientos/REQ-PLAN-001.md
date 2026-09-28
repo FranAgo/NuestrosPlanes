@@ -161,3 +161,28 @@ prod. Resultado por criterio:
 Los criterios 4, 6, 7, 8 y 12 los cubre `probarPLAN001` (44/44). El 10 se
 verificó el 2026-09-27. Sigue sin cubrirse que el otro lo vea sin recargar
 (REQ-SYNC-001). `simPLAN001_limpiar()` dejó la planilla de test como estaba.
+
+## Ajuste del 2026-09-28: estados de "Guardando…" y "Reabriendo…" (1.2.3)
+
+Franco lo probó con 1.2.2 en producción (wifi parecida a la de su casa):
+- Reabrir tardaba ~6 s sin ningún aviso. Causa: `reabrirPlan` esperaba
+  `reopenPlan` (~3 s) y después `refreshPlanes` (lista + usuarios, ~3 s).
+- "Estoy de acuerdo" parecía congelado y, clicando mucho, cambiaba de estado
+  varias veces. Reproducido en local con `fetch` simulado: no hay carrera (el
+  servidor queda siempre en el último guardado); el botón se apagaba sin
+  explicación durante ~3 s y el primer clic después de volver a prenderse
+  lo invertía otra vez (40 clics en 10 s = 4 guardados alternados).
+
+Franco eligió la opción A en los dos casos (mockup en la sesión):
+- `acuerdoEnCurso` pasa de `Set` a `Map` (planId -> 'acuerdo' | 'reabrir' |
+  'completar'). Con 'acuerdo' el botón muestra spinner + "Guardando…" sin
+  transparencia; con 'reabrir' la tarjeta completada recupera opacidad, borde
+  cobre, píldora "Reabriendo…" que late y botón "Reabriendo…" con spinner.
+- Con `reopenPlan` 200 el front aplica `pendiente` y acuerdos vacíos sin
+  releer la lista (`fechaCompletado`/`completadoPor` se conservan, como en el
+  servidor). Si falla, relee como antes.
+
+Verificado en 127.0.0.1 con `fetch` simulado, a 1366 y 375: 6 clics seguidos
+= 1 pedido; reabrir OK sin `getPlanes` extra; reabrir con 409 muestra el
+error, relee y devuelve el foco a "Reabrir"; sin scroll horizontal; consola
+limpia. Falta que Franco lo pruebe en prod.

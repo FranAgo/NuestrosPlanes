@@ -5,6 +5,15 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.2.3] - 2026-09-28
+
+### Corregido
+- Al tocar "Estoy de acuerdo" el botón muestra "Guardando…" hasta que se
+  guarda, en vez de quedar apagado sin explicación. Los toques de más
+  mientras guarda no hacen nada.
+- Al reabrir una tarea, la tarjeta se pinta y dice "Reabriendo…" mientras
+  espera, y tarda la mitad (antes, unos 6 segundos sin aviso).
+
 ## [1.2.2] - 2026-09-28
 
 ### Cambiado

@@ -1111,6 +1111,27 @@
     .btn-completar[aria-disabled="true"]:hover { background: transparent; }
     .btn-acuerdo:disabled, .btn-completar:disabled, .btn-reabrir:disabled { opacity: 0.45; }
 
+    /* Pedido en vuelo: se ve qué está pasando en vez de un botón apagado. */
+    .btn-acuerdo.guardando:disabled,
+    .btn-reabrir.guardando:disabled { opacity: 1; }
+    .btn-reabrir.guardando { color: var(--copper); border-color: var(--copper-dim); }
+    .btn-spinner {
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    .plan-card.completado.reabriendo { opacity: 1; border-color: var(--copper-dim); }
+    .estado-pill.reabriendo {
+      color: var(--copper);
+      border-color: var(--copper-dim);
+      animation: pulso-estado 1.4s ease-in-out infinite;
+    }
+    @keyframes pulso-estado { 50% { opacity: 0.45; } }
+
     .btn-acuerdo:focus-visible,
     .btn-completar:focus-visible,
     .btn-reabrir:focus-visible {
@@ -2575,7 +2596,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.2.2';
+    const APP_VERSION = '1.2.3';
     document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -3907,7 +3928,9 @@
         const errorAcuerdo = acuerdoError[plan.planId]
           ? `<div class="plan-acuerdo-error" role="alert">${escapeHtml(acuerdoError[plan.planId])}</div>`
           : '';
-        const enCurso = acuerdoEnCurso.has(plan.planId) ? ' disabled' : '';
+        const enCurso    = acuerdoEnCurso.has(plan.planId) ? ' disabled' : '';
+        const reabriendo = acuerdoEnCurso.get(plan.planId) === 'reabrir';
+        const pillFinal  = reabriendo ? `<span class="estado-pill reabriendo">Reabriendo…</span>` : pill;
 
         const botonCompletar = conAcuerdo
           ? htmlBotonesAcuerdo(plan, cierre, pid, enCurso)
@@ -3915,7 +3938,9 @@
 
         const actions = plan.estado === 'completado'
           ? (conAcuerdo
-              ? `<button type="button" class="btn-reabrir" onclick="reabrirPlan('${pid}')"${enCurso}>Reabrir</button>${errorAcuerdo}`
+              ? (reabriendo
+                  ? `<button type="button" class="btn-reabrir guardando" aria-busy="true" disabled>${SPINNER_BOTON}Reabriendo…</button>`
+                  : `<button type="button" class="btn-reabrir" onclick="reabrirPlan('${pid}')"${enCurso}>Reabrir</button>${errorAcuerdo}`)
               : `<span class="completado-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg> Completado</span>`)
           : `${botonCompletar}
              <span class="plan-card-iconos"><button type="button" class="btn-icon" onclick="editarPlan('${pid}')" title="Editar" aria-label="Editar ${escapeHtml(plan.titulo)}">
@@ -3933,10 +3958,10 @@
              ${conAcuerdo ? htmlMotivoCierre(plan, cierre, pid) : ''}${errorAcuerdo}`;
 
         return `
-          <div class="plan-card ${plan.estado === 'completado' ? 'completado' : ''} ${vencido ? 'vencido' : ''}" data-plan-id="${pid}">
+          <div class="plan-card ${plan.estado === 'completado' ? 'completado' : ''} ${vencido ? 'vencido' : ''}${reabriendo ? ' reabriendo' : ''}" data-plan-id="${pid}">
             <div class="plan-card-header">
               ${catBadge}
-              <span class="plan-badges">${pill}${vencBadge}</span>
+              <span class="plan-badges">${pillFinal}${vencBadge}</span>
             </div>
             <div class="plan-titulo">${escapeHtml(plan.titulo)}</div>
             <div class="plan-meta">
@@ -4808,10 +4833,14 @@
     // PLAN — ACUERDO PARA CERRAR (REQ-PLAN-001, DEC-006 variante A)
     // El servidor decide: el botón "Completar" apagado es solo una ayuda.
     // ====================================================
-    const acuerdoEnCurso = new Set();   // planIds con un pedido en vuelo
+    // planId -> 'acuerdo' | 'reabrir' | 'completar' mientras hay un pedido en
+    // vuelo. El tipo decide qué se muestra ("Guardando…", "Reabriendo…") en
+    // vez de dejar el botón apagado sin explicación.
+    const acuerdoEnCurso = new Map();
     const acuerdoError   = {};          // planId -> mensaje a mostrar en la tarjeta
 
-    const SVG_TILDE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>';
+    const SPINNER_BOTON = '<span class="btn-spinner" aria-hidden="true"></span>';
+    const SVG_TILDE ='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>';
 
     // 'pendiente' | 'esperando' | 'lista' | 'completada'
     function estadoCierre(plan) {
@@ -4859,7 +4888,9 @@
 
     function htmlBotonesAcuerdo(plan, cierre, pid, enCurso) {
       const mio = (plan.acuerdos || []).includes(state.session.userId);
-      const btnAcuerdo = `<button type="button" class="btn-acuerdo" aria-pressed="${mio}" onclick="toggleAcuerdo('${pid}')"${enCurso}>${mio ? SVG_TILDE + ' De acuerdo' : 'Estoy de acuerdo'}</button>`;
+      const btnAcuerdo = acuerdoEnCurso.get(plan.planId) === 'acuerdo'
+        ? `<button type="button" class="btn-acuerdo guardando" aria-pressed="${mio}" aria-busy="true" disabled>${SPINNER_BOTON}Guardando…</button>`
+        : `<button type="button" class="btn-acuerdo" aria-pressed="${mio}" onclick="toggleAcuerdo('${pid}')"${enCurso}>${mio ? SVG_TILDE + ' De acuerdo' : 'Estoy de acuerdo'}</button>`;
       const lista = cierre === 'lista';
       const btnCompletar = `<button type="button" class="btn-completar"${lista ? '' : ` aria-disabled="true" aria-describedby="motivo-${pid}"`} onclick="completarPlan('${pid}')"${enCurso}>Completar</button>`;
       return btnAcuerdo + btnCompletar;
@@ -4914,7 +4945,7 @@
       const nuevo   = !antes.includes(yo);
       plan.acuerdos = nuevo ? antes.concat(yo) : antes.filter(id => id !== yo);  // optimista
       delete acuerdoError[planId];
-      acuerdoEnCurso.add(planId);
+      acuerdoEnCurso.set(planId, 'acuerdo');
       renderPlanes();
 
       try {
@@ -4947,13 +4978,24 @@
       if (!ok) return;
       const conFoco = true;  // se llega desde el botón de la tarjeta o el modal
       delete acuerdoError[planId];
-      acuerdoEnCurso.add(planId);
+      acuerdoEnCurso.set(planId, 'reabrir');
       renderPlanes();
       try {
         const data = await api('reopenPlan', { planId });
         if (data.status === 401) return;
-        if (data.status !== 200) acuerdoError[planId] = mensajeDeError(data, 'No se pudo reabrir la tarea. Probá de nuevo en un momento.');
-        await refreshPlanes();
+        if (data.status === 200) {
+          // El servidor la deja pendiente y sin acuerdos: se aplica acá en vez
+          // de releer toda la lista, que duplicaba la espera (~6 s en prod).
+          // fechaCompletado/completadoPor se conservan, igual que en el servidor.
+          const plan = state.planes.find(p => p.planId === planId);
+          if (plan) {
+            plan.estado   = 'pendiente';
+            plan.acuerdos = [];
+          }
+        } else {
+          acuerdoError[planId] = mensajeDeError(data, 'No se pudo reabrir la tarea. Probá de nuevo en un momento.');
+          await refreshPlanes();  // cambió algo del otro lado (404, 409)
+        }
       } catch (e) {
         acuerdoError[planId] = 'No se pudo reabrir la tarea: revisá la conexión y probá de nuevo.';
       } finally {
@@ -4971,7 +5013,7 @@
       const conFoco = focoEnTarjeta(planId);
       const volver  = () => { if (conFoco) devolverFoco(planId, ['.btn-reabrir', '.btn-completar', '.btn-acuerdo']); };
       delete acuerdoError[planId];
-      acuerdoEnCurso.add(planId);
+      acuerdoEnCurso.set(planId, 'completar');
       renderPlanes();
       let data;
       try {
