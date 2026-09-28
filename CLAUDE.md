@@ -22,7 +22,7 @@ bitacora/<AÑO>/<MES>-<nombre-mes>.txt
 Cada entrada debe incluir:
 - **Fecha y hora en hora Argentina (UTC-3)** — calcular con la zona `Argentina Standard Time`, no usar la hora del sistema si difiere.
 - **Autor**: quién pidió/hizo el cambio (nombre y, si se conoce, email).
-- **Herramienta**: "Claude Code (Sonnet 5)".
+- **Herramienta**: "Claude Code (<modelo>)", con el modelo que corrió en esa sesión (Franco lo va cambiando; ej. "Claude Code (Opus 5.5)", "Claude Code (Sonnet 5)"). Si en la misma sesión se usaron dos, se anotan los dos.
 - **Lista de cambios**: archivos tocados y una descripción breve de qué se hizo.
 
 Formato de cada entrada:
@@ -31,7 +31,7 @@ Formato de cada entrada:
 ========================================================
 2026-09-05 17:55 (hora Argentina, UTC-3)
 Autor: Franco Agoglia <Gestion@sisintegrales.com>
-Herramienta: Claude Code (Sonnet 5)
+Herramienta: Claude Code (Opus 5.5)
 --------------------------------------------------------
 Cambios:
 - ruta/al/archivo.ext — qué se cambió y por qué
