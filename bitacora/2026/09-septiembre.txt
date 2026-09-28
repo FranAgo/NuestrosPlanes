@@ -2797,3 +2797,15 @@ Cambios:
 - docs/requerimientos/REQ-UX-002.md — hallazgo en iOS después del deploy y arreglo.
 - Verificado en Chromium a 375 (sin cambios, campos dentro de su columna). El motor de iOS no se puede reproducir en local: lo confirma Franco en el iPhone.
 ========================================================
+
+========================================================
+2026-09-28 20:01 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): push dda242d y tag v1.3.1; Pages sirve 1.3.1 desde las 19:40 (curl). Franco confirmó en el iPhone que los campos de fecha quedaron bien.
+- docs/requerimientos/REQ-UX-002.md — confirmación de Franco del arreglo en iOS.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §11: Safari de iPhone no se reproduce en el Browser pane; campo de fecha que no respeta width:100% y su arreglo. SKILL.md: índice.
+- Queda para cerrar REQ-UX-002: que Noelia lo vea en su celular y la revisión de docs/DESIGN.md por Franco (BL-012).
+========================================================

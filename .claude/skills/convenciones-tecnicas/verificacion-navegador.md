@@ -195,3 +195,26 @@ commit vacío c63f2a1 el 2026-09-28.
 **Por qué:** REQ-UX-002, fases 2 y 3 (2026-09-28): un foco que "no
 cambiaba" era una transición quieta, y una lista "corrida" a 375 era un
 cuadro viejo. Las mediciones daban bien.
+
+## 11. Safari de iPhone: lo que el Browser pane no muestra
+
+**Qué cuidar:**
+- El Browser pane y el Chrome de la PC usan Chromium. Los controles
+  nativos de iOS (campos de fecha, selects) se dibujan distinto y no se
+  pueden reproducir acá. Un cambio en esos campos, o uno que los haga más
+  visibles (un borde, un fondo), se confirma en el iPhone de Franco con una
+  captura, y se avisa antes de que es lo único que no se probó.
+- `input type="date"` en Safari de iOS tiene un ancho mínimo propio: no
+  respeta `width:100%`, se encima con el campo de al lado en una grilla y
+  se sale del modal, y centra la fecha. Arreglo, ya aplicado a
+  `.form-group input[type="date"]`: `appearance:none` (con `-webkit-`),
+  `display:block`, `min-width:0`, `max-width:100%`, un `min-height` igual
+  al de los otros campos (vacío, si no, queda más bajo) y
+  `::-webkit-date-and-time-value { text-align:left }`. Un campo de fecha
+  nuevo fuera de `.form-group` necesita lo mismo.
+
+**Por qué:** 1.3.0 (REQ-UX-002, 2026-09-28). El problema venía desde
+REQ-MEDIA-005, pero con el fondo igual al del modal y el borde de 0,5 px
+no se notaba. El rediseño lo dejó a la vista y Franco lo vio en el
+iPhone. En Chromium las medidas daban bien. Arreglado en 1.3.1 y
+confirmado por Franco.

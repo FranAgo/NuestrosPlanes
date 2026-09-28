@@ -290,5 +290,5 @@ Arreglo: `.form-group input[type="date"]` sin apariencia nativa,
 más bajo) y la fecha alineada a la izquierda
 (`::-webkit-date-and-time-value`). En Chromium a 375 no cambia nada (los
 tres campos quedan dentro de su columna, con el ícono del calendario). El
-motor de iOS no se puede reproducir acá: se confirma en el iPhone de
-Franco.
+motor de iOS no se puede reproducir acá. **Franco lo confirmó en el iPhone
+el 2026-09-28** ("quedó perfecto").
