@@ -1,6 +1,6 @@
 # REQ-MEDIA-003 — Recuerdos: nuevas, "en este día" y "de otro momento"
 
-> **Estado:** EN CURSO (2026-09-28). Alcance y ubicación aprobados por Franco (opción A del mockup). Servidor hecho y probado en test (`getRecuerdos` + `probarMEDIA003` 33/33). Front hecho y verificado en 127.0.0.1 con `fetch` simulado a 375 y 1366 (card, chips, teclado, vacío, falla, visor de tarea sin chips). Servidor en producción desde el 2026-09-28 (Web App @28, "v1.1.0"; rollback `-V 27`). Falta el push del front a `main`. Sale como versión `1.1.0` (DEC-009).
+> **Estado:** EN PRODUCCIÓN (2026-09-28, versión 1.1.0, tag `v1.1.0`, commit 518e9c3). Alcance y ubicación aprobados por Franco (opción A del mockup). Servidor hecho y probado en test (`getRecuerdos` + `probarMEDIA003` 33/33). Front hecho y verificado en 127.0.0.1 con `fetch` simulado a 375 y 1366 (card, chips, teclado, vacío, falla, visor de tarea sin chips). Servidor en producción desde el 2026-09-28 (Web App @28, "v1.1.0"; rollback `-V 27`). Front en `main` (GitHub Pages sirve 1.1.0). Sale como versión `1.1.0` (DEC-009).
 > **Nivel:** cambio de fondo (endpoint nuevo + card del dashboard + modal de recuerdos).
 > **Dueño técnico:** Bob (selección en el servidor) + Jay (card y modal) · **DBA:** Gary · **AppSec:** Julia · **DevOps:** Roy · **QA:** Duck · **PM:** Paul
 > **Depende de:** REQ-MEDIA-005 (la fecha de cada foto es la de captura, ya en prod).
@@ -152,3 +152,14 @@ poder probar el 31, el 29/02 y el cambio de día). Casos: 1–8 de arriba.
 4. Duck revisa el paso 3 y todo junto.
 5. Roy: deploy con OK explícito en cada paso — primero Apps Script prod
    (`getRecuerdos` es aditivo), después el push a `main`.
+
+## Después del deploy (2026-09-28)
+
+- `getRecentPlanPhotos` ya no lo usa el front 1.1.0 (la card y el modal
+  usan `getRecuerdos`). Se deja en el servidor por si queda algún teléfono
+  con la versión vieja en caché; se puede quitar en una versión siguiente,
+  junto con su test en `probarMEDIA002`/`probarMEDIA005`.
+- Fuera de lo pedido, el contador "N de M" también aparece en el visor de
+  fotos de una tarea (mismo elemento). Los chips no.
+- En prod solo se probó sin sesión (401). El caso con datos reales quedó
+  cubierto por `probarMEDIA003` en test y por el uso de Franco en 1.1.0.

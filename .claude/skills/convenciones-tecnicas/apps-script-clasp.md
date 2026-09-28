@@ -94,3 +94,24 @@ de trabajo ya es el repo), sin `&&` y sin `|`.
 
 **Por qué:** deploy de BUG-FECHA-001 (2026-09-27): el comando encadenado
 quedó bloqueado; los tres sueltos pasaron sin problema.
+
+## `clasp logs` mezcla prod y test: separar por `deployment_id`
+
+**Qué cuidar:** los dos proyectos de Apps Script comparten el proyecto de
+Google Cloud, así que `clasp logs --json` (aunque se corra con `.clasp.json`
+de prod) trae también las ejecuciones de test. Antes de sacar una
+conclusión de un log, mirar `labels."script.googleapis.com/deployment_id"`
+y compararlo con `clasp deployments` (prod) y `clasp deployments -P
+.clasp-test.json` (test). `invocation_type: "web app"` no alcanza: el Web
+App de test también es "web app". Además trae solo las últimas ~100
+entradas: que no aparezca un error no prueba que no pasó.
+
+**Otros dos límites vistos:** `clasp run` de un handler (`handleGetX`)
+devuelve "No response" porque un `TextOutput` no se serializa; y `curl -L`
+contra el Web App da 411 porque el redirect pierde el cuerpo del POST. Para
+un smoke sin sesión, un `fetch(SCRIPT_URL, {method:'POST', body})` desde
+una pestaña de la app.
+
+**Por qué:** BL-030 (2026-09-28): los "Error al leer archivo" con
+`fake-drive-id-sim-plan001` parecían de prod y eran del Web App de test
+(`...Dlhi_AngmCxwp...`, simulación de PLAN-001).

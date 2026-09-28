@@ -44,6 +44,12 @@ planilla y el Drive reales de Franco y Noelia.
 OAuth, así que el login real funciona en el preview. Pero el login lo hace
 una persona: no ingresar credenciales.
 
+**Ojo: en el navegador integrado de Claude (Browser pane) Google no deja
+entrar** ("No se ha podido iniciar sesión… no admite JavaScript", 2026-09-28,
+BL-030). Para reproducir algo con datos y sesión reales, usar el Chrome de
+Franco (Claude in Chrome) sobre la app publicada, donde ya tiene sesión, y
+solo leyendo; o armar un diagnóstico del lado del servidor.
+
 Sin login, en la misma pestaña y **sin recargar**: primero el `fetch`
 simulado, después `state.session = {userId, sessionToken, nombreDisplay}`
 y después `initApp()`. No sembrar `localStorage['cp_session']`: si la

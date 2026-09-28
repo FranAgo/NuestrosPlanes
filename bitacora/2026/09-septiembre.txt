@@ -2625,3 +2625,17 @@ Cambios:
 - docs/backlog.md — BL-007 y BL-017 en curso (REQ-MEDIA-003); BL-029 versionado (DEC-009); BL-030 miniaturas de "Ya subidas" que siguen sin cargar, sin abrir el visor.
 - docs/DESIGN.md — componentes de recuerdos (card por grupo, .recuerdos-chip, .carrusel-contador).
 ========================================================
+
+========================================================
+2026-09-28 10:40 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Sonnet 5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): push a main (518e9c3) + tag anotado v1.1.0. GitHub Pages sirve APP_VERSION 1.1.0 (verificado con curl a la URL pública).
+- docs/requerimientos/REQ-MEDIA-003.md — EN PRODUCCIÓN; notas post-deploy (getRecentPlanPhotos sin uso en el front 1.1.0, contador también en el visor de tarea, prod probado solo sin sesión).
+- docs/backlog.md — BL-030: reproducción en el Chrome de Franco (Claude in Chrome, solo lectura, fetch instrumentado): tarea de 16 fotos 16/16 dos veces, sin errores; cada miniatura baja la foto entera (150 KB–1 MB, 3,3–10,2 s, 7,6 MB y 33 s en total). Franco lo ve en la computadora. Arreglo de fondo: REQ-PERF-004 (thumbnailLink), próxima sesión.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — Google no deja iniciar sesión en el navegador integrado de Claude; usar el Chrome de Franco solo leyendo.
+- docs/backlog.md — BL-031 (nuevo): al completar varias tareas seguidas, una tarjeta vuelve a verse pendiente hasta cambiar de filtro (reporte de Franco); hipótesis: respuestas de getPlanes fuera de orden.
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md — clasp logs mezcla prod y test (separar por deployment_id, trae ~100 entradas); clasp run de un handler da "No response"; curl -L da 411.
+========================================================
