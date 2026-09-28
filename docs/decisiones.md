@@ -117,3 +117,21 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
   - Si se migra, el candidato es B: lecturas de cientos de ms, datos guardados en el teléfono, cambios del otro al instante (REQ-SYNC-001), y el equipo ya lo conoce por sis-web. C no suma nada frente a B para este caso.
   - La migración iría por etapas (datos y login primero, fotos en Drive al principio) y en paralelo hasta confirmar que la nueva versión anda.
 - Reabrir si: (1) con la opción (a) de BL-032 y BL-001 hechas, abrir la app o una tarea en el teléfono se sigue sintiendo lento; (2) hace falta ver los cambios del otro en 1–2 s (REQ-SYNC-001); (3) los videos (BL-023) pasan a ser una necesidad real; (4) aparecen errores por cuotas de Apps Script.
+
+## DEC-012 — Pedido en curso en la tarjeta: se muestra y se bloquea, sin cambio optimista
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: Franco probó 1.2.2: reabrir tardaba ~6 s sin aviso, y "Estoy de acuerdo" parecía congelado y cambiaba varias veces si se clicaba mucho (REQ-PLAN-001, ajuste 1.2.3).
+- Opciones consideradas: reabrir (A) la tarjeta avisa "Reabriendo…" hasta que el servidor responde, o (B) vuelve a pendiente al toque y se revierte si falla; acuerdo (A) "Guardando…" con el botón bloqueado, o (B) el botón cambia al toque, nunca se bloquea y se manda solo el estado final.
+- Decisión: A y A (Franco, 2026-09-28: "ambos coinciden en diseño"). Jay había recomendado B para el acuerdo.
+- Motivo: los dos estados se ven y se comportan igual; nunca se muestra algo que después se deshace. Reabrir igual baja a la mitad porque deja de releer la lista.
+- Reabrir si: con la red del celular la espera de "Guardando…" molesta más que un cambio que a veces se revierte.
+
+## DEC-013 — Rediseño premium: qué técnicas entran y cuáles no
+- Fecha: 2026-09-28
+- Estado: Aceptada
+- Contexto: BL-034 (contraste) creció a REQ-UX-002: Franco quiere que la app se vea más premium sin perder su carácter, "con criterio", y confía el criterio a Jay. Investigación: `docs/investigacion/2026-09-28-diseno-premium.md`.
+- Opciones consideradas: (A) solo subir el contraste de la paleta actual (niveles B o C del mockup de BL-034); (B) rediseño con un subconjunto elegido de técnicas (superficies en capas, bordes semitransparentes con filo de luz, cobre metálico escaso, atmósfera con grano, más aire, movimiento corto); (C) adoptar el lenguaje de las landing SaaS (glass en todo, bordes con degradé animado, brillos que siguen al mouse).
+- Decisión: B (Franco aprobó el plan de REQ-UX-002 el 2026-09-28).
+- Motivo: A arregla la legibilidad pero no suma lo premium que pidió Franco. C es caro en el celular de Noelia, baja la legibilidad, no funciona sin mouse y no encaja con una app íntima. B mantiene fuentes y colores y cumple 4,5:1.
+- Reabrir si: después de la fase 1 el mockup no convence a Franco, o alguna técnica de B cuesta rendimiento medible en el celular.

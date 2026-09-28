@@ -148,3 +148,17 @@ seguían cargando (`abortFetchesExcepto`).
 
 **Dónde ya está bien:** `cargarMiniaturasYa` y `miniaturaYaLlego` en
 `index.html`.
+
+## Una escritura que salió bien no puede pisarla una lectura vieja
+
+**Qué cuidar:** si al llegar el 200 de una escritura (completar, reabrir,
+acuerdo) el cambio se aplica en el estado local sin releer, las lecturas de
+la lista que ya estaban en vuelo salieron antes y traen el estado de antes.
+Hay que descartarlas (`descartarLecturasDePlanesEnVuelo()`, que sube
+`planesAplicado` hasta `planesPedido`) y aplicar el cambio sobre el objeto
+que está hoy en `state.planes`, buscado de nuevo, no sobre el que se guardó
+al empezar (si en el medio se releyó la lista, ese ya no se muestra). Toda
+escritura nueva que se aplique localmente hace lo mismo.
+
+**Por qué:** BL-033 (1.2.4, 2026-09-28). 1.2.3 dejó de releer después de
+reabrir para ganar ~3 s y abrió esa ventana sin querer.

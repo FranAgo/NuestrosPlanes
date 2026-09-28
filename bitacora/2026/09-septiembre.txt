@@ -2705,3 +2705,28 @@ Cambios:
 - PRODUCCIÓN (con OK de Franco): clasp push -f; clasp version (v31, "v1.2.2 BL-032: Script Properties en una lectura"); clasp redeploy ...LxD0d -V 31. Rollback: redeploy -V 30. El smoke sin sesión contra prod lo bloqueó el modo automático; Franco confirmó que las tareas cargan.
 - PRODUCCIÓN (con OK de Franco): commit + tag v1.2.2 + push a main (front 1.2.2 en GitHub Pages).
 ========================================================
+
+========================================================
+2026-09-28 16:00 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <Gestion@sisintegrales.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- PRODUCCIÓN (con OK de Franco): commit vacío c63f2a1 + push a main. GitHub Pages seguía sirviendo 1.2.1: el push de 32d55e6 (1.2.2) nunca disparó el build. Con el commit vacío publicó 1.2.2.
+- Medición con Franco (wifi parecida a la de su casa, PC, 1.2.2): miniaturas de "Ya subidas" ya listas sin "Cargando". REQ-PERF-004 criterio 1 cumplido; BL-030 hecho (falta mirarlo en el teléfono).
+- index.html (1.2.3) — acuerdoEnCurso pasa de Set a Map con el tipo de pedido; "Estoy de acuerdo" muestra spinner + "Guardando…" en vez de apagarse; reabrir pinta la tarjeta con "Reabriendo…" y aplica pendiente/sin acuerdos al recibir el 200 en vez de releer la lista (~6 s → ~3 s). Opción A/A elegida por Franco en mockup (DEC-012). Verificado con fetch simulado a 1366 y 375.
+- PRODUCCIÓN (con OK de Franco): commit 767e36a + push a main (1.2.3). Franco lo probó en prod: "de 10 puntos todo".
+- index.html (1.2.4) — BL-033: descartarLecturasDePlanesEnVuelo() al aplicar localmente completar/reabrir/acuerdo; completarPlan marca completada al llegar el 200; toggleAcuerdo aplica y revierte sobre el plan actual de state.planes. Hallazgo: 1.2.3 había abierto la ventana para reabrir. Verificado con 3 casos de carrera, que fallan con la función anulada y pasan con el arreglo.
+- PRODUCCIÓN (con OK de Franco): commit 44ce889 + push a main (1.2.4).
+- CHANGELOG.md — 1.2.3 y 1.2.4.
+- docs/requerimientos/REQ-PLAN-001.md — ajuste 1.2.3 (diagnóstico, opción A/A, verificación, OK de Franco) y hallazgo de BL-033.
+- docs/requerimientos/REQ-PERF-004.md — confirmación de Franco del criterio 1.
+- docs/backlog.md — BL-030 hecho; BL-031 y BL-032 en prod; BL-033 hecho en prod; BL-034 nuevo (contraste), medido y pasado a REQ-UX-002.
+- docs/investigacion/2026-09-28-diseno-premium.md — investigación de diseño premium en oscuro (Material, Apple HIG, Linear, Vercel/Raycast, marcas de lujo, Airbnb) con el criterio de Jay: qué entra y qué no.
+- docs/requerimientos/REQ-UX-002.md — nuevo: rediseño visual premium con contraste legible (absorbe BL-034), 5 fases, solo front, 1.3.0. Aprobado por Franco; sin implementar.
+- docs/decisiones.md — DEC-012 (estados en curso: opción A/A) y DEC-013 (técnicas del rediseño premium que entran y que no).
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §8 estados intermedios y carreras con fetch simulado (resolver manual, wrappers que se apilan, probar que la prueba falla sin el arreglo); §9 confirmar qué versión sirve Pages y destrabar el build con un commit vacío.
+- .claude/skills/convenciones-tecnicas/red-y-archivos-cliente.md — una escritura aplicada localmente descarta las lecturas de planes en vuelo.
+- .claude/skills/convenciones-tecnicas/SKILL.md — índice actualizado.
+- Tags anotados v1.2.3 (767e36a) y v1.2.4 (44ce889).
+========================================================

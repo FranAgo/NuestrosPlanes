@@ -35,10 +35,10 @@ actual.
 - [apps-script-clasp.md](apps-script-clasp.md) — deploy con clasp a prod y test, `clasp run -u duck`, qué sube un `push`, Ejecuciones y logs invisibles, editor de Apps Script por control remoto.
 - [sheets-concurrencia.md](sheets-concurrencia.md) — escrituras que el request siguiente no ve (`flush()`), lecturas fuera del lock, claves de `CacheService` compartidas entre planillas.
 - [pantallas-y-visibilidad.md](pantallas-y-visibilidad.md) — `hidden` contra `display:flex`, estilo inline que le gana a la clase, modales sin scroll interno.
-- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`.
+- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`, escrituras que una lectura vieja en vuelo pisa.
 - [seguridad.md](seguridad.md) — lo propio de Nuestros Planes para `hjulia-revision-cambio`: lista blanca, sesión opaca, validación en el servidor, `escapeHtml`, proxy de Drive, Auditoría, tests server-side.
 - [fechas.md](fechas.md) — "hoy" en hora Argentina y no con `toISOString()` (UTC), fechas solo-día que se corren.
-- [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`, probar contra el Web App de test con dos sesiones (`simPLAN001_preparar`), `clasp run` de solo lectura a prod.
+- [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`, probar contra el Web App de test con dos sesiones (`simPLAN001_preparar`), `clasp run` de solo lectura a prod, estados intermedios y carreras con fetch simulado, confirmar qué versión sirve GitHub Pages.
 
 ## Cómo mantenerlo
 

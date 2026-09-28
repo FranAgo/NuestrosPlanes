@@ -141,3 +141,35 @@ Preferir funciones que devuelven lo justo (`participantesCierre`,
 mezclada con la anterior, y con la red de un lugar prestado `getFotosPlan`
 tardó de 15 a 42 s o no volvió.
 
+
+## 8. Estados intermedios y carreras con `fetch` simulado
+
+**Qué cuidar:**
+- Las capturas del Browser pane pueden tardar varios segundos: una espera
+  simulada de 3 a 8 s ya terminó cuando llega la captura. Para ver un
+  estado intermedio ("Guardando…", "Reabriendo…"), dejar el pedido
+  colgado con un resolver manual (`await new Promise(r => __soltar.push(r))`),
+  sacar la captura y recién después soltarlo. Leer el DOM con JavaScript
+  sirve como evidencia, pero no reemplaza verlo.
+- Cada wrapper nuevo de `fetch` encima de otro suma sus demoras: recargar y
+  volver a armar el stub entre escenarios.
+- Una prueba de carrera tiene que demostrar que falla sin el arreglo:
+  anular la función nueva (`window.nombre = () => {}`; en el `<script>`
+  clásico las funciones son propiedades de `window`) y correr los mismos
+  casos. En BL-033 la primera versión daba bien igual porque una falla
+  simulada del caso anterior (`__gpFalla`) seguía activa y la lectura vieja
+  nunca llegaba. Reiniciar todos los flags al empezar cada caso.
+
+**Por qué:** 1.2.3 y 1.2.4 (2026-09-28).
+
+## 9. Confirmar qué versión sirve GitHub Pages
+
+**Qué cuidar:** después de un push a `main`, confirmar con
+`curl -s "https://franago.github.io/NuestrosPlanes/?nc=$RANDOM" | grep "APP_VERSION ="`
+(con un Monitor que espere la versión nueva). Si a los ~10 min sigue la
+vieja y el header `Last-Modified` es anterior al push, el build de Pages no
+se disparó: un commit vacío (`git commit --allow-empty`) y otro push lo
+destraban (pedir el OK, es producción). `gh` no está instalado en esta PC.
+
+**Por qué:** el push de 1.2.2 (32d55e6) nunca publicó; lo destrabó el
+commit vacío c63f2a1 el 2026-09-28.
