@@ -107,6 +107,14 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Origen: REQ-MEDIA-002 (2026-09-14)
 - Nota: el modelo de datos ya soporta `estado='eliminado'` en Archivos,
   pero no hay UI para borrar (ni editar) una foto puntual una vez subida.
+  *(2026-10-02, pregunta de Franco: el nombre de cada foto en Drive lleva
+  un número de 4 cifras que se calcula como "cantidad de archivos en la
+  carpeta + 1" (`contarArchivosEnCarpeta`, `Code.gs`). Si se saca un
+  archivo de la carpeta (por ejemplo, 0001 de tres), la siguiente se
+  llama 0003 y repite el nombre de una que ya está. No rompe nada (la app
+  usa el `archivoId`, Drive acepta nombres repetidos), pero al hacer este
+  ítem, numerar desde el número más alto que haya en la carpeta, o dejar
+  el archivo en Drive y marcar solo `estado='eliminado'`.)*
 
 ### BL-010 — Reordenar fotos dentro de una tarea
 - Estado: Propuesto

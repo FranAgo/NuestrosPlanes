@@ -10,3 +10,17 @@ Cambios:
 - Verificado: node check-sintaxis.js OK; preview local (127.0.0.1) con fetch simulado de 6 planes, orden correcto en las tres pestañas, vencidos con su clase, 375 px sin desborde, consola limpia, ningún pedido a prod.
 - PRODUCCIÓN (con OK de Franco): push a main y tag v1.3.2.
 ========================================================
+========================================================
+2026-10-02 14:41 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-PLAN-001.md — CERRADO: Franco confirmó varios cierres reales con los dos acuerdos en prod.
+- docs/requerimientos/REQ-UX-003.md — nuevo: tocar la tarjeta abre el detalle de la tarea con las fotos primero; editar/eliminar en el menú "⋯" (opción A del mockup, elegida por Franco). Investigación de Jay (Material, NN/G, Trello, Berkeley) y verificación.
+- index.html — tarjeta: el título es un botón con chevron cuyo ::after cubre la tarjeta; se sacan el lápiz y el tacho. #modal-plan con modos nuevo/detalle/editar (state.planModo): resumen de la tarea (renderDetallePlan), menú "⋯" con teclado (Escape, flechas), Cancelar/Guardar de "Editar tarea" vuelven al detalle, Eliminar cierra el detalle. Las completadas abren el detalle con sus fotos y "Agregar foto" (el servidor ya lo permitía), sin menú. FOTO_REQUERIDA abre el detalle. Se borra editarPlan() y el CSS .plan-card-iconos. APP_VERSION 1.4.0 (solo front; Code.gs sin cambios).
+- docs/DESIGN.md — tarjeta de plan: patrón de tarjeta clickeable y sin iconos de editar/eliminar.
+- CHANGELOG.md — entrada 1.4.0.
+- docs/backlog.md — BL-009: la numeración de fotos en Drive es "cantidad de archivos + 1"; si se saca una, el número se repite. Anotado para cuando se haga borrar foto.
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (sin pedidos a prod): 10 criterios de REQ-UX-003 + "Nuevo plan" + repintado del detalle con un acuerdo del otro; 375 px sin desborde; foco con Tab; consola limpia.
+========================================================

@@ -259,8 +259,9 @@ con `btn-sm`). Uno por vista.
 Un borrado nuevo pasa por `confirmarModal`.
 
 **Botón de solo icono:** `class="btn-icon"` con SVG de 15px y
-`aria-label`. En la tarjeta de plan, el `aria-label` lleva el título
-del plan ("Editar …", "Eliminar …") para distinguir una tarjeta de otra.
+`aria-label` que diga la acción y sobre qué. La tarjeta de plan ya no
+tiene iconos de editar ni eliminar (REQ-UX-003): están en el menú "⋯"
+del detalle.
 Todo `<button>` lleva `type="button"` (BL-018).
 
 **Botón de completar:** `.btn-completar` (verde, borde `--green-line`) en
@@ -280,7 +281,12 @@ está activa) y `.filter-chip` (borde `--copper-dim`, texto
 **Tarjeta de plan:** `.plan-card` dentro de `.plans-grid`, en este orden:
 header (categoría y estado), `.plan-titulo`, `.plan-meta` (fechas con
 iconos de 11px), `.plan-creator` (avatar de 20px + "Por …"), el acuerdo
-(`.plan-acuerdo`) y `.plan-card-actions`. En hover: borde cobre, sube 2px,
+(`.plan-acuerdo`) y `.plan-card-actions`. Toda la tarjeta abre el detalle
+(REQ-UX-003): el título es un `<button class="plan-titulo-btn">` con
+chevron, y su `::after` cubre la tarjeta entera; los botones de
+`.plan-card-actions` quedan encima (`z-index: 1`). Con Tab, el contorno
+cobre se dibuja alrededor de la tarjeta. No se meten botones adentro del
+botón del título. En hover: borde cobre, sube 2px,
 un brillo cruza la tarjeta y una línea cobre de 1px crece arriba
 (`::after`, hasta 55 %). Variantes:
 - `.completado`: fondo `--bg-card-done`, borde verde al 28 %, línea verde
@@ -369,8 +375,8 @@ reusa ese `id`, no define otro degradé.
   `aria-hidden="true"`. El tamaño lo pone el CSS del contenedor (15px en
   `.btn-icon`, 0.95em dentro de `.btn`). La excepción es el corazón de la
   marca, que va relleno (ver Componentes).
-- Los iconos de la tarjeta de plan (editar, borrar, calendario, reloj,
-  lápiz) son de una generación anterior: `viewBox` de 14 u 11, trazo de
+- Los iconos de la tarjeta de plan (calendario, reloj, lápiz de "Creado
+  el") son de una generación anterior: `viewBox` de 14 u 11, trazo de
   0.9–1 y tamaño fijo en el atributo. No se copian para un icono nuevo.
 - No hay un set central: cada SVG está pegado donde se usa. Si un icono
   nuevo se repite en varios lugares, se define una vez como constante.

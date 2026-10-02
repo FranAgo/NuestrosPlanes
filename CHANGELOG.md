@@ -5,6 +5,17 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.4.0] - 2026-10-02
+
+### Cambiado
+- Tocando una tarea se abre con sus fotos arriba de todo, para verlas o
+  agregar más sin pasar por "Editar". La tarjeta quedó más limpia: editar
+  y eliminar están en el menú "⋯" de adentro. (REQ-UX-003)
+
+### Agregado
+- Las tareas completadas también se abren: se ven sus fotos y se pueden
+  sumar las que faltaban, sin reabrirlas.
+
 ## [1.3.2] - 2026-10-02
 
 ### Cambiado
