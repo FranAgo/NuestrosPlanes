@@ -1568,7 +1568,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.5.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
@@ -2173,6 +2173,7 @@ function handleGetRecuerdos(body) {
   const iArcId   = ha.indexOf('archivo_id');
   const iFSub    = ha.indexOf('fecha_subida');
   const iFCon    = ha.indexOf('fecha_contenido');
+  const iFOri    = ha.indexOf('fecha_origen');
 
   const fotos = [];
   for (let i = 1; i < archivosData.length; i++) {
@@ -2186,6 +2187,7 @@ function handleGetRecuerdos(body) {
       archivoId:   r[iArcId],
       planId:      r[iOwnerId],
       fecha:       fecha,
+      fechaOrigen: iFOri !== -1 && r[iFOri] ? String(r[iFOri]) : null,
       fechaSubida: sub instanceof Date ? sub.toISOString() : String(sub || ''),
     });
   }
@@ -2201,6 +2203,7 @@ function handleGetRecuerdos(body) {
         tituloPlan:      plan.titulo || null,
         categoriaNombre: plan.categoriaId ? (categoriasPorId[plan.categoriaId] || null) : null,
         fecha:           f.fecha,
+        fechaOrigen:     f.fechaOrigen, // REQ-MEDIA-006: para corregir la fecha desde el visor
       };
     }),
   }));

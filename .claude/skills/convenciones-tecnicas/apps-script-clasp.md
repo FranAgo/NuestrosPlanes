@@ -26,6 +26,19 @@ y recién después `version` + `redeploy`. Hacer el push sin `redeploy` no
 cambia lo que usa la app. (REQ-PLAN-001, 2026-09-28: el código de prod
 todavía era el de v24 y `setupSheets` no habría agregado nada.)
 
+## Deploy a prod: `clasp …` suelto, uno por llamada
+
+**Qué cuidar:** `clasp push -f`, `clasp version "…"`, `clasp redeploy …`
+y `clasp deployments`, cada uno en su propia llamada, escritos así: sin
+`npx`, sin `cd`, `;`, `&&` ni `|`. clasp está instalado global y el
+directorio de trabajo ya es el repo. Para mirar algo antes (`.claspignore`,
+`git status`), otra llamada.
+
+**Por qué:** las reglas de `.claude/settings.local.json` son
+`Bash(clasp:*)` y parecidas. Un comando encadenado o con `npx` no coincide
+y el modo automático lo bloquea como deploy a prod, aunque Franco ya haya
+dado el OK. Pasó el 2026-09-27 y otra vez el 2026-10-02 (REQ-MEDIA-006).
+
 ## Prod y test: allowlist y `redeploy`
 
 - `.claspignore` (prod) es una allowlist: solo `Code.gs` y

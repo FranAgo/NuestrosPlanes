@@ -2460,6 +2460,14 @@ function probarMEDIA003() {
     R.check('E2E · cada foto trae título, categoría, tarea y fecha',
             !!fAnio && fAnio.tituloPlan === 'Aniversario' && fAnio.categoriaNombre === 'Mantenimiento' &&
             fAnio.fecha === '2025-10-13' && fAnio.planId === pAnio);
+    // REQ-MEDIA-006: cada foto trae de dónde salió su fecha, para el visor.
+    R.eq('M6 · fechaOrigen de una foto subida con captura', fAnio && fAnio.fechaOrigen, 'captura');
+    R.eq('M6 · setFechaFoto sobre una foto de recuerdos -> 200',
+         pedir({ action: 'setFechaFoto', sessionToken: t, archivoId: aVieja, fecha: '2026-08-19' }).status, 200);
+    const rM6 = pedir({ action: 'getRecuerdos', sessionToken: t });
+    const fViejaM6 = [].concat.apply([], (rM6.grupos || []).map(x => x.fotos)).filter(x => x.archivoId === aVieja)[0];
+    R.check('M6 · después de corregirla, getRecuerdos la trae con fecha nueva y origen manual',
+            !!fViejaM6 && fViejaM6.fecha === '2026-08-19' && fViejaM6.fechaOrigen === 'manual');
     const texto = JSON.stringify(r);
     R.check('S · no expone el ID de Drive', texto.indexOf('fake-drive') === -1 && texto.toLowerCase().indexOf('drive') === -1);
 

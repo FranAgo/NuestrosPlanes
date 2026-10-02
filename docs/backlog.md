@@ -256,7 +256,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 ## Sesión 2026-09-28
 
 ### BL-027 — Visor de fotos a pantalla completa en el teléfono
-- Estado: Propuesto
+- Estado: En curso — formalizado como REQ-MEDIA-006 (2026-10-02), variante B elegida por Franco (DEC-015)
 - Prioridad: Media
 - Origen: pedido de Franco durante REQ-MEDIA-004 (2026-09-28): "cuando pulsemos la foto, que se agrande y la veamos en el centro de la pantalla".
 - Nota: hoy tocar una foto (en "Ya subidas" o en el carrusel de recuerdos) la abre en el visor del carrusel, centrado, pero a 375 px la foto ocupa unos 212 px de ancho: las flechas y los márgenes del recuadro se comen el resto. La idea es un visor a pantalla completa (fondo negro, foto de borde a borde, deslizar para pasar, cerrar con la X o bajando). Cambia también el carrusel de recuerdos: va con mockup antes. Postergado porque la sesión ya venía cargada.
@@ -264,7 +264,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 ## Sesión 2026-09-28 (2)
 
 ### BL-028 — Corregir la fecha de una foto desde el carrusel de recuerdos
-- Estado: Propuesto
+- Estado: En curso — entra en REQ-MEDIA-006 (Franco, 2026-10-02)
 - Prioridad: Baja
 - Origen: REQ-MEDIA-005 (2026-09-28)
 - Nota: "Cambiar fecha" está solo en el visor que se abre desde las fotos de una tarea. En el carrusel de recuerdos (la card de fotos recientes) no aparece. Si se quiere ahí también, el endpoint `setFechaFoto` ya sirve; falta que `getRecentPlanPhotos` devuelva `fechaOrigen` y mostrar el control. Se cruza con BL-027 (visor a pantalla completa).

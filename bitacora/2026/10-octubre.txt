@@ -24,3 +24,21 @@ Cambios:
 - docs/backlog.md — BL-009: la numeración de fotos en Drive es "cantidad de archivos + 1"; si se saca una, el número se repite. Anotado para cuando se haga borrar foto.
 - Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (sin pedidos a prod): 10 criterios de REQ-UX-003 + "Nuevo plan" + repintado del detalle con un acuerdo del otro; 375 px sin desborde; foco con Tab; consola limpia.
 ========================================================
+========================================================
+2026-10-02 17:12 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-MEDIA-006.md — nuevo: visor de fotos a pantalla completa con tira de miniaturas (variante B del mockup, elegida por Franco) + cambiar la fecha también desde los recuerdos. Incluye BL-027 y BL-028. Criterios, diseño técnico y verificación.
+- docs/investigacion/2026-10-02-visor-de-fotos.md — nuevo: cómo lo resuelven Fotos de Apple, Google Fotos y Baymard (pedido de Franco antes de aprobar la B), con fuentes.
+- docs/decisiones.md — DEC-015: variante B con (i) + deslizar hacia arriba para los detalles, miniaturas de 44 px y deslizar hacia abajo para cerrar.
+- docs/backlog.md — BL-027 y BL-028 pasan a En curso (REQ-MEDIA-006).
+- Code.gs — handleGetRecuerdos devuelve fechaOrigen por foto (campo nuevo, compatible con el front viejo). APP_VERSION 1.5.0.
+- Tests.gs — probarMEDIA003 suma 3 chequeos (fechaOrigen, setFechaFoto sobre una foto de recuerdos y relectura). En test: probarMEDIA003 36/36 y probarMEDIA005 59/59 APTO.
+- index.html — #modal-carrusel pasa a visor a pantalla completa (.visor-overlay): foto con object-fit contain sobre fondo negro, controles que se esconden con un toque, tira de miniaturas (solo getMiniaturas), gestos con Pointer Events (costados pasan de foto, abajo cierra, arriba abre detalles), panel de detalles debajo de la escena con el editor de fecha (también desde recuerdos), flechas solo con mouse, ←/→/Escape, foco atrapado y devuelto al cerrar, scroll de la página bloqueado. Los recuerdos se releen al cerrar si se corrigió una fecha. APP_VERSION 1.5.0.
+- CHANGELOG.md — entrada 1.5.0.
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (sin pedidos a prod) a 375x812, 375x667 y 1366x768: 13 criterios OK, consola limpia. Hallazgo de Duck corregido: al cerrar después de cambiar una fecha desde una tarea, el foco quedaba en el visor escondido (la grilla se había repintado).
+- PRODUCCIÓN servidor (con OK de Franco): clasp push -f; clasp version (v32, "v1.5.0 REQ-MEDIA-006…"); clasp redeploy ...LxD0d -V 32. Rollback: redeploy -V 31. Ojo: antes del redeploy, clasp deployments mostraba la Web App en @30 aunque la bitácora del 28/09 dice -V 31; no se investigó (con @32 queda todo incluido).
+- El primer intento de push lo bloqueó el modo automático por usar "cd …; npx clasp push" en vez de "clasp push -f" suelto (las reglas de settings.local.json son Bash(clasp:*)). Memoria clasp-comandos-sueltos actualizada y sección nueva en .claude/skills/convenciones-tecnicas/apps-script-clasp.md.
+========================================================

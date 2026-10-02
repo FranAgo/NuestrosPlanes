@@ -144,3 +144,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: paleta B y tarjeta completada con sello + línea verde (Franco, 2026-09-28). Jay había recomendado A, y para la completada, tinte + sello. Durante la fase 2 Franco sumó que el fondo de la completada sea negro verdoso, como el negro rojizo del vencido (`--bg-card-done: #101812`).
 - Motivo: B da más contraste y más dramatismo sin cambiar fuentes ni acento. El sello se reconoce sin leer, y la línea verde retoma la línea cobre del hover que ya existe, así que no es un recurso nuevo. En los dos casos el texto de la completada se lee (deja de estar al 55 % de opacidad).
 - Reabrir si: en el celular de Noelia el fondo casi negro o el grano se ven mal, o la completada sigue costando distinguirse con la app real.
+
+## DEC-015 — Visor de fotos: pantalla completa con tira de miniaturas (variante B)
+- Fecha: 2026-10-02
+- Estado: Aceptada
+- Contexto: BL-027 y BL-028, formalizados como REQ-MEDIA-006. Mockup interactivo de Jay (widget en la conversación, no versionado) con tres variantes de visor para el teléfono. Franco preguntó si la B tenía sentido de diseño y pidió investigar cómo lo hacen las apps grandes (`docs/investigacion/2026-10-02-visor-de-fotos.md`).
+- Opciones consideradas: (A) inmersivo, solo la foto, con "Cambiar fecha" en un menú ⋯; (B) igual que A más una tira de miniaturas abajo; (C) foto arriba y un panel fijo abajo con la fecha a la vista.
+- Decisión: B (Franco: "siento que me da más control"), con tres ajustes que salieron de la investigación: botón (i) y deslizar hacia arriba para los detalles en vez de ⋯; miniaturas de 44 px (las de Apple son chicas porque se arrastran, las nuestras se tocan); deslizar hacia abajo para cerrar. Mientras se edita la fecha, la tira y la leyenda se esconden y el editor ocupa su lugar. Jay había recomendado A.
+- Motivo: B es el patrón de Fotos del iPhone, que usan los dos. Baymard encontró que sin miniaturas la gente no sabe cuántas fotos hay y pasa de largo. C deja la foto en poco más de la mitad de la pantalla, casi como hoy.
+- Reabrir si: en el celular la tira tapa demasiado la foto o los gestos se disparan sin querer.

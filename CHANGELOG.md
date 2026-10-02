@@ -5,6 +5,19 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.5.0] - 2026-10-02
+
+### Cambiado
+- Tocar una foto la abre a pantalla completa, con fondo negro y de borde a
+  borde. Abajo hay una tira con todas las fotos para saltar a cualquiera.
+  Se pasa de foto deslizando de costado, se cierra deslizando hacia abajo,
+  y un toque esconde todo para ver solo la foto. En la computadora siguen
+  las flechas y también andan las teclas ← y →. (REQ-MEDIA-006)
+
+### Agregado
+- La fecha de una foto ahora también se puede corregir desde los
+  recuerdos: botón (i) o deslizar hacia arriba, y "Cambiar fecha".
+
 ## [1.4.0] - 2026-10-02
 
 ### Cambiado
