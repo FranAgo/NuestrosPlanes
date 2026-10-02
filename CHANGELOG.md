@@ -5,6 +5,14 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.3.2] - 2026-10-02
+
+### Cambiado
+- La lista abre en "Planes": solo lo que falta hacer, con lo vencido arriba
+  de todo (sigue en rojo y con la etiqueta "Vencido") y después lo más
+  próximo primero. "Completados" muestra lo último que hicieron primero, y
+  "Todos" quedó al final. Ya no están los filtros "Pendientes" ni "Vencidos".
+
 ## [1.3.1] - 2026-09-28
 
 ### Corregido

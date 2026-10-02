@@ -1,0 +1,12 @@
+========================================================
+2026-10-02 14:14 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html — filtros de la lista: "Planes" (por defecto, todo lo no completado), "Completados" y "Todos"; se sacan "Pendientes" y "Vencidos". Nueva compararPlanes(): vencidos arriba (el más atrasado primero, por fechaVencimiento), después pendientes por fechaProgramada ascendente, completados por fechaProgramada descendente (no se guarda la fecha de completado). Antes la lista salía en el orden de la hoja. Pedido de Franco.
+- index.html — APP_VERSION 1.3.2 (parche, solo front; Code.gs sin cambios).
+- CHANGELOG.md — entrada 1.3.2.
+- Verificado: node check-sintaxis.js OK; preview local (127.0.0.1) con fetch simulado de 6 planes, orden correcto en las tres pestañas, vencidos con su clase, 375 px sin desborde, consola limpia, ningún pedido a prod.
+- PRODUCCIÓN (con OK de Franco): push a main y tag v1.3.2.
+========================================================
