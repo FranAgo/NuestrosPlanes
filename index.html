@@ -1530,11 +1530,16 @@
 
     .perfil-card .error-msg:not(:empty) { margin-top: 1rem; }
 
-    .perfil-seccion { max-width: 420px; margin-top: 1.6rem; }
+    .perfil-layout {
+      display: grid;
+      gap: 1.6rem;
+      max-width: 420px;
+    }
 
     .perfil-seccion-titulo {
       font-family: 'Jost', sans-serif;
       font-size: 0.72rem;
+      line-height: 1.2;
       font-weight: 400;
       text-transform: uppercase;
       letter-spacing: 0.14em;
@@ -1616,6 +1621,30 @@
     }
 
     .perfil-fila-valor { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    /* 1.6.1: con lugar, la cuenta y "Acerca de" a la izquierda y los
+       ajustes a la derecha, usando los 900px de .app-content. La tarjeta de
+       la cuenta baja lo que ocupa un título de sección, para que su borde
+       quede a la altura del de "Fotos y datos". */
+    @media (min-width: 720px) {
+      .perfil-layout {
+        max-width: none;
+        grid-template-columns: 240px minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        grid-template-areas: "cuenta fotos" "acerca fotos";
+        column-gap: 1.5rem;
+        align-items: start;
+      }
+      .perfil-layout .perfil-card { max-width: none; }
+      .perfil-cuenta {
+        grid-area: cuenta;
+        margin-top: calc(0.72rem * 1.2 + 0.6rem);
+        padding: 1.6rem 1.2rem;
+      }
+      .perfil-cuenta .perfil-header { flex-direction: column; text-align: center; gap: 0.8rem; }
+      .perfil-seccion-fotos  { grid-area: fotos; }
+      .perfil-seccion-acerca { grid-area: acerca; }
+    }
 
     .perfil-avatar-wrapper {
       position: relative;
@@ -2930,7 +2959,10 @@
         <div class="section-header">
           <h2>Mi Perfil</h2>
         </div>
-        <div class="perfil-card">
+        <!-- 1.6.1: en la computadora, dos columnas (cuenta y "Acerca de" a la
+             izquierda, ajustes a la derecha); en el celular, apilado. -->
+        <div class="perfil-layout">
+        <div class="perfil-card perfil-cuenta">
           <div class="perfil-header">
             <div class="perfil-avatar-wrapper" id="btn-cambiar-foto" title="Cambiar foto">
               <div class="avatar avatar-lg" id="perfil-avatar"></div>
@@ -2951,7 +2983,7 @@
         </div>
 
         <!-- REQ-MEDIA-007: cuánto precarga el visor en este dispositivo. -->
-        <section class="perfil-seccion" aria-labelledby="perfil-titulo-fotos">
+        <section class="perfil-seccion perfil-seccion-fotos" aria-labelledby="perfil-titulo-fotos">
           <h3 class="perfil-seccion-titulo" id="perfil-titulo-fotos">Fotos y datos</h3>
           <fieldset class="perfil-card perfil-opciones">
             <legend class="perfil-opciones-leyenda">Al pasar de foto en el visor</legend>
@@ -2979,13 +3011,14 @@
           </fieldset>
         </section>
 
-        <section class="perfil-seccion" aria-labelledby="perfil-titulo-acerca">
+        <section class="perfil-seccion perfil-seccion-acerca" aria-labelledby="perfil-titulo-acerca">
           <h3 class="perfil-seccion-titulo" id="perfil-titulo-acerca">Acerca de</h3>
           <div class="perfil-card perfil-fila">
             <span>Versión</span>
             <span class="perfil-fila-valor" id="app-version"></span>
           </div>
         </section>
+        </div>
       </div>
 
     </main>
@@ -3271,7 +3304,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.6.0';
+    const APP_VERSION = '1.6.1';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';

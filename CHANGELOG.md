@@ -5,6 +5,13 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.6.1] - 2026-10-05
+
+### Cambiado
+- En la computadora, Mi perfil usa todo el ancho: tu foto, tu nombre y la
+  versión a la izquierda, y "Fotos y datos" a la derecha. En el celular
+  sigue todo en una columna. (REQ-MEDIA-007)
+
 ## [1.6.0] - 2026-10-05
 
 ### Cambiado

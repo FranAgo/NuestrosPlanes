@@ -119,3 +119,16 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/ — pantallas-y-visibilidad.md: filter que pinta encima de un hermano posicionado; red-y-archivos-cliente.md: precarga con ventana y cola, tipo de red solo en Chrome Android; SKILL.md: índice.
 - Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (getArchivo de 4 s, ningún pedido a prod): 11 criterios del REQ (vista previa, ventana y tope de 3, ráfaga, dirección, cerrar, modo justo, radios con click/teclado/recarga, 375 px sin desborde, consola limpia). Duck encontró y se corrigieron: vista previa ausente si el visor abría antes que las miniaturas, loader tapado por el blur, blur que entraba animado, "Cambiar foto" de 30px con el dedo.
 ========================================================
+========================================================
+2026-10-05 10:43 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy 1.6.0: commit 44ece6b + tag v1.6.0, push a main con OK de Franco (10:31). GitHub Pages sirve 1.6.0 desde las 10:32 (confirmado con curl).
+- index.html — 1.6.1: Mi perfil en la computadora. Franco vio que la columna de 420px quedaba pegada a la izquierda de los 900px del contenido y eligió la variante B de un mockup (A centrada, B dos columnas, C opciones en fila). .perfil-layout: grilla de una columna (420px) y, desde 720px, dos columnas (240px + resto) con áreas "cuenta fotos" / "acerca fotos"; la tarjeta de la cuenta va en columna con la foto centrada y baja la altura de un título para alinearse con la de "Fotos y datos". APP_VERSION 1.6.1 (solo front).
+- docs/requerimientos/REQ-MEDIA-007.md — Historia: en prod con 1.6.0 y el ajuste de 1.6.1.
+- docs/DESIGN.md, CHANGELOG.md — dos columnas de Mi perfil; entrada 1.6.1.
+- docs/backlog.md — BL-037 nuevo: la X del encabezado cierra sesión sin confirmar ni avisar (pedido de Franco; el diseño del aviso se debate en otra sesión, con mockup).
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado, sin pedidos a prod. 1366: dos columnas (240 + 572px), bordes de las tarjetas alineados (top 232), sin scroll horizontal. 719: una columna de 420px; 720: dos columnas. 411 (panel): apilado. Captura a 960. Consola limpia.
+========================================================

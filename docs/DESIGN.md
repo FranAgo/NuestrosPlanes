@@ -369,7 +369,12 @@ un radio nativo (`appearance: none`, 18px, borde `--border-control`,
 marcado en cobre con el centro de `--bg-card`), título en `--text-main` y
 descripción en `--text-muted`, separadas por un borde `--border`. Un dato
 de solo lectura va en `.perfil-fila` (nombre a la izquierda, valor a la
-derecha). Un ajuste nuevo se suma como otra sección.
+derecha). Un ajuste nuevo se suma como otra sección. Desde 720px de ancho
+(1.6.1), `.perfil-layout` pasa a dos columnas (240px y el resto): a la
+izquierda la cuenta (foto arriba y centrada) y "Acerca de"; a la derecha
+los ajustes. La tarjeta de la cuenta baja la altura de un título de sección
+para alinearse con la primera tarjeta de la derecha. Un ajuste nuevo va en
+la columna derecha.
 
 **Corazón de la marca:** SVG relleno con `url(#np-heart-metal)`, un
 degradé cobre metálico definido una sola vez en un `<svg>` oculto al

@@ -368,3 +368,9 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Media (pedido de Franco)
 - Origen: Franco (2026-10-05), al cerrar REQ-MEDIA-006: "tarda como 4 segundos con cada desliz en cargar la siguiente foto".
 - Nota: viene de antes del visor nuevo. Cada foto completa es un `getArchivo` (piso de Apps Script de ~2 s, más hasta 1 MB en base64); la precarga va de a una foto y arranca recién cuando llegó la actual; mientras espera no se muestra la miniatura de la nueva, aunque ya está en `miniCache`, y las fotos completas viven solo en memoria. Investigación de cómo lo resuelven Meta y Google Fotos (miniatura al instante, precarga anticipada, caché en disco) y opciones A/B/C: `docs/investigacion/2026-10-05-visor-foto-siguiente.md`. Recomendación: A (solo front). Falta que Franco elija. *(2026-10-05, Franco propone un modo que ahorre datos y otro con wifi que precargue. Investigado en el mismo documento, "Segunda parte": Safari del iPhone no informa el tipo de red (solo lo sabe una app nativa); Chrome de Android sí. Falta que Franco elija entre automático, a mano en Mi perfil o las dos.)*
+
+### BL-037 — La X del encabezado cierra la sesión sin preguntar ni avisar
+- Estado: Propuesto
+- Prioridad: Media (pedido de Franco)
+- Origen: Franco (2026-10-05, probando 1.6.0 en la computadora): "pulsar la x al lado de perfil desloguea directamente".
+- Nota: pide dos cosas: (1) confirmar antes de cerrar la sesión (el `confirmarModal` de siempre sirve) y (2) avisar mientras se está cerrando, porque desde BL-021 el logout recarga la página. Franco quiere debatir en otra sesión cómo se ve el aviso: pantalla bloqueada y difuminada con "Cerrando sesión…" u otra cosa; va con mockup antes. Revisar también si una X es el ícono correcto para "cerrar sesión" (hoy se lee como "cerrar" una ventana).
