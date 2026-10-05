@@ -1,6 +1,7 @@
 # REQ-DATA-001 — Fundación del modelo de archivos
 
-> **Estado:** CERRADO (2026-09-08) — 10/10 criterios verificados, incluido el
+> **Estado:** CERRADO (2026-09-08)
+> **Historia:** CERRADO (2026-09-08) — 10/10 criterios verificados, incluido el
 > smoke test en producción. Ver [Cierre](#cierre).
 > **Dueño técnico:** Bob · **QA:** Duck · **PM:** Paul
 > **Depende de:** nada aguas arriba. REQ-MEDIA-001 y REQ-ADMIN-001 dependen de este.

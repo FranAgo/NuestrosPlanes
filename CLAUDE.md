@@ -52,6 +52,7 @@ Cambios:
 - La app se llama **Nuestros Planes** (Peroncitos es solo el nombre del repo). Es privada, para dos personas (Franco y Noelia): planes en pareja, categorías y fotos. Datos personales bajo la Ley 25.326 (emails, fotos, auditoría de accesos).
 - Stack: `index.html` único (HTML + CSS + JS, sin build) en GitHub Pages; backend `Code.gs` en Apps Script (Web App) con proyectos de **prod** y **test**; datos en Google Sheets; fotos en Drive. Detalle en `README.md` y `docs/modelo-datos.md`.
 - Requerimientos formales: `docs/requerimientos/REQ-XXX.md` (y `BUG-XXX.md`). Un hallazgo sobre un REQ que ya existe se escribe en ese REQ en la misma sesión, no solo en el backlog o la bitácora.
+- Estado de un pedido: vive **solo** en el encabezado de su REQ (DEC-016). La línea `> **Estado:**` lleva solo el valor y, como mucho, una fecha: PROPUESTO, EN DESARROLLO, HECHO (implementado, con versión asignada), CERRADO (Franco lo confirmó en uso o no queda nada) o DESCARTADO. `> **Versión:** X.Y.Z` dice en qué versión sale, sin nada más. Todo el texto libre va a `> **Historia:**`, con fecha. En el backlog, igual: `- Estado: Hecho (1.5.1)` y el detalle en `- Resuelto:`. Si esa versión está en prod lo dicen el tag, el `CHANGELOG.md` y `APP_VERSION`: en el REQ no se escribe "falta el push" ni nada que venza. El ítem del backlog que originó el REQ queda `Pasó a REQ-XXX` y no se vuelve a tocar (esto prevalece sobre los estados "En curso"/"Formalizado" de `hpaul-triage`). `node check-sintaxis.js` falla si encuentra contradicciones.
 - Backlog de ideas sin formalizar: `docs/backlog.md` (skill `hpaul-triage`).
 - Registro de decisiones en formato ADR: `docs/decisiones.md` (skill `hpaul-decision-log`).
 - Mejora de los skills del equipo: `docs/skills/METODOLOGIA.md` (proceso) y `docs/skills/INVENTARIO.md` (estado de cada skill).
@@ -60,6 +61,7 @@ Cambios:
 
 ## Arquitectura y trampas conocidas
 
+- Hook `pre-commit` (`.githooks/pre-commit`): corre `node check-sintaxis.js` y frena el commit si falla. Se activa una vez por computadora con `git config core.hooksPath .githooks` (en esta PC, activo desde el 2026-10-05). Nunca saltearlo con `--no-verify`: si frena, se corrige lo que marca.
 - `index.html` usa un `<script>` clásico, sin módulos ni `"use strict"`: un nombre sin declarar no tira error de sintaxis. `node check-sintaxis.js` valida la sintaxis de `index.html`, `Code.gs` y `Tests.gs` sin ejecutarlos; que pase no dice que la lógica esté bien.
 - Las pruebas del servidor son funciones `probarXXX()` en `Tests.gs`, que solo se sube al proyecto de test y corre con `clasp run ... -P .clasp-test.json -u duck` contra una planilla scratch propia. Nunca contra prod.
 - El preview local (`localhost:5173`) pega al Apps Script de **producción**: cualquier escritura con sesión real toca los datos reales. Ver `convenciones-tecnicas`, tema `verificacion-navegador.md`.
@@ -96,7 +98,7 @@ Herramientas que se aplican aunque no se invoque a nadie:
 ## Checklist de cierre de sesión
 
 Antes de dar por cerrada una sesión de trabajo sobre el repo, en este orden:
-1. Backlog: repasar la conversación y anotar lo que se postergó y no quedó registrado (`hpaul-triage`). Hallazgos sobre un REQ existente, a su `REQ-XXX.md`.
+1. Backlog: repasar la conversación y anotar lo que se postergó y no quedó registrado (`hpaul-triage`). Hallazgos sobre un REQ existente, a su `REQ-XXX.md`. Cada REQ tocado queda con su `Estado` y su `Versión` (DEC-016); `node check-sintaxis.js` en verde antes del commit.
 2. Decisiones: registrar las que tuvieron opciones reales (`hpaul-decision-log`).
 3. `convenciones-tecnicas`: sumar cualquier cuidado reutilizable que se haya aprendido.
 4. Bitácora del mes (ver arriba).

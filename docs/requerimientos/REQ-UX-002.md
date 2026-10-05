@@ -1,9 +1,10 @@
 # REQ-UX-002 — Rediseño visual premium (con contraste legible)
 
-> **Estado:** CERRADO el 2026-09-28 (en prod como 1.3.1). Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificada y **en producción como 1.3.0** desde el 2026-09-28 19:12 (push de `4f93539` con OK de Franco, tag `v1.3.0`, Pages confirmado con curl). Franco lo vio en la PC y en el iPhone (de ahí salió 1.3.1) y revisó `DESIGN.md`. Si Noelia nota algo en su celular, Franco avisa: no queda como pendiente (Franco, 2026-09-28).
+> **Estado:** CERRADO (2026-09-28)
+> **Historia:** CERRADO el 2026-09-28 (en prod como 1.3.1). Fase 1 cerrada el 2026-09-28: Franco eligió la paleta B, la tarjeta completada con sello + línea verde y el corazón metálico (DEC-014). Fases 2 (base global), 3 (componentes) y 4 (movimiento, pulido y `docs/DESIGN.md`) hechas el 2026-09-28, sin deploy. Fase 5: verificada y **en producción como 1.3.0** desde el 2026-09-28 19:12 (push de `4f93539` con OK de Franco, tag `v1.3.0`, Pages confirmado con curl). Franco lo vio en la PC y en el iPhone (de ahí salió 1.3.1) y revisó `DESIGN.md`. Si Noelia nota algo en su celular, Franco avisa: no queda como pendiente (Franco, 2026-09-28). Versión: 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
-> **Versión:** 1.3.0 (DEC-009: un REQ nuevo sube la versión menor). Puede salir por fases como 1.3.0, 1.3.1, etc.
+> **Versión:** 1.3.0
 > **Absorbe:** BL-034 (contraste). Se cruza con BL-012 (revisión de `docs/DESIGN.md`), BL-026 (área táctil) y BL-027 (visor de fotos).
 
 ## Problema

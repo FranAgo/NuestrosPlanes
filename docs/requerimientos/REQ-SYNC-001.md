@@ -1,6 +1,7 @@
 # REQ-SYNC-001 — Los cambios del otro se ven en segundos, sin recargar
 
-> **Estado:** PROPUESTO (2026-09-27). Sin diseñar.
+> **Estado:** PROPUESTO (2026-09-27)
+> **Historia:** PROPUESTO (2026-09-27). Sin diseñar.
 > **Nivel:** cambio de fondo (endpoint nuevo + front + cuota de Apps Script).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Infra:** Roy (cuotas) · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Datos sensibles:** sí. El endpoint nuevo pasa por `validarSesion` como todos los demás.

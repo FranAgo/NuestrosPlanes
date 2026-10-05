@@ -1,8 +1,9 @@
 # REQ-PERF-004 — Performance: miniatura real de fotos, generada al subir
 
-> **Estado:** EN PRODUCCIÓN (1.2.0) desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030.
+> **Estado:** HECHO (2026-09-28)
+> **Historia:** HECHO — en producción desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030. Versión: 1.2.0 (DEC-009: un REQ nuevo sube la versión menor).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
-> **Versión:** 1.2.0 (DEC-009: un REQ nuevo sube la versión menor).
+> **Versión:** 1.2.0
 
 ## Alcance aprobado (2026-09-28)
 

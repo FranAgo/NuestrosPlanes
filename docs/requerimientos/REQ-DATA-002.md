@@ -1,6 +1,7 @@
 # REQ-DATA-002 — Borrado lógico + auditoría + timestamps ISO UTC
 
-> **Estado:** CERRADO (2026-09-11) — desplegado a producción. Automatizado
+> **Estado:** CERRADO (2026-09-11)
+> **Historia:** CERRADO (2026-09-11) — desplegado a producción. Automatizado
 > 70/70 + 16/16 criterios verificados + smoke en prod real. Ver [Cierre](#cierre).
 > **Dueño técnico:** Bob · **QA:** Duck · **PM:** Paul · **Revisa datos:** Gary (DBA), Julia (AppSec)
 > **Depende de:** nada aguas arriba. Comparte terreno con REQ-DATA-001 (ya cerrado).

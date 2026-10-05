@@ -5,6 +5,20 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.5.1] - 2026-10-05
+
+### Cambiado
+- En el teléfono, los botones de la tarjeta ("Estoy de acuerdo",
+  "Completar", "Reabrir") se aciertan más fácil con el dedo: el área que
+  responde al toque es más alta, aunque se ven igual. (BL-026)
+- Los colores de una categoría se pueden elegir con el teclado y el lector
+  de pantalla dice el nombre de cada uno. En el teléfono, cada círculo
+  responde en un área más grande. (BL-022)
+
+### Arreglado
+- Al tocar otro color en "Nueva categoría" o "Editar categoría", el
+  anillo de seleccionado no se movía (el color sí se guardaba bien).
+
 ## [1.5.0] - 2026-10-02
 
 ### Cambiado

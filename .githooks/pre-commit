@@ -1,0 +1,11 @@
+#!/bin/sh
+# Corre node check-sintaxis.js antes de cada commit: sintaxis de index.html,
+# Code.gs y Tests.gs, y formato de los estados de REQ y backlog (DEC-016).
+# Se activa una vez por computadora: git config core.hooksPath .githooks
+# Ojo: revisa los archivos como están en la carpeta, no solo lo que se agregó
+# con git add.
+node check-sintaxis.js >/dev/null 2>&1 && exit 0
+node check-sintaxis.js
+echo
+echo "Commit frenado: corregí lo de arriba y volvé a intentar."
+exit 1

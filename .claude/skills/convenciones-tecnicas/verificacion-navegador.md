@@ -187,6 +187,12 @@ commit vacío c63f2a1 el 2026-09-28.
   seguidos, achicadas al ~85 % con una franja oscura a la derecha. El
   layout se confirma midiendo con JS (`getBoundingClientRect`,
   `scrollWidth` contra `innerWidth`), no con la imagen.
+- Con el pane oculto, un modal que abre con `transform: scale` queda
+  quieto en la escala de entrada y `getBoundingClientRect` da todo un
+  poco más chico (44px medía 42,7 el 2026-10-05). Para tamaños, usar
+  `offsetWidth`/`offsetHeight`, que no cuentan el `transform`. Y si
+  `innerWidth` da 0, el pane está oculto: fijar un tamaño con
+  `resize_window` y recargar antes de medir.
 - El `fetch` simulado se pierde en cada recarga. Tenerlo en un archivo
   temporal en la raíz (servido por `http-server`) y cargarlo con
   `eval(await (await fetch('/zz-stub-temp.js')).text())`. Borrar el archivo

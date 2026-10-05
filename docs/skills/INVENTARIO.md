@@ -10,7 +10,7 @@ actualización: 2026-09-27 (validación A/B de dos herramientas, BL-014).
 |---|---|---|---|---|
 | `paul-engineer-pm` | Persona | Paul | sis-web, tal cual | Sin pasada propia |
 | `hpaul-decision-log` | Herramienta | Paul | sis-web, tal cual | Sin pasada propia |
-| `hpaul-triage` | Herramienta | Paul | sis-web, tal cual | Sin pasada propia. La regla de Peroncitos "hallazgo sobre REQ existente → al REQ" vive en `CLAUDE.md`, no en la herramienta |
+| `hpaul-triage` | Herramienta | Paul | sis-web, tal cual | Sin pasada propia. Las reglas de Peroncitos "hallazgo sobre REQ existente → al REQ" y "BL que pasa a REQ queda `Pasó a REQ-XXX`" (DEC-016) viven en `CLAUDE.md`, no en la herramienta. En su pasada: evaluar si "Pasó a" entra como estado genérico (hoy la herramienta y `paul-engineer-pm` dicen "En curso" y "Formalizado") |
 | `jay-engineer-frontend` | Persona | Jay | sis-web, tal cual | Sin pasada propia |
 | `hjay-identidad-visual` | Herramienta | Jay | sis-web, tal cual | Sin pasada propia |
 | `hjay-verificacion-visual` | Herramienta | Jay | sis-web, editada acá (DEC-003) | Validada A/B y mejorada el 2026-09-27 (BL-020, ver abajo) |

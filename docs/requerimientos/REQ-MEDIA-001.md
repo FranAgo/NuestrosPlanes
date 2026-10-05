@@ -1,6 +1,7 @@
 # REQ-MEDIA-001 — Servido de archivos gateado por sesión
 
-> **Estado:** CERRADO Y DESPLEGADO A PROD (2026-09-14) — implementado
+> **Estado:** CERRADO (2026-09-14)
+> **Historia:** CERRADO Y DESPLEGADO A PROD (2026-09-14) — implementado
 > (commit d62eac9), 10/10 criterios verificados (automatizado: `probarMEDIA001`
 > 22/22 · smoke manual: Duck vía navegador real, en test y luego en prod).
 > Reserva no bloqueante en criterio 10 (el smoke no ejercitó Planes/

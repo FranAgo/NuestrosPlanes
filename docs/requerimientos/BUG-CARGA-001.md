@@ -1,6 +1,7 @@
 # BUG-CARGA-001 — La app muestra "No hay planes" cuando la carga falla
 
-> **Estado:** CERRADO (2026-09-27). Fase 1 en producción desde el 25/09 (servidor v22, front `a8faf0c`). Fase 2: causa raíz encontrada en `clasp logs` (autorización OAuth vencida, ver "Revisión de logs del 2026-09-27") y ya resuelta el 25/09; sin errores de carga desde entonces. Cerrado con el OK de Franco.
+> **Estado:** CERRADO (2026-09-27)
+> **Historia:** CERRADO (2026-09-27). Fase 1 en producción desde el 25/09 (servidor v22, front `a8faf0c`). Fase 2: causa raíz encontrada en `clasp logs` (autorización OAuth vencida, ver "Revisión de logs del 2026-09-27") y ya resuelta el 25/09; sin errores de carga desde entonces. Cerrado con el OK de Franco.
 >
 > | Condición de cierre | Estado |
 > |---|---|

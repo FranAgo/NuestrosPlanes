@@ -1,6 +1,7 @@
 # REQ-MEDIA-002 — Fotos de tareas obligatorias al completar + carrusel de recuerdos
 
-> **Estado:** CERRADO. Backend deployado a prod (Web App @19, 2026-09-15). Frontend pusheado a GitHub (commit `9d9b25f`, 2026-09-15), visible en producción. *(Estado corregido el 2026-09-16 — el doc decía "falta el push" pero ya estaba en `main` hacía varias sesiones.)*
+> **Estado:** CERRADO (2026-09-15)
+> **Historia:** CERRADO. Backend deployado a prod (Web App @19, 2026-09-15). Frontend pusheado a GitHub (commit `9d9b25f`, 2026-09-15), visible en producción. *(Estado corregido el 2026-09-16 — el doc decía que faltaba el push, pero ya estaba en `main` hacía varias sesiones.)*
 > **Dueño técnico:** Bob (back) + Jay (front) · **AppSec:** Julia · **DBA:** Gary · **QA:** Duck · **PM:** Paul
 > **Depende de:** [REQ-MEDIA-001](REQ-MEDIA-001.md) — **debe estar CERRADO y desplegado** antes de que Bob empiece este REQ (ver [Por qué depende de REQ-MEDIA-001](#por-qué-depende-de-req-media-001)).
 > Definido junto a Franco en sesión de producto, 2026-09-11. Ver ejemplo visual (mockup interactivo, Drive + carrusel) discutido en esa sesión.

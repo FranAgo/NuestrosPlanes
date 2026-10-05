@@ -42,3 +42,64 @@ Cambios:
 - PRODUCCIÓN servidor (con OK de Franco): clasp push -f; clasp version (v32, "v1.5.0 REQ-MEDIA-006…"); clasp redeploy ...LxD0d -V 32. Rollback: redeploy -V 31. Ojo: antes del redeploy, clasp deployments mostraba la Web App en @30 aunque la bitácora del 28/09 dice -V 31; no se investigó (con @32 queda todo incluido).
 - El primer intento de push lo bloqueó el modo automático por usar "cd …; npx clasp push" en vez de "clasp push -f" suelto (las reglas de settings.local.json son Bash(clasp:*)). Memoria clasp-comandos-sueltos actualizada y sección nueva en .claude/skills/convenciones-tecnicas/apps-script-clasp.md.
 ========================================================
+========================================================
+2026-10-05 09:37 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/investigacion/2026-10-04-estado-de-requerimientos.md — nuevo: por qué los estados de REQ y backlog quedaban viejos y cómo lo resuelven Linear, GitHub, Jira, Rust, Python, Kubernetes y los ADR, con fuentes (pedido de Franco).
+- docs/decisiones.md — DEC-016: el estado vive solo en el REQ (Estado de pocos valores + Versión), el BL queda "Pasó a REQ-XXX" y un chequeo automático detecta contradicciones.
+- check-sintaxis.js — chequearEstados(): falla si un REQ tiene un Estado fuera de la lista, dice EN DESARROLLO/PROPUESTO con su versión ya tageada o dice "falta el push", y si un BL dice "En curso" apuntando a un REQ o "Pasó a" un REQ que no existe. Probado contra los docs de HEAD (detecta los 14 casos viejos) y con un caso armado de tag y de REQ inexistente.
+- docs/requerimientos/REQ-MEDIA-003, -004, -005, -006, REQ-PERF-001, -004, REQ-UX-003 — Estado normalizado a HECHO; Versión 1.1.0 (MEDIA-003) y 1.4.0 (UX-003) agregadas. REQ-MEDIA-006 decía "falta el push a main" y está en prod desde el 2026-10-02 (Pages sirve 1.5.0, confirmado con curl).
+- docs/requerimientos/REQ-MEDIA-002.md — reescrita una nota histórica que citaba "falta el push" (falso positivo del chequeo).
+- docs/backlog.md — regla propia DEC-016 en el encabezado; BL-007, BL-011, BL-024, BL-025, BL-027, BL-028 y BL-034 pasan a "Pasó a REQ-XXX"; BL-017 vuelve a Propuesto con lo que queda (archivar las fotos al borrar la tarea); BL-029 Hecho.
+- CLAUDE.md — regla del estado en "Contexto del producto y registros" y paso del checklist de cierre.
+- docs/skills/INVENTARIO.md — hpaul-triage: la regla vive en CLAUDE.md; evaluar "Pasó a" en su pasada.
+- Verificado: node check-sintaxis.js OK (sintaxis + 23 REQ/BUG y backlog sin contradicciones).
+========================================================
+========================================================
+2026-10-05 09:47 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-MEDIA-003, -004, -005 — CERRADO: Franco confirmó que los usan y andan bien.
+- index.html — BL-026: con (pointer: coarse), .btn-acuerdo/.btn-completar/.btn-reabrir llevan un ::before con inset -8px 0: el área táctil pasa de 29 a 45px de alto sin cambiar cómo se ven. BL-022: los círculos de color son <button type="button" class="color-option"> con aria-pressed, aria-label y title (NOMBRES_COLOR), dentro de un role="group" con aria-labelledby; el círculo es el ::before (26px) y el botón mide 34px (44px con el dedo), con el mismo paso que antes en escritorio; foco con el outline cobre. selectColor compara contra data-color: antes comparaba el hex con el.style.background (que devuelve rgb()) y el anillo de seleccionado nunca se movía. APP_VERSION 1.5.1 (solo front; Code.gs sin cambios, como en 1.4.0).
+- docs/DESIGN.md — regla de área táctil con pointer: coarse; se saca la deuda de BL-022.
+- CHANGELOG.md — entrada 1.5.1.
+- docs/backlog.md — BL-022 y BL-026 Hecho.
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (ningún pedido bloqueado, nada a prod). 375x812 móvil: los 5 botones de tarjeta responden a 6px fuera del borde y no a 10px, selector de 12 colores de 44px en 2 filas sin desborde, Tab + Enter elige el color con foco visible. 1366x768: botones de tarjeta sin ::before y 29px, colores de 34px con paso 34 (igual que antes). Consola limpia.
+========================================================
+========================================================
+2026-10-05 09:52 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- check-sintaxis.js — chequearEstados() pasa de buscar frases prohibidas ("falta el push") a exigir un formato fijo: "> **Estado:** VALOR (AAAA-MM-DD)", "> **Versión:** X.Y.Z" y "- Estado: Valor (fecha o versión)". Se mantiene: versión con tag y estado PROPUESTO/EN DESARROLLO, y "Pasó a" con un REQ que no existe. Probado con 5 casos armados en una copia (texto de más en el estado de un BL y de un REQ, texto de más en Versión, versión tageada en EN DESARROLLO, REQ inexistente): los 5 rechazados.
+- docs/requerimientos/*.md (23) — la línea de Estado queda solo con el valor y la fecha; el texto que tenía pasa, sin cambios, a una línea nueva "> **Historia:**". Versión de REQ-MEDIA-006, REQ-PERF-004 y REQ-UX-002 sin texto extra (pasa a Historia).
+- docs/backlog.md — 19 líneas de estado al formato corto; el detalle pasa a "- Resuelto:" (Hecho / Pasó a) o a la Nota con fecha (BL-017, BL-032). Regla del formato en el encabezado.
+- CLAUDE.md y docs/decisiones.md (ajuste de DEC-016) — formato fijo de la línea de estado.
+- Motivo: en la misma sesión se coló "sin deploy todavía" en el backlog y el primer chequeo no lo vio.
+========================================================
+========================================================
+2026-10-05 09:54 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- .githooks/pre-commit — nuevo: corre node check-sintaxis.js antes de cada commit y lo frena si falla (pedido de Franco: que no dependa de que alguien se acuerde de correrlo). Activado en esta PC con git config core.hooksPath .githooks.
+- .gitattributes — nuevo: .githooks/* con eol=lf (con CRLF el script de sh no corre).
+- CLAUDE.md — cómo se activa el hook y que no se saltea con --no-verify.
+- Verificado con git hook run pre-commit: con todo bien sale 0; con "- Estado: Hecho (1.5.1), sin deploy todavía" en BL-022 sale 1 y muestra el error (backlog restaurado después).
+========================================================
+========================================================
+2026-10-05 09:55 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10: con el pane oculto, getBoundingClientRect de un modal con scale de entrada da más chico; medir con offsetWidth, y si innerWidth da 0 fijar tamaño con resize_window y recargar.
+- Cierre de sesión: commit con los cambios de estados (DEC-016), el hook pre-commit y la versión 1.5.1 (BL-022, BL-026). El push a main (publica 1.5.1) queda para el OK de Franco.
+========================================================

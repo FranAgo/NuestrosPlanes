@@ -1,6 +1,7 @@
 # REQ-PERF-005 — Carga on-demand de fotos en el carrusel de recuerdos
 
-> **Estado:** CERRADO (2026-09-16) — verificado en navegador real contra producción, con Franco logueado. Sin regresión (cambio 100% de cliente, `Code.gs`/`Tests.gs` sin tocar). Ya pusheado (commits `9a47ce5`, `4e1c502`, `ccce7d6`, `4afc90e`).
+> **Estado:** CERRADO (2026-09-16)
+> **Historia:** CERRADO (2026-09-16) — verificado en navegador real contra producción, con Franco logueado. Sin regresión (cambio 100% de cliente, `Code.gs`/`Tests.gs` sin tocar). Ya pusheado (commits `9a47ce5`, `4e1c502`, `ccce7d6`, `4afc90e`).
 > **Dueño técnico:** Jay (front) · **QA:** Duck · **PM:** Paul
 > **Relacionado:** [REQ-MEDIA-002](REQ-MEDIA-002.md) (creó el carrusel), [REQ-PERF-002](REQ-PERF-002.md) (reintento de Drive por archivo, se sigue usando tal cual), [REQ-PERF-003](REQ-PERF-003.md) (card del dashboard — no tiene este problema, no se toca), [REQ-PERF-004](REQ-PERF-004.md) (miniatura server-side — sigue propuesta, sin relación directa).
 

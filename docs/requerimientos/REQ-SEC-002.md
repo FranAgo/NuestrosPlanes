@@ -1,6 +1,7 @@
 # REQ-SEC-002 — XSS almacenado en el render del frontend
 
-> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Tests de node
+> **Estado:** CERRADO (2026-09-10)
+> **Historia:** CERRADO (2026-09-10) — desplegado a producción. Tests de node
 > 17/17 + smoke contra el frontend en `franago.github.io` con payloads reales
 > en `state` (0 ejecuciones, nombre/título como texto literal, color_hex al
 > default, foto_url `javascript:` rechazada, sin handlers `on*` inyectados,

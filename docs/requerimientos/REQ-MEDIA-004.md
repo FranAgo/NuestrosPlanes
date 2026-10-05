@@ -1,6 +1,7 @@
 # REQ-MEDIA-004 — Ver qué fotos ya tiene una tarea y en qué estado está cada subida
 
-> **Estado:** EN PRODUCCIÓN (2026-09-28). Servidor en la Web App @26 y front en `main` (commit `3d1f2a0`). Franco eligió la variante A del mockup (DEC-007). *(Estado corregido el 2026-09-28: el doc seguía diciendo "falta deploy y push".)*
+> **Estado:** CERRADO (2026-10-05)
+> **Historia:** CERRADO (2026-10-05, Franco confirmó que lo usan y anda bien). Antes: en producción desde el 2026-09-28. Servidor en la Web App @26 y front en `main` (commit `3d1f2a0`). Franco eligió la variante A del mockup (DEC-007). *(Estado corregido el 2026-09-28: el doc seguía diciendo "falta deploy y push".)*
 > **Nivel:** cambio de fondo (endpoint nuevo + cambio en `getPlanes` + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** nada. Conviene hacerlo antes de REQ-PLAN-001, que usa el mismo conteo.

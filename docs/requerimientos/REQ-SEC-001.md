@@ -1,6 +1,7 @@
 # REQ-SEC-001 — Token de sesión con expiración y revocable
 
-> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Harness de node
+> **Estado:** CERRADO (2026-09-10)
+> **Historia:** CERRADO (2026-09-10) — desplegado a producción. Harness de node
 > 44/44 + función de test en Apps Script real 28/28 + e2e con las dos cuentas.
 > Ver [Cierre](#cierre).
 > **Dueño técnico:** Bob · **AppSec:** Julia · **Front:** Jay · **QA:** Duck · **Infra:** Roy · **PM:** Paul

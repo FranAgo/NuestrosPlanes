@@ -1,6 +1,7 @@
 # REQ-UX-001 — Todo error explica qué pasó y qué hacer
 
-> **Estado:** PROPUESTO (2026-09-27). Sin implementar.
+> **Estado:** PROPUESTO (2026-09-27)
+> **Historia:** PROPUESTO (2026-09-27). Sin implementar.
 > **Nivel:** cambio de fondo (toca varias pantallas y los mensajes del servidor), pero sin cambio de contrato: se suman `code` a respuestas que no lo tienen.
 > **Dueño técnico:** Jay (front) + Bob (mensajes del servidor) · **AppSec:** Julia (que ningún mensaje filtre datos internos) · **QA:** Duck · **PM:** Paul
 > **Datos sensibles:** ningún mensaje puede mostrar tokens, emails, IDs de planilla o de Drive, ni trazas.

@@ -1,9 +1,10 @@
 # REQ-MEDIA-006 — Visor de fotos a pantalla completa, con tira de miniaturas
 
-> **Estado:** SERVIDOR EN PRODUCCIÓN (2026-10-02 17:09, Web App @32 "v1.5.0"; rollback `-V 31`). Front verificado en 127.0.0.1 con `fetch` simulado, falta el push a `main`. Franco eligió la variante B del mockup con tres ajustes que salieron de la investigación (DEC-015). Incluye BL-027 y BL-028.
+> **Estado:** HECHO (2026-10-02)
+> **Historia:** HECHO — en producción desde el 2026-10-02: servidor en la Web App @32 "v1.5.0" (rollback `-V 31`) y front en `main` (commit `bb85af3`, tag `v1.5.0`; Pages sirve 1.5.0, confirmado con curl el 2026-10-05). Verificado antes en 127.0.0.1 con `fetch` simulado. Franco eligió la variante B del mockup con tres ajustes que salieron de la investigación (DEC-015). Incluye BL-027 y BL-028. Versión: 1.5.0 (DEC-009: REQ nuevo = MENOR).
 > **Nivel:** cambio de fondo (pantalla que se rehace, cambia cómo se navegan las fotos y toca `index.html` y `Code.gs`).
 > **Dueño técnico:** Jay (front) + Bob (`getRecuerdos`) · **Infra:** Roy · **AppSec:** Julia · **Datos:** Gary · **QA:** Duck · **PM:** Paul
-> **Versión:** sale como `1.5.0` (DEC-009: REQ nuevo = MENOR).
+> **Versión:** 1.5.0
 
 ## Problema
 

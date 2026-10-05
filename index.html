@@ -1378,6 +1378,19 @@
       outline-offset: 2px;
     }
 
+    /* BL-026: con el dedo, el área que se toca llega a 44px de alto sin
+       cambiar cómo se ve el botón (mide ~29px): 8px de más arriba y abajo. */
+    @media (pointer: coarse) {
+      .btn-acuerdo, .btn-completar, .btn-reabrir { position: relative; }
+      .btn-acuerdo::before,
+      .btn-completar::before,
+      .btn-reabrir::before {
+        content: '';
+        position: absolute;
+        inset: -8px 0;
+      }
+    }
+
     .plan-acuerdo-motivo,
     .plan-acuerdo-error {
       width: 100%;
@@ -1605,26 +1618,53 @@
     }
 
     /* Color picker inline */
+    /* BL-022: cada color es un botón; el círculo de 26px es su ::before y
+       el botón es el área que se toca (34px, 44px con el dedo). Sin gap:
+       con 34px los círculos quedan a la misma distancia que antes. */
     .color-options {
       display: flex;
-      gap: 0.5rem;
       flex-wrap: wrap;
-      margin-top: 0.5rem;
+      margin: 0.5rem 0 0 -4px;
     }
 
     .color-option {
+      --tam-color: 34px;
+      flex-shrink: 0;
+      width: var(--tam-color);
+      height: var(--tam-color);
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: none;
+      display: grid;
+      place-items: center;
+    }
+
+    .color-option::before {
+      content: '';
       width: 26px;
       height: 26px;
       border-radius: 50%;
-      cursor: none;
+      background: var(--color);
       border: 2px solid transparent;
-      transition: var(--transition);
+      transition: border-color var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
     }
 
-    .color-option:hover,
-    .color-option.selected {
+    .color-option:hover::before,
+    .color-option[aria-pressed="true"]::before {
       border-color: var(--text-main);
       transform: scale(1.15);
+    }
+
+    .color-option:focus-visible { outline: none; }
+    .color-option:focus-visible::before {
+      outline: 1px solid var(--copper-light);
+      outline-offset: 2px;
+    }
+
+    @media (pointer: coarse) {
+      .color-option { --tam-color: 44px; }
+      .color-options { margin-left: -9px; }
     }
 
     /* Loading spinner */
@@ -2980,8 +3020,8 @@
         <input type="text" id="cat-nombre-input" placeholder="Ej: Salidas, Viajes, Casa..." />
       </div>
       <div class="form-group">
-        <label>Color *</label>
-        <div class="color-options" id="color-options"></div>
+        <label id="cat-color-label">Color *</label>
+        <div class="color-options" id="color-options" role="group" aria-labelledby="cat-color-label"></div>
       </div>
 
       <div class="modal-actions">
@@ -3082,7 +3122,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.5.0';
+    const APP_VERSION = '1.5.1';
     document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -3096,6 +3136,12 @@
       '#a0c8e8', '#c8a0e8', '#e8a0c8', '#9ab89a',
       '#c97878', '#6b8fa0', '#a08060', '#607060',
     ];
+    // Nombre de cada color para el lector de pantalla y el tooltip (BL-022).
+    const NOMBRES_COLOR = {
+      '#e8a0a0': 'Rosa',        '#f5c6a0': 'Durazno',    '#f5e6a0': 'Amarillo',    '#a0c8a0': 'Verde claro',
+      '#a0c8e8': 'Celeste',     '#c8a0e8': 'Lila',       '#e8a0c8': 'Fucsia claro', '#9ab89a': 'Verde salvia',
+      '#c97878': 'Terracota',   '#6b8fa0': 'Azul grisáceo', '#a08060': 'Marrón',   '#607060': 'Verde musgo',
+    };
 
     // ====================================================
     // ESTADO DE LA APP
@@ -5949,19 +5995,20 @@
     function renderColorOptions(selectedColor) {
       const container = document.getElementById('color-options');
       container.innerHTML = PRESET_COLORS.map(color => `
-        <div class="color-option ${color === selectedColor ? 'selected' : ''}"
-             style="background:${color}"
-             onclick="selectColor('${color}')">
-        </div>`
+        <button type="button" class="color-option" data-color="${color}"
+                style="--color:${color}" aria-label="${NOMBRES_COLOR[color]}" title="${NOMBRES_COLOR[color]}"
+                aria-pressed="${color === selectedColor}"
+                onclick="selectColor('${color}')"></button>`
       ).join('');
       state.selectedColor = selectedColor || PRESET_COLORS[0];
     }
 
+    // Se compara contra data-color: el.style.background devuelve rgb(), y
+    // compararlo con el hex (como antes) nunca marcaba el color elegido.
     function selectColor(color) {
       state.selectedColor = color;
       document.querySelectorAll('.color-option').forEach(el => {
-        el.classList.toggle('selected',
-          el.style.background === color || el.style.backgroundColor === color);
+        el.setAttribute('aria-pressed', String(el.dataset.color === color));
       });
     }
 

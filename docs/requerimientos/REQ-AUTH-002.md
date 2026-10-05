@@ -1,6 +1,7 @@
 # REQ-AUTH-002 — Selección de cuenta en el login de Google
 
-> **Estado:** CERRADO (2026-09-10) — desplegado a producción. Harness node 9/9
+> **Estado:** CERRADO (2026-09-10)
+> **Historia:** CERRADO (2026-09-10) — desplegado a producción. Harness node 9/9
 > (login e2e: 53/53 en total), smoke de frontend + e2e con Google real.
 > Ver [Cierre](#cierre).
 > **Dueño técnico:** Jay (front) + Bob (verificación) · **AppSec:** Julia · **QA:** Duck

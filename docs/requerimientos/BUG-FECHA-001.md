@@ -1,6 +1,7 @@
 # BUG-FECHA-001 — Las fotos subidas después de las 21 h quedan con la fecha del día siguiente
 
-> **Estado:** CERRADO (2026-09-27). En producción (Web App @24) y corrección de datos corrida en prod, las dos con OK de Franco.
+> **Estado:** CERRADO (2026-09-27)
+> **Historia:** CERRADO (2026-09-27). En producción (Web App @24) y corrección de datos corrida en prod, las dos con OK de Franco.
 > Tests en test: `probarBUGFECHA001` 21/21; sin regresión en MEDIA001 22/22, MEDIA002 43/43 (43 era la línea base, confirmado corriendo el código viejo), DATA002 70/70, BUGLOGIN001B 38/38, BUGCARGA001 9/9, BL015 12/12. Smoke en prod: `getCategorias` con token inválido → 401.
 > `formatDate()` se revisó y queda como estaba: en la hoja conviven fechas a medianoche UTC (Planes) y a medianoche de la planilla (texto o edición a mano), y `toISOString()` lee bien las dos con la planilla en hora Argentina. Leerlas en hora Argentina corría las de Planes al día anterior (lo detectó Duck antes de probar).
 > **Nivel:** ajuste puntual (DEC-002): fix acotado en `Code.gs`, sin cambio de contrato.

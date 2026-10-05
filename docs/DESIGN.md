@@ -52,7 +52,7 @@ motion:                     # variables de :root
 spacing:
   contenido-max: 900px
   modal-max: 440px          # 400px foto de perfil, 560px carrusel
-  corte-mobile: 600px       # único @media (max-width: 600px)
+  corte-mobile: 600px       # único corte de ancho; aparte, (pointer: coarse) para el área táctil
 ---
 
 # DESIGN.md — Nuestros Planes
@@ -405,6 +405,13 @@ reusa ese `id`, no define otro degradé.
   chicas (sin bajar de 0.7rem), grilla de planes en una columna y carrusel
   cuadrado. Los ajustes de mobile de un componente nuevo van dentro de ese
   mismo bloque (`index.html:2310`).
+- **Área táctil (`pointer: coarse`):** con el dedo, todo lo que se toca
+  mide al menos 44px. Si el botón se ve más chico, el área se agranda sin
+  cambiar cómo se ve: un `::before` absoluto con `inset` negativo (botones
+  de la tarjeta, BL-026) o un botón más grande que su dibujo (círculos de
+  color: botón de 34px, 44px con el dedo, y el círculo de 26px es su
+  `::before`, BL-022). Se usa `pointer: coarse` y no el ancho: una
+  computadora angosta sigue con mouse, y una tablet ancha, con el dedo.
 
 ## Deudas conocidas
 
@@ -412,9 +419,6 @@ Cosas que el código hace distinto del criterio de `hjay-identidad-visual`.
 Lo nuevo no las copia. Arreglar lo existente es aparte (backlog), no se
 hace de paso.
 
-- Los círculos de color del modal de categoría (`.color-option`) son
-  `<div>` con `onclick`: no se eligen con el teclado ni los anuncia un
-  lector de pantalla, y miden 26px (menos de 44 de área táctil). BL-022.
 - Lo que listaba BL-018 (`--transition: all`, sin movimiento reducido,
   `<label>` sin `for`, campos sin `:focus-visible`, `color-scheme`,
   botones sin `type`/`aria-label`) se saldó el 2026-09-27. Un campo nuevo
