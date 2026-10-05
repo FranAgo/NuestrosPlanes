@@ -1,7 +1,7 @@
 # REQ-PLAN-003 — "Algún día": ideas de planes sin fecha
 
-> **Estado:** HECHO (2026-10-05)
-> **Historia:** PROPUESTO (2026-10-05). Pedido de Noelia, traído por Franco. Diseño elegido el mismo día (DEC-018). Depende de REQ-PLAN-002. Investigación: `docs/investigacion/2026-10-05-ideas-sin-fecha.md`. Antes de implementar, Franco decidió que un plan con fecha no vuelve a idea: la fecha se puede cambiar pero no vaciar. HECHO el 2026-10-05: `probarPLAN003` 39/39 en test (20 fallan con el `Code.gs` de 1.7.0); regresión `probarPLAN002` 26/26, `probarPLAN001` 44/44, `probarMEDIA005` 59/59, `probarDATA002` 70/70. Front verificado en 127.0.0.1 con fetch simulado a 375, 719/720 y 1366, sin pedidos a prod. Hallazgo de paso: `updatePlan` aceptaba una fecha de inicio imposible (`2026-13-01`) y la guardaba como 1970-01-01; ahora da 400.
+> **Estado:** CERRADO (2026-10-05)
+> **Historia:** CERRADO (2026-10-05): en producción con 1.8.0 (front `22917f0`, Web App @34); Franco confirmó en uso que anda todo bien. PROPUESTO (2026-10-05). Pedido de Noelia, traído por Franco. Diseño elegido el mismo día (DEC-018). Depende de REQ-PLAN-002. Investigación: `docs/investigacion/2026-10-05-ideas-sin-fecha.md`. Antes de implementar, Franco decidió que un plan con fecha no vuelve a idea: la fecha se puede cambiar pero no vaciar. HECHO el 2026-10-05: `probarPLAN003` 39/39 en test (20 fallan con el `Code.gs` de 1.7.0); regresión `probarPLAN002` 26/26, `probarPLAN001` 44/44, `probarMEDIA005` 59/59, `probarDATA002` 70/70. Front verificado en 127.0.0.1 con fetch simulado a 375, 719/720 y 1366, sin pedidos a prod. Hallazgo de paso: `updatePlan` aceptaba una fecha de inicio imposible (`2026-13-01`) y la guardaba como 1970-01-01; ahora da 400.
 > **Versión:** 1.8.0
 > **Nivel:** cambio de fondo (contrato de `createPlan`/`updatePlan` + pestaña nueva).
 > **Dueño técnico:** Jay (front) + Bob (servidor) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul

@@ -204,3 +204,13 @@ Cambios:
 - Deploy servidor con OK de Franco: clasp push a prod, versión 34, redeploy de AKfycbyKWC… @34. Después, clasp run conteoPlanesSinCategoria -u duck contra prod: { cantidad: 0, titulos: [] }.
 - Deploy front con OK de Franco: commit + tag v1.8.0, push a main.
 ========================================================
+========================================================
+2026-10-05 13:42 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- GitHub Pages sirve 1.8.0 (confirmado con curl) después del push de 22917f0 + tag v1.8.0.
+- docs/requerimientos/REQ-PLAN-003.md — CERRADO: Franco confirmó en uso que anda todo bien.
+- Cierre de sesión: backlog al día (BL-038 Hecho), DEC-019 registrada, sin cuidados nuevos para convenciones-tecnicas.
+========================================================
