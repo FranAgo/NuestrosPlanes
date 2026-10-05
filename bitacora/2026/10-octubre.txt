@@ -175,3 +175,12 @@ Cambios:
 - Deploy 1.7.0 aprobado por Franco (front y servidor).
 - Verificado: node check-sintaxis.js y check-contraste.js OK. Test: probarPLAN002 con el Code.gs anterior 10/26 FAIL (el test muerde), con el nuevo 26/26; probarDATA002 70/70, probarMEDIA005 59/59, probarPLAN001 44/44. Front en 127.0.0.1 con fetch simulado, sin pedidos a prod: 375 y 1366, guardar sin categoría, nueva categoría vacía / repetida / lenta (botones bloqueados) / con Enter, volver y cancelar, tarea vieja sin categoría; consola limpia. No contadas las tareas sin categoría en prod.
 ========================================================
+========================================================
+2026-10-05 12:59 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy 1.7.0 con OK de Franco: commit d0d934f + tag v1.7.0, push a main; GitHub Pages sirve 1.7.0 (confirmado con curl). Servidor: clasp push a prod, versión 33, redeploy de AKfycbyKWC… @33.
+- Cierre de sesión: REQ-PLAN-003 ("Algún día") queda PROPUESTO para la próxima sesión, con diseño decidido (DEC-018). BL-038 se sube junto con él. Sin cuidados nuevos para convenciones-tecnicas.
+========================================================
