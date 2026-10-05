@@ -162,3 +162,30 @@ escritura nueva que se aplique localmente hace lo mismo.
 
 **Por qué:** BL-033 (1.2.4, 2026-09-28). 1.2.3 dejó de releer después de
 reabrir para ganar ~3 s y abrió esa ventana sin querer.
+
+## Precargar con una ventana y una cola, no "todas las vecinas ya"
+
+**Qué cuidar:** la precarga del visor sale con el mismo retardo que el
+pedido de la foto (una ráfaga no pide las intermedias), se arma como una
+ventana (hacia dónde se viene deslizando) y pasa por una cola con 2 en
+vuelo: con la foto actual son 3, el tope de siempre. Al navegar, lo que
+quedó fuera de la ventana se cancela; al cerrar, la cola se vacía.
+
+**Por qué:** REQ-MEDIA-007 (2026-10-05). La precarga anterior iba de a una
+y arrancaba recién al llegar la foto actual: cada deslizamiento pagaba los
+~4 s enteros.
+
+**Dónde ya está bien:** `idsPrecarga`, `arrancarPrecargas` y
+`cancelarPrecarga` en `index.html`.
+
+## Wifi o datos móviles: solo Chrome en Android lo dice
+
+**Qué cuidar:** `navigator.connection` no existe en Safari (iPhone, hasta
+26.5) ni en Firefox; en Chrome de computadora no tiene `type`. Todo lo que
+dependa del tipo de red necesita un valor por defecto sin ese dato y,
+si importa, una opción manual. Medir la velocidad de una descarga da
+velocidad, no costo.
+
+**Dónde ya está bien:** `precargaAutomatica()` (sin dato: táctil ahorra,
+mouse precarga) y la opción en Mi perfil. Investigación:
+`docs/investigacion/2026-10-05-visor-foto-siguiente.md`.

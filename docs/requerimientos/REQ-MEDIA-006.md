@@ -1,7 +1,7 @@
 # REQ-MEDIA-006 — Visor de fotos a pantalla completa, con tira de miniaturas
 
-> **Estado:** HECHO (2026-10-02)
-> **Historia:** HECHO — en producción desde el 2026-10-02: servidor en la Web App @32 "v1.5.0" (rollback `-V 31`) y front en `main` (commit `bb85af3`, tag `v1.5.0`; Pages sirve 1.5.0, confirmado con curl el 2026-10-05). Verificado antes en 127.0.0.1 con `fetch` simulado. Franco eligió la variante B del mockup con tres ajustes que salieron de la investigación (DEC-015). Incluye BL-027 y BL-028. Versión: 1.5.0 (DEC-009: REQ nuevo = MENOR).
+> **Estado:** CERRADO (2026-10-05)
+> **Historia:** HECHO — en producción desde el 2026-10-02: servidor en la Web App @32 "v1.5.0" (rollback `-V 31`) y front en `main` (commit `bb85af3`, tag `v1.5.0`; Pages sirve 1.5.0, confirmado con curl el 2026-10-05). Verificado antes en 127.0.0.1 con `fetch` simulado. Franco eligió la variante B del mockup con tres ajustes que salieron de la investigación (DEC-015). Incluye BL-027 y BL-028. Versión: 1.5.0 (DEC-009: REQ nuevo = MENOR). CERRADO el 2026-10-05: Franco confirmó que anda bien en uso. Lo que reportó ese día (cada deslizamiento tarda unos 4 s en mostrar la foto siguiente) viene de antes del visor nuevo (REQ-PERF-005): sigue en BL-036.
 > **Nivel:** cambio de fondo (pantalla que se rehace, cambia cómo se navegan las fotos y toca `index.html` y `Code.gs`).
 > **Dueño técnico:** Jay (front) + Bob (`getRecuerdos`) · **Infra:** Roy · **AppSec:** Julia · **Datos:** Gary · **QA:** Duck · **PM:** Paul
 > **Versión:** 1.5.0

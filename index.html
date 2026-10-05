@@ -1485,32 +1485,137 @@
     /* ====================================================
        PERFIL
     ==================================================== */
+    /* REQ-MEDIA-007 (variante B): Mi perfil por secciones. Cada ajuste
+       nuevo se suma como una sección más. */
     .perfil-card {
       background: var(--bg-card);
       box-shadow: inset 0 1px 0 var(--edge-light);
       border-radius: var(--radius-lg);
       border: 1px solid var(--border);
-      padding: 2rem;
+      padding: 1.2rem;
       max-width: 420px;
-    }
-
-    /* DEC-009: versión de la app, para saber qué tiene abierto cada teléfono. */
-    .app-version {
-      max-width: 420px;
-      margin-top: 0.8rem;
-      text-align: center;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
     }
 
     .perfil-header {
       display: flex;
-      flex-direction: column;
       align-items: center;
       gap: 1rem;
-      margin-bottom: 2rem;
     }
+
+    .perfil-identidad { min-width: 0; }
+
+    .perfil-link {
+      background: none;
+      border: 0;
+      padding: 0.35rem 0;
+      margin-top: 0.1rem;
+      font: inherit;
+      font-size: 0.8rem;
+      color: var(--copper-light);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .perfil-link:hover { color: var(--text-main); }
+
+    @media (pointer: coarse) {
+      .perfil-link { min-height: 44px; }
+    }
+
+    .perfil-link:focus-visible,
+    .perfil-opcion input:focus-visible {
+      outline: 1px solid var(--copper-light);
+      outline-offset: 2px;
+    }
+
+    .perfil-card .error-msg:not(:empty) { margin-top: 1rem; }
+
+    .perfil-seccion { max-width: 420px; margin-top: 1.6rem; }
+
+    .perfil-seccion-titulo {
+      font-family: 'Jost', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-muted);
+      margin: 0 0 0.6rem;
+    }
+
+    .perfil-opciones {
+      margin: 0;
+      min-inline-size: 0;
+      padding: 0.9rem 1.2rem 0.3rem;
+    }
+
+    .perfil-opciones-leyenda {
+      float: left;   /* dentro de la tarjeta, no sobre el borde */
+      width: 100%;
+      padding: 0;
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      margin-bottom: 0.2rem;
+    }
+
+    .perfil-opcion {
+      clear: both;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+      min-height: 44px;
+      padding: 0.8rem 0;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .perfil-opcion:first-of-type { border-top: 0; }
+
+    .perfil-opcion input {
+      appearance: none;
+      flex: none;
+      width: 18px;
+      height: 18px;
+      margin: 1px 0 0;
+      border-radius: 50%;
+      border: 1px solid var(--border-control);
+      background: transparent;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .perfil-opcion input:checked {
+      border-color: var(--copper);
+      background: var(--copper);
+      box-shadow: inset 0 0 0 4px var(--bg-card);
+    }
+
+    .perfil-opcion-texto { min-width: 0; }
+
+    .perfil-opcion-titulo {
+      display: block;
+      font-size: 0.92rem;
+      color: var(--text-main);
+    }
+
+    .perfil-opcion-desc {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+
+    /* DEC-009: versión de la app, para saber qué tiene abierto cada teléfono. */
+    .perfil-fila {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 1.2rem;
+      font-size: 0.88rem;
+      color: var(--text-soft);
+    }
+
+    .perfil-fila-valor { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
     .perfil-avatar-wrapper {
       position: relative;
@@ -2384,10 +2489,17 @@
       height: 100%;
       object-fit: contain;
       opacity: 0;
-      transition: opacity 200ms ease, transform var(--dur) var(--ease-out);
+      transition: opacity 200ms ease, transform var(--dur) var(--ease-out), filter 200ms ease;
     }
 
     .visor-imagen.is-loaded { opacity: 1; }
+    /* REQ-MEDIA-007: miniatura agrandada mientras llega la foto completa. */
+    /* Entra desenfocada de una (sin transición de filter); al llegar la
+       nítida, el desenfoque se va con la transición de .visor-imagen. */
+    .visor-imagen.es-vista-previa {
+      filter: blur(12px);
+      transition: opacity 200ms ease, transform var(--dur) var(--ease-out);
+    }
     .visor-imagen.arrastrando { transition: opacity 200ms ease; }
 
     .visor-ui {
@@ -2580,6 +2692,7 @@
     .carrusel-loader {
       position: absolute;
       inset: 0;
+      z-index: 1;   /* REQ-MEDIA-007: arriba de la vista previa (filter la pinta encima) */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2828,15 +2941,51 @@
                 </svg>
               </div>
             </div>
-            <div class="perfil-nombre" id="perfil-nombre"></div>
+            <div class="perfil-identidad">
+              <div class="perfil-nombre" id="perfil-nombre"></div>
+              <button type="button" class="perfil-link" id="btn-cambiar-foto-texto">Cambiar foto</button>
+            </div>
           </div>
           <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" style="display:none" />
-          <p style="font-size:0.78rem; color:var(--text-muted); text-align:center">
-            Hacé clic en la foto para cambiarla.<br>Formatos: JPG, PNG, WEBP.
-          </p>
-          <div class="error-msg" id="perfil-error" style="margin-top:1rem"></div>
+          <div class="error-msg" id="perfil-error"></div>
         </div>
-        <p class="app-version" id="app-version"></p>
+
+        <!-- REQ-MEDIA-007: cuánto precarga el visor en este dispositivo. -->
+        <section class="perfil-seccion" aria-labelledby="perfil-titulo-fotos">
+          <h3 class="perfil-seccion-titulo" id="perfil-titulo-fotos">Fotos y datos</h3>
+          <fieldset class="perfil-card perfil-opciones">
+            <legend class="perfil-opciones-leyenda">Al pasar de foto en el visor</legend>
+            <label class="perfil-opcion">
+              <input type="radio" name="precarga" value="auto" aria-describedby="precarga-auto-desc" />
+              <span class="perfil-opcion-texto">
+                <span class="perfil-opcion-titulo">Automático</span>
+                <span class="perfil-opcion-desc" id="precarga-auto-desc"></span>
+              </span>
+            </label>
+            <label class="perfil-opcion">
+              <input type="radio" name="precarga" value="siempre" aria-describedby="precarga-siempre-desc" />
+              <span class="perfil-opcion-texto">
+                <span class="perfil-opcion-titulo">Precargar siempre</span>
+                <span class="perfil-opcion-desc" id="precarga-siempre-desc">Trae de antemano las fotos siguientes. Más rápido, usa más datos.</span>
+              </span>
+            </label>
+            <label class="perfil-opcion">
+              <input type="radio" name="precarga" value="justo" aria-describedby="precarga-justo-desc" />
+              <span class="perfil-opcion-texto">
+                <span class="perfil-opcion-titulo">Solo lo necesario</span>
+                <span class="perfil-opcion-desc" id="precarga-justo-desc">Trae la foto que mirás y la siguiente. Ahorra datos.</span>
+              </span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="perfil-seccion" aria-labelledby="perfil-titulo-acerca">
+          <h3 class="perfil-seccion-titulo" id="perfil-titulo-acerca">Acerca de</h3>
+          <div class="perfil-card perfil-fila">
+            <span>Versión</span>
+            <span class="perfil-fila-valor" id="app-version"></span>
+          </div>
+        </section>
       </div>
 
     </main>
@@ -3122,8 +3271,8 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.5.1';
-    document.getElementById('app-version').textContent = `Nuestros Planes · versión ${APP_VERSION}`;
+    const APP_VERSION = '1.6.0';
+    document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
 
@@ -4000,6 +4149,7 @@
       carruselGrupo = grupo.tipo;
       carruselFotos = grupo.fotos;
       carruselIndex = 0;
+      carruselDireccion = 1;
       pintarChipsRecuerdos();
       renderCarruselFoto();
       return true;
@@ -4028,7 +4178,8 @@
     function limpiarVisor() {
       carruselEditandoFecha = false;
       const imagen = document.getElementById('carrusel-imagen');
-      imagen.classList.remove('is-loaded');
+      imagen.classList.remove('is-loaded', 'es-vista-previa');
+      delete imagen.dataset.previa;
       imagen.removeAttribute('src');
       document.getElementById('carrusel-loader').classList.remove('is-hidden');
       document.getElementById('carrusel-caption').textContent = '';
@@ -4054,6 +4205,7 @@
       if (!visor.classList.contains('visible')) return;
       visor.classList.remove('visible');
       document.documentElement.classList.remove('visor-abierto');
+      cancelarPrecarga();   // REQ-MEDIA-007: cerrado, no arranca nada nuevo
       ponerDetallesVisor(false);
       // Los grupos no se rearman con el visor abierto: la foto corregida
       // podría cambiar de grupo y desaparecer de lo que se estaba mirando.
@@ -4085,6 +4237,7 @@
 
     function irAFotoVisor(indice) {
       if (carruselEditandoFecha || indice === carruselIndex || !carruselFotos[indice]) return;
+      carruselDireccion = indice > carruselIndex ? 1 : -1;
       carruselIndex = indice;
       renderCarruselFoto();
     }
@@ -4132,7 +4285,10 @@
       const faltan = carruselFotos.map(f => f.archivoId).filter(id => !miniaturaDataUrl(id));
       if (!faltan.length) return;
       await fetchMiniaturas(faltan);
-      if (document.getElementById('visor-tira').dataset.firma === firma) refrescarMiniTira();
+      if (document.getElementById('visor-tira').dataset.firma !== firma) return;
+      refrescarMiniTira();
+      const actual = carruselFotos[carruselIndex];
+      if (actual && !document.getElementById('carrusel-loader').classList.contains('is-hidden')) ponerVistaPreviaVisor(actual);
     }
 
     // Completa las miniaturas que faltaban (todas, o la de una foto que
@@ -4168,6 +4324,91 @@
     const NAV_DEBOUNCE_MS = 200;
     let carruselFetchTimer = null;
 
+    // ---- REQ-MEDIA-007: precarga según la conexión ----
+    // La preferencia es por dispositivo y no se borra al cerrar sesión: no es
+    // un dato personal. 'auto' decide con lo que diga el navegador.
+    const PRECARGA_KEY     = 'cp_precarga';
+    const PRECARGA_VALORES = ['auto', 'siempre', 'justo'];
+
+    let preferenciaPrecargaMemoria = null;   // si localStorage no anda (modo privado)
+
+    function leerPreferenciaPrecarga() {
+      let v = null;
+      try { v = localStorage.getItem(PRECARGA_KEY); } catch (e) { /* se usa la de memoria */ }
+      if (PRECARGA_VALORES.includes(v)) return v;
+      return PRECARGA_VALORES.includes(preferenciaPrecargaMemoria) ? preferenciaPrecargaMemoria : 'auto';
+    }
+
+    // navigator.connection existe solo en Chrome y Edge, y `type` solo en
+    // Android; Safari no lo tiene. Sin ese dato: con el dedo se ahorra, con
+    // mouse se precarga.
+    function precargaAutomatica() {
+      const c = navigator.connection;
+      if (c && c.saveData) return { modo: 'justo', motivo: 'Con ahorro de datos' };
+      if (c && c.type === 'cellular') return { modo: 'justo', motivo: 'Con datos móviles' };
+      if (c && c.type === 'wifi') return { modo: 'amplio', motivo: 'Con wifi' };
+      if (c && c.type === 'ethernet') return { modo: 'amplio', motivo: 'Con cable' };
+      return window.matchMedia('(pointer: coarse)').matches
+        ? { modo: 'justo',  motivo: 'En este celular' }
+        : { modo: 'amplio', motivo: 'En esta computadora' };
+    }
+
+    function modoPrecarga() {
+      const p = leerPreferenciaPrecarga();
+      if (p === 'siempre') return 'amplio';
+      if (p === 'justo') return 'justo';
+      return precargaAutomatica().modo;
+    }
+
+    // Amplio: 3 hacia donde se viene deslizando y 1 hacia atrás. Lo justo:
+    // solo la siguiente en esa dirección.
+    let carruselDireccion = 1;
+
+    function idsPrecarga(indice) {
+      const d = carruselDireccion;
+      const pasos = modoPrecarga() === 'amplio' ? [d, 2 * d, 3 * d, -d] : [d];
+      return pasos.map(p => carruselFotos[indice + p]).filter(Boolean).map(f => f.archivoId);
+    }
+
+    // Como mucho 2 precargas a la vez, más la foto actual: 3 pedidos, el
+    // mismo tope que las miniaturas de "Ya subidas".
+    const PRECARGAS_EN_PARALELO = 2;
+    let colaPrecarga     = [];
+    let precargasActivas = 0;
+    let precargaTimer    = null;
+
+    function cancelarPrecarga() {
+      if (precargaTimer) { clearTimeout(precargaTimer); precargaTimer = null; }
+      colaPrecarga = [];
+    }
+
+    function arrancarPrecargas() {
+      while (precargasActivas < PRECARGAS_EN_PARALELO && colaPrecarga.length) {
+        const id = colaPrecarga.shift();
+        if (avatarCache.get(id)) continue;
+        precargasActivas++;
+        fetchArchivoDataUrl(id).then(url => {
+          if (url) { miniaturaYaLlego(id); refrescarMiniTira(id); }
+        }).finally(() => { precargasActivas--; arrancarPrecargas(); });
+      }
+    }
+
+    // REQ-MEDIA-007: mientras llega la foto completa, su miniatura agrandada
+    // y desenfocada (como Google Fotos). Solo de miniCache: lo que está en
+    // avatarCache ya es la completa. Se llama al navegar y cuando llegan las
+    // miniaturas de la tira (al abrir, pueden llegar después).
+    function ponerVistaPreviaVisor(foto) {
+      const imagen = document.getElementById('carrusel-imagen');
+      const mini = miniCache.get(foto.archivoId);
+      if (!mini || avatarCache.get(foto.archivoId) || imagen.dataset.previa === foto.archivoId) return;
+      imagen.onload = null;
+      imagen.onerror = null;
+      imagen.dataset.previa = foto.archivoId;
+      imagen.classList.add('es-vista-previa', 'is-loaded');
+      imagen.src = mini;
+      document.getElementById('carrusel-caption').textContent = textoLeyendaVisor(foto);
+    }
+
     async function renderCarruselFoto() {
       const miToken           = ++carruselRenderToken;
       const indiceSolicitado  = carruselIndex;
@@ -4175,11 +4416,23 @@
       if (!foto) return;
 
       if (carruselFetchTimer) { clearTimeout(carruselFetchTimer); carruselFetchTimer = null; }
+      cancelarPrecarga();
 
       // Cancela pedidos de fotos que quedaron pendientes de navegaciones
       // anteriores y ya no importan — así el pedido de ESTA foto no hace
-      // cola detrás de ellos (ver comentario de fetchArchivoDataUrl).
-      abortFetchesExcepto([foto.archivoId]);
+      // cola detrás de ellos (ver comentario de fetchArchivoDataUrl). Las
+      // vecinas que se van a precargar siguen (REQ-MEDIA-007).
+      const vecinas = idsPrecarga(indiceSolicitado);
+      abortFetchesExcepto([foto.archivoId, ...vecinas]);
+
+      // La precarga espera lo mismo que el pedido de la foto: una ráfaga de
+      // deslizamientos no pide las fotos que se pasaron de largo. Arranca
+      // sin esperar a que llegue la actual.
+      precargaTimer = setTimeout(() => {
+        precargaTimer = null;
+        colaPrecarga = vecinas.slice();
+        arrancarPrecargas();
+      }, NAV_DEBOUNCE_MS);
 
       const imagen  = document.getElementById('carrusel-imagen');
       const loader  = document.getElementById('carrusel-loader');
@@ -4204,6 +4457,12 @@
       pintarTiraVisor();
 
       const cacheada = avatarCache.get(foto.archivoId);
+
+      // REQ-MEDIA-007: mientras llega la foto completa, su miniatura
+      // agrandada y desenfocada (como Google Fotos). Solo de miniCache: lo
+      // que está en avatarCache ya es la completa.
+      if (!cacheada) ponerVistaPreviaVisor(foto);
+
       const src = cacheada
         ? cacheada
         : await new Promise(resolve => {
@@ -4216,13 +4475,17 @@
       if (miToken !== carruselRenderToken) return; // ya se navegó a otra foto
 
       if (src) {
-        imagen.classList.remove('is-loaded');
+        // Sobre la vista previa de esta misma foto no se apaga: la nítida
+        // reemplaza a la desenfocada sin pasar por negro.
+        if (imagen.dataset.previa !== foto.archivoId) imagen.classList.remove('is-loaded');
+        delete imagen.dataset.previa;
         imagen.onload = () => {
+          imagen.classList.remove('es-vista-previa');
           imagen.classList.add('is-loaded');
           loader.classList.add('is-hidden');
         };
         imagen.onerror = () => {
-          imagen.classList.remove('is-loaded');
+          imagen.classList.remove('is-loaded', 'es-vista-previa');
           imagen.removeAttribute('src');
           loader.classList.add('is-hidden');
           caption.textContent = 'No se pudo cargar la foto.';
@@ -4230,24 +4493,12 @@
         imagen.src = src;
         caption.textContent = textoLeyendaVisor(foto);
       } else {
-        imagen.classList.remove('is-loaded');
+        imagen.classList.remove('is-loaded', 'es-vista-previa');
+        delete imagen.dataset.previa;
         imagen.removeAttribute('src');
         loader.classList.add('is-hidden');
         caption.textContent = 'No se pudo cargar la foto.';
       }
-
-      // Prefetch simétrico: antes solo se traía la foto siguiente, así que
-      // retroceder a una foto no visitada nunca era instantáneo (bug
-      // encontrado por Franco en producción). Se prefetchean las dos
-      // adyacentes para que "anterior" se sienta igual de instantáneo que
-      // "siguiente" en el caso común.
-      [carruselFotos[indiceSolicitado + 1], carruselFotos[indiceSolicitado - 1]]
-        .forEach(adyacente => {
-          if (adyacente) fetchArchivoDataUrl(adyacente.archivoId).then(() => {
-            miniaturaYaLlego(adyacente.archivoId);
-            refrescarMiniTira(adyacente.archivoId);
-          });
-        });
     }
 
     // ---- REQ-MEDIA-005 (DEC-008, variante A): corregir la fecha desde el visor ----
@@ -5124,6 +5375,7 @@
       }));
       if (!carruselFotos[indice]) return;
       carruselIndex = indice;
+      carruselDireccion = 1;
       carruselDeTarea = true;
       pintarChipsRecuerdos();
       document.getElementById('carrusel-titulo').textContent = plan ? plan.titulo : 'Fotos de la tarea';
@@ -6283,6 +6535,29 @@
 
     // Click en avatar del perfil o en el wrapper → abre modal
     document.getElementById('btn-cambiar-foto').addEventListener('click', openModalFoto);
+    document.getElementById('btn-cambiar-foto-texto').addEventListener('click', openModalFoto);
+
+    // REQ-MEDIA-007: preferencia de precarga del visor, por dispositivo.
+    function pintarPreferenciaPrecarga() {
+      const pref = leerPreferenciaPrecarga();
+      document.querySelectorAll('input[name="precarga"]').forEach(r => { r.checked = r.value === pref; });
+      const auto = precargaAutomatica();
+      document.getElementById('precarga-auto-desc').textContent = auto.modo === 'amplio'
+        ? `${auto.motivo}: trae de antemano las fotos siguientes.`
+        : `${auto.motivo}: trae la foto que mirás y la siguiente.`;
+    }
+
+    document.querySelectorAll('input[name="precarga"]').forEach(r => r.addEventListener('change', () => {
+      if (!r.checked || !PRECARGA_VALORES.includes(r.value)) return;
+      try { localStorage.setItem(PRECARGA_KEY, r.value); } catch (e) { /* sin persistencia: vale hasta recargar */ }
+      preferenciaPrecargaMemoria = r.value;
+      pintarPreferenciaPrecarga();
+    }));
+
+    if (navigator.connection && navigator.connection.addEventListener) {
+      navigator.connection.addEventListener('change', pintarPreferenciaPrecarga);
+    }
+    pintarPreferenciaPrecarga();
 
     // Botón dentro del modal → abre selector de archivos
     document.getElementById('btn-abrir-selector-foto').addEventListener('click', () => {

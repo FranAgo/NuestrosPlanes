@@ -360,3 +360,11 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Prioridad: Baja
 - Origen: Duck, verificación de la fase 5 de REQ-UX-002 (2026-09-28). Los seis `.modal-overlay` llevan `backdrop-filter: blur(4px)` siempre, también con `opacity: 0` (cerrados). Viene de antes del rediseño: no es algo nuevo de 1.3.0 (criterio 4 de REQ-UX-002).
 - Nota: hipótesis: capas a pantalla completa con desenfoque, aunque invisibles, pueden costarle al celular al hacer scroll. Primero medir (Performance de Chrome con emulación de CPU 4x, scroll de la lista con y sin la regla). Si cuesta, pasar el `backdrop-filter` a `.modal-overlay.visible` y mirar que al cerrar no "salte" el desenfoque.
+
+## Sesión 2026-10-05
+
+### BL-036 — El visor tarda unos 4 s en mostrar cada foto al deslizar
+- Estado: Pasó a REQ-MEDIA-007 (2026-10-05)
+- Prioridad: Media (pedido de Franco)
+- Origen: Franco (2026-10-05), al cerrar REQ-MEDIA-006: "tarda como 4 segundos con cada desliz en cargar la siguiente foto".
+- Nota: viene de antes del visor nuevo. Cada foto completa es un `getArchivo` (piso de Apps Script de ~2 s, más hasta 1 MB en base64); la precarga va de a una foto y arranca recién cuando llegó la actual; mientras espera no se muestra la miniatura de la nueva, aunque ya está en `miniCache`, y las fotos completas viven solo en memoria. Investigación de cómo lo resuelven Meta y Google Fotos (miniatura al instante, precarga anticipada, caché en disco) y opciones A/B/C: `docs/investigacion/2026-10-05-visor-foto-siguiente.md`. Recomendación: A (solo front). Falta que Franco elija. *(2026-10-05, Franco propone un modo que ahorre datos y otro con wifi que precargue. Investigado en el mismo documento, "Segunda parte": Safari del iPhone no informa el tipo de red (solo lo sabe una app nativa); Chrome de Android sí. Falta que Franco elija entre automático, a mano en Mi perfil o las dos.)*

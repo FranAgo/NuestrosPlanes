@@ -103,3 +103,19 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10: con el pane oculto, getBoundingClientRect de un modal con scale de entrada da más chico; medir con offsetWidth, y si innerWidth da 0 fijar tamaño con resize_window y recargar.
 - Cierre de sesión: commit con los cambios de estados (DEC-016), el hook pre-commit y la versión 1.5.1 (BL-022, BL-026). El push a main (publica 1.5.1) queda para el OK de Franco.
 ========================================================
+========================================================
+2026-10-05 10:31 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-UX-003.md, REQ-MEDIA-006.md — CERRADO: Franco confirmó que andan bien en uso. En MEDIA-006 se anota que la demora de ~4 s al deslizar viene de antes y sigue en BL-036.
+- docs/investigacion/2026-10-05-visor-foto-siguiente.md — nuevo: por qué el visor tarda ~4 s por foto (getArchivo por foto, precarga de a una y tardía, sin vista previa, caché solo en memoria), cómo lo resuelven Meta y Google Fotos, opciones A/B/C; segunda parte: cómo detectan wifi/datos las apps nativas (NWPathMonitor, ConnectivityManager), cómo lo manejan WhatsApp e Instagram, y que Safari del iPhone no expone navigator.connection.
+- docs/backlog.md — BL-036 (visor lento al deslizar), pasó a REQ-MEDIA-007.
+- docs/requerimientos/REQ-MEDIA-007.md — nuevo, HECHO, versión 1.6.0: vista previa desenfocada + precarga amplio/justo + Mi perfil por secciones (variante B del mockup, elegida por Franco). Diseño, criterios y verificación.
+- index.html — REQ-MEDIA-007: preferencia cp_precarga (auto/siempre/justo) y precargaAutomatica() (saveData/cellular → justo, wifi/cable → amplio, sin dato: táctil justo, mouse amplio); idsPrecarga con carruselDireccion (amplio: 3 adelante y 1 atrás; justo: 1 adelante); cola con 2 precargas en vuelo, con el mismo retardo de 200 ms y sin esperar la foto actual; cancelarPrecarga al navegar y al cerrar; ponerVistaPreviaVisor (miniatura con blur 12px, también cuando llegan las miniaturas de la tira); loader con z-index 1. Mi perfil: foto y nombre en fila con botón "Cambiar foto" (44px con el dedo), sección "Fotos y datos" con radios, "Acerca de" con la versión. APP_VERSION 1.6.0 (Code.gs sin cambios, sigue 1.5.0).
+- docs/DESIGN.md — componente Mi perfil por secciones.
+- CHANGELOG.md — entrada 1.6.0.
+- .claude/skills/convenciones-tecnicas/ — pantallas-y-visibilidad.md: filter que pinta encima de un hermano posicionado; red-y-archivos-cliente.md: precarga con ventana y cola, tipo de red solo en Chrome Android; SKILL.md: índice.
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado (getArchivo de 4 s, ningún pedido a prod): 11 criterios del REQ (vista previa, ventana y tope de 3, ráfaga, dirección, cerrar, modo justo, radios con click/teclado/recarga, 375 px sin desborde, consola limpia). Duck encontró y se corrigieron: vista previa ausente si el visor abría antes que las miniaturas, loader tapado por el blur, blur que entraba animado, "Cambiar foto" de 30px con el dedo.
+========================================================

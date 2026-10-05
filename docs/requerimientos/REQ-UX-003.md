@@ -1,7 +1,7 @@
 # REQ-UX-003 — Tocar la tarjeta abre la tarea, con las fotos primero
 
-> **Estado:** HECHO (2026-10-02)
-> **Historia:** HECHO — en producción desde el 2026-10-02 (commit `7692165`, tag `v1.4.0`, push con OK de Franco; Pages confirmado con curl). Verificado antes en 127.0.0.1 con `fetch` simulado. Falta que Franco y Noelia lo usen en el celular.
+> **Estado:** CERRADO (2026-10-05)
+> **Historia:** HECHO — en producción desde el 2026-10-02 (commit `7692165`, tag `v1.4.0`, push con OK de Franco; Pages confirmado con curl). Verificado antes en 127.0.0.1 con `fetch` simulado. CERRADO el 2026-10-05: Franco confirmó que anda bien en uso.
 > **Versión:** 1.4.0
 > **Nivel:** cambio de fondo (pantalla nueva y cambia cómo se usa la lista). Solo front: `Code.gs` no cambia.
 > **Dueño técnico:** Jay · **PM:** Paul · **QA:** Duck · **AppSec:** Julia (sin superficie nueva)

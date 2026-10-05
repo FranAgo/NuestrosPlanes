@@ -37,3 +37,16 @@ no use esa clase tiene que tener lo mismo.
 
 **Por qué:** la sección de Fotos dejó el encabezado del modal de plan
 fuera de alcance en pantallas bajas (REQ-MEDIA-002, bitácora 2026-09).
+
+## `filter` (o `transform`, `opacity` < 1) pinta encima de un hermano posicionado
+
+**Qué cuidar:** un elemento con `filter`, `transform` u `opacity` menor que
+1 arma su propia capa y se pinta en el orden del DOM junto con los
+posicionados. Si un `position: absolute` que va antes en el DOM (un loader)
+tiene que quedar arriba, necesita `z-index`.
+
+**Por qué:** REQ-MEDIA-007 (2026-10-05): la vista previa desenfocada del
+visor (`filter: blur`) tapaba el loader, que está antes del `<img>`. Antes
+no se notaba porque la imagen esperaba con `opacity: 0`.
+
+**Dónde ya está bien:** `.carrusel-loader` con `z-index: 1`.

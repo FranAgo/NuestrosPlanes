@@ -5,6 +5,24 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.6.0] - 2026-10-05
+
+### Cambiado
+- En el visor, al pasar de foto aparece al instante una versión
+  desenfocada mientras llega la foto completa, y las fotos siguientes se
+  traen de antemano: si te quedás un momento en una foto, la próxima ya
+  está lista. (REQ-MEDIA-007)
+- Mi perfil está ordenado por secciones: tu foto y tu nombre, "Fotos y
+  datos" y "Acerca de" (con la versión).
+
+### Agregado
+- En Mi perfil, "Fotos y datos" elige cuánto precarga el visor en cada
+  dispositivo: Automático, Precargar siempre o Solo lo necesario. En
+  Automático, con datos móviles o en el celular trae solo lo necesario, y
+  con wifi o en la computadora precarga. En el iPhone el navegador no
+  avisa si hay wifi: si estás con wifi y querés que precargue, elegí
+  "Precargar siempre".
+
 ## [1.5.1] - 2026-10-05
 
 ### Cambiado

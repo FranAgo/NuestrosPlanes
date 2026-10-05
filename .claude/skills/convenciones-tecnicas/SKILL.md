@@ -11,7 +11,7 @@ description: >
   `CacheService` y sus claves, sesiones recién creadas que dan 401;
   mostrar/ocultar pantallas, overlays y modales: atributo `hidden` contra
   `display`, estilo inline contra clase, pantalla negra, modal más alto que
-  la pantalla; fotos y archivos de Drive en el cliente: pedidos en vuelo,
+  la pantalla, `filter` que tapa un loader; fotos y archivos de Drive en el cliente: precarga del visor, wifi o datos (`navigator.connection`), pedidos en vuelo,
   `AbortController`, cachear fallos, respuestas viejas, `<img>` sin `src`,
   cuota de `localStorage`, lotes lentos, miniaturas, EXIF que borra
   `canvas`; errores de carga que
@@ -34,8 +34,8 @@ actual.
 
 - [apps-script-clasp.md](apps-script-clasp.md) — deploy con clasp a prod y test, `clasp run -u duck`, qué sube un `push`, Ejecuciones y logs invisibles, editor de Apps Script por control remoto.
 - [sheets-concurrencia.md](sheets-concurrencia.md) — escrituras que el request siguiente no ve (`flush()`), lecturas fuera del lock, claves de `CacheService` compartidas entre planillas.
-- [pantallas-y-visibilidad.md](pantallas-y-visibilidad.md) — `hidden` contra `display:flex`, estilo inline que le gana a la clase, modales sin scroll interno.
-- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`, escrituras que una lectura vieja en vuelo pisa.
+- [pantallas-y-visibilidad.md](pantallas-y-visibilidad.md) — `hidden` contra `display:flex`, estilo inline que le gana a la clase, modales sin scroll interno, `filter` que pinta encima de un hermano posicionado.
+- [red-y-archivos-cliente.md](red-y-archivos-cliente.md) — fotos de Drive en el front: deduplicar y cancelar pedidos, no cachear fallos, descartar respuestas viejas, `<img>` sin fuente, cuota de `localStorage`, errores de carga que parecen lista vacía, EXIF que borra `canvas`, escrituras que una lectura vieja en vuelo pisa, precarga con ventana y cola, tipo de red solo en Chrome Android.
 - [seguridad.md](seguridad.md) — lo propio de Nuestros Planes para `hjulia-revision-cambio`: lista blanca, sesión opaca, validación en el servidor, `escapeHtml`, proxy de Drive, Auditoría, tests server-side.
 - [fechas.md](fechas.md) — "hoy" en hora Argentina y no con `toISOString()` (UTC), fechas solo-día que se corren.
 - [verificacion-navegador.md](verificacion-navegador.md) — lo propio de Nuestros Planes para `hjay-verificacion-visual`: preview local, que `localhost` pega al Apps Script de PRODUCCIÓN, login, fetch simulado, cortes `@media`, probar contra el Web App de test con dos sesiones (`simPLAN001_preparar`), `clasp run` de solo lectura a prod, estados intermedios y carreras con fetch simulado, confirmar qué versión sirve GitHub Pages, Browser pane oculto (transiciones quietas, capturas viejas o achicadas: medir con JS), Safari de iPhone que el Browser pane no reproduce (campo de fecha que no respeta `width:100%`).

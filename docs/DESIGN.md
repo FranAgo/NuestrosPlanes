@@ -359,6 +359,18 @@ se corta con `…`. En el modal, `.recuerdos-chip` (mismo aspecto que
 **Avatar:** `.avatar` (30px, 72px con `.avatar-lg`), círculo con borde
 `--copper-dim`; sin foto, muestra la inicial en cobre.
 
+**Mi perfil (REQ-MEDIA-007):** por secciones de 420px de ancho máximo. Arriba
+`.perfil-card` con la foto y el nombre en fila y `.perfil-link` ("Cambiar
+foto", cobre claro, 44px de alto con el dedo). Cada sección es
+`.perfil-seccion` con un `.perfil-seccion-titulo` (Jost 0.72rem en
+mayúsculas, `--text-muted`, como los labels) y una `.perfil-card` con
+padding de 1.2rem. Opciones excluyentes: `.perfil-opcion`, un `<label>` con
+un radio nativo (`appearance: none`, 18px, borde `--border-control`,
+marcado en cobre con el centro de `--bg-card`), título en `--text-main` y
+descripción en `--text-muted`, separadas por un borde `--border`. Un dato
+de solo lectura va en `.perfil-fila` (nombre a la izquierda, valor a la
+derecha). Un ajuste nuevo se suma como otra sección.
+
 **Corazón de la marca:** SVG relleno con `url(#np-heart-metal)`, un
 degradé cobre metálico definido una sola vez en un `<svg>` oculto al
 principio del `<body>`, más un reflejo arriba a la izquierda y un halo
