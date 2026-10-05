@@ -5,6 +5,14 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.6.2] - 2026-10-05
+
+### Cambiado
+- Cerrar sesión ahora pregunta antes ("¿Cerrar sesión?") y, mientras se
+  cierra, la app queda difuminada con el aviso "Cerrando sesión…". El
+  botón del encabezado pasó de una X a una puerta con flecha, para que no
+  se confunda con "cerrar ventana". En el celular es más fácil de tocar.
+
 ## [1.6.1] - 2026-10-05
 
 ### Cambiado

@@ -370,7 +370,31 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 - Nota: viene de antes del visor nuevo. Cada foto completa es un `getArchivo` (piso de Apps Script de ~2 s, más hasta 1 MB en base64); la precarga va de a una foto y arranca recién cuando llegó la actual; mientras espera no se muestra la miniatura de la nueva, aunque ya está en `miniCache`, y las fotos completas viven solo en memoria. Investigación de cómo lo resuelven Meta y Google Fotos (miniatura al instante, precarga anticipada, caché en disco) y opciones A/B/C: `docs/investigacion/2026-10-05-visor-foto-siguiente.md`. Recomendación: A (solo front). Falta que Franco elija. *(2026-10-05, Franco propone un modo que ahorre datos y otro con wifi que precargue. Investigado en el mismo documento, "Segunda parte": Safari del iPhone no informa el tipo de red (solo lo sabe una app nativa); Chrome de Android sí. Falta que Franco elija entre automático, a mano en Mi perfil o las dos.)*
 
 ### BL-037 — La X del encabezado cierra la sesión sin preguntar ni avisar
-- Estado: Propuesto
+- Estado: Hecho (1.6.2)
 - Prioridad: Media (pedido de Franco)
 - Origen: Franco (2026-10-05, probando 1.6.0 en la computadora): "pulsar la x al lado de perfil desloguea directamente".
 - Nota: pide dos cosas: (1) confirmar antes de cerrar la sesión (el `confirmarModal` de siempre sirve) y (2) avisar mientras se está cerrando, porque desde BL-021 el logout recarga la página. Franco quiere debatir en otra sesión cómo se ve el aviso: pantalla bloqueada y difuminada con "Cerrando sesión…" u otra cosa; va con mockup antes. Revisar también si una X es el ícono correcto para "cerrar sesión" (hoy se lee como "cerrar" una ventana).
+- Resuelto: en 1.6.2 (2026-10-05), con el mockup elegido por Franco (ícono B, confirmación, aviso A): ícono de puerta con flecha; confirmación con el modal de siempre (botón cobre, título "¿Cerrar sesión?", `confirmarModal` suma un título opcional); aviso a pantalla completa con la app difuminada e `inert` hasta la recarga, también cuando la sesión vence (401, sin preguntar). Avisar al servidor tiene un tope de 6 s para que la app bloqueada no quede colgada. Con el dedo, 45px de área. Verificado en 127.0.0.1 con `fetch` simulado: cancelar no manda nada, confirmar bloquea y recarga al login, logout colgado recarga a los 6,05 s, 401 muestra el aviso y "Tu sesión expiró"; 375 sin desborde y consola limpia
+
+## Sesión 2026-10-05 (2)
+
+Cómo seguir, propuesta de Paul al cerrar la sesión (sin ítems nuevos; el
+estado de cada cosa vive en su ítem o su REQ):
+
+1. **Parche de arreglos cortos**, en una sola versión: BL-017 (pasar las
+   fotos a `archivado` al borrar la tarea; servidor), BL-002 (tests
+   permanentes de `getArchivos` y `getRecentPlanPhotos`, con el 401) y
+   BL-005 (enmascarar también el dominio en Auditoría). Opcional: medir
+   BL-035.
+2. **REQ-UX-001** (cada error explica qué pasó y qué hacer): el siguiente
+   REQ grande, sin cambio de contrato.
+3. **REQ-SYNC-001** (ver los cambios del otro sin recargar): el más grande;
+   endpoint nuevo y cuota de Apps Script.
+4. **Para confirmar en uso con Franco** (sin programar): REQ-MEDIA-007
+   (visor y Mi perfil en 1.6.x), BL-032 (abrir una tarea ya vista, en la
+   computadora y en el teléfono), REQ-PERF-001 y REQ-PERF-004 para
+   cerrarlos.
+5. **Esperan una decisión de Franco**: BL-009 (borrar una foto), BL-010
+   (reordenar), BL-008 (tope de fotos), BL-023 (videos), BL-003 (rol
+   admin), BL-006 (retención de Auditoría), BL-019 (alerta de
+   autorización), BL-001 (carga inicial única).

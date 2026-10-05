@@ -734,6 +734,13 @@
       gap: 1rem;
     }
 
+    /* BL-037: con el dedo, 45px de área para cerrar sesión (el botón mide
+       25); la separación con el chip es de 16px, no se pisan. */
+    @media (pointer: coarse) {
+      #btn-logout { position: relative; }
+      #btn-logout::before { content: ''; position: absolute; inset: -10px; }
+    }
+
     .user-chip {
       display: flex;
       align-items: center;
@@ -1861,6 +1868,39 @@
 
     #app-loading .retry-btn:hover { border-color: var(--copper); }
 
+    /* BL-037: cerrando sesión. La app queda atrás, difuminada y sin poder
+       tocarse (además, #app-screen queda inert). Encima de los modales (200)
+       y debajo del cursor propio. Con hidden, para que el blur no exista
+       mientras no se ve (BL-035). */
+    #logout-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.9rem;
+      background: rgba(8,7,6,0.6);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      animation: logout-aparecer var(--dur) var(--ease-out);
+    }
+
+    #logout-overlay .spinner {
+      width: 22px;
+      height: 22px;
+      border-width: 2px;
+    }
+
+    #logout-overlay p {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+      letter-spacing: 0.02em;
+    }
+
+    @keyframes logout-aparecer { from { opacity: 0; } }
+
     /* Skeleton de carga inicial: mimetiza el layout de plans-grid mientras
        initApp() trae los datos, en vez de un spinner genérico. */
     .skeleton-shell {
@@ -2897,7 +2937,8 @@
           <span id="header-nombre" style="font-size:0.82rem; font-weight:400; color:var(--text-soft)"></span>
         </div>
         <button type="button" class="btn-icon" id="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <!-- BL-037: puerta con flecha; la X se leía como "cerrar ventana". -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3M18 15l3-3"/></svg>
         </button>
       </div>
     </header>
@@ -3295,6 +3336,12 @@
     </div>
   </div>
 
+  <!-- BL-037: aviso mientras se cierra la sesión (avisar al servidor + recarga). -->
+  <div id="logout-overlay" role="status" aria-live="polite" hidden>
+    <span class="spinner"></span>
+    <p>Cerrando sesión…</p>
+  </div>
+
   <!-- ================================================
        JAVASCRIPT
   ================================================ -->
@@ -3304,7 +3351,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.6.1';
+    const APP_VERSION = '1.6.2';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -4758,6 +4805,7 @@
       const yaEnLogin = loginScreen.style.display === 'flex';
 
       if (state.session) {
+        mostrarCerrandoSesion();
         clearSession();
         state.users = {};
         recargandoPorLogout = true;
@@ -4790,10 +4838,33 @@
       }
     }
 
+    // BL-037: aviso a pantalla completa mientras se cierra. La app queda
+    // difuminada atrás e inert (ni mouse ni teclado). No se oculta nunca:
+    // termina en la recarga de forceLogout().
+    function mostrarCerrandoSesion() {
+      document.getElementById('logout-overlay').hidden = false;
+      appScreen.inert = true;
+      document.activeElement?.blur();   // el foco quedaba en el botón del modal ya cerrado
+    }
+
+    // Tope para avisar al servidor: con la app bloqueada, un pedido colgado
+    // no puede dejar al usuario esperando para siempre.
+    const LOGOUT_TIMEOUT_MS = 6000;
+
     document.getElementById('btn-logout').addEventListener('click', async () => {
+      if (recargandoPorLogout) return;
+      // BL-037: confirmar antes; botón en cobre porque no borra nada.
+      const ok = await confirmarModal(
+        'Para volver a entrar vas a tener que elegir tu cuenta de Google de nuevo.',
+        'Cerrar sesión', false, '¿Cerrar sesión?');
+      if (!ok) return;
+      mostrarCerrandoSesion();
       // Best-effort: avisamos al backend para que revoque la sesión, pero si
-      // falla igual cerramos localmente.
-      try { await api('logout'); } catch (e) { /* ignorado a propósito */ }
+      // falla o tarda demasiado igual cerramos localmente.
+      const ctrl = new AbortController();
+      const tope = setTimeout(() => ctrl.abort(), LOGOUT_TIMEOUT_MS);
+      try { await api('logout', {}, ctrl.signal); } catch (e) { /* ignorado a propósito */ }
+      clearTimeout(tope);
       forceLogout();
     });
 
@@ -6616,7 +6687,8 @@
     // true si el usuario aceptó, false si canceló o cerró de cualquier forma.
     // `peligro`: la acción borra o descarta algo -> botón rojo. Si no (ej.
     // "Reabrir"), el botón es el principal, en cobre.
-    function confirmarModal(mensaje, textoAceptar = 'Eliminar', peligro = true) {
+    function confirmarModal(mensaje, textoAceptar = 'Eliminar', peligro = true, titulo = 'Confirmar') {
+      document.getElementById('modal-confirm-title').textContent = titulo;
       document.getElementById('modal-confirm-msg').textContent = mensaje;
       const btnAceptar = document.getElementById('btn-accept-confirm');
       btnAceptar.textContent = textoAceptar;

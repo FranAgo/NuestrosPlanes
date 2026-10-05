@@ -214,6 +214,15 @@ a `preset: desktop` al terminar.
 **Por qué:** 1.6.1 (2026-10-05): la captura de Mi perfil a 1366 salió como
 un recuadro diminuto en una esquina.
 
+**Además, con un tamaño emulado los clicks llegan corridos.** Con
+`resize_window` a 960x700 en un panel más angosto, el click por `ref` a
+(536, 409) llegó a la página en (677, 517): cayó en el fondo del modal y
+lo cerró como "cancelar". Para probar clicks reales, sacar la emulación
+(`preset: desktop`) y recargar; con emulación, confirmar dónde llegó con
+un `addEventListener('click', …, true)` que registre `e.target`, o
+usar `el.click()` sabiendo que no prueba la posición. Pasó con BL-037
+(2026-10-05).
+
 ## 11. Safari de iPhone: lo que el Browser pane no muestra
 
 **Qué cuidar:**

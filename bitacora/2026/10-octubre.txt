@@ -143,3 +143,15 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10 bis: viewport emulado más grande que el panel da capturas ilegibles; medir con JS y capturar a un ancho que entre.
 - Cierre de sesión: backlog al día (BL-036 pasó a REQ-MEDIA-007, BL-037 nuevo); REQ-UX-003 y REQ-MEDIA-006 cerrados; REQ-MEDIA-007 en HECHO hasta que Franco confirme en uso (pendiente además ver "Automático" en un Android real con wifi y con datos).
 ========================================================
+========================================================
+2026-10-05 11:58 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html — 1.6.2, BL-037: cerrar sesión. Mockup con tres decisiones; Franco eligió ícono B (puerta con flecha en vez de X), confirmación con el modal de siempre (botón cobre, título "¿Cerrar sesión?") y aviso A (app difuminada con "Cerrando sesión…"). confirmarModal suma un 4.º parámetro opcional titulo (por defecto "Confirmar"). #logout-overlay con hidden, z-index 300, backdrop-filter solo mientras se ve; mostrarCerrandoSesion() pone #app-screen inert y saca el foco; se llama desde el botón y desde forceLogout() con sesión (401, sin preguntar). api('logout') con AbortController y tope LOGOUT_TIMEOUT_MS = 6000. #btn-logout con 45px de área táctil en pointer: coarse. APP_VERSION 1.6.2 (solo front, Code.gs sigue 1.5.0).
+- CHANGELOG.md — entrada 1.6.2.
+- docs/backlog.md — BL-037 Hecho (1.6.2) con su Resuelto; sección "Sesión 2026-10-05 (2)" con el orden propuesto para seguir.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10 bis: con viewport emulado los clicks por ref llegan corridos.
+- Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado, sin pedidos a prod: cancelar no manda nada; confirmar muestra el aviso, bloquea lo de atrás (elementFromPoint = overlay, inert) y recarga al login; logout colgado recarga a los 6,05 s; 401 muestra el aviso y "Tu sesión expiró"; 375 sin desborde, área táctil 44,6px sin pisar el chip; consola limpia. No probado: login real de Google después de salir (el Browser pane no permite el login).
+========================================================
