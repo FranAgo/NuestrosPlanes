@@ -181,3 +181,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A tal como estaba en el primer mockup (Franco: "dejamos la variante A original"). "Todos" muestra solo planes con fecha y una idea no se completa sin ponerle fecha antes ("las ideas sin definir días aún no son realmente un plan"). Misma hoja `Planes`, idea = `fecha_programada` vacía. Nombre del chip: "Algún día". Jay había recomendado A; Paul, la mezcla con todo abierto al entrar.
 - Motivo: A obliga a ver todas las ideas cada vez que se entra, que es el objetivo (ponerles fecha). Plegar o separar en otra vista esconde justo lo que se quiere que no se olvide. Con la misma hoja, pasar a plan es ponerle fecha: fotos, auditoría y permisos no cambian.
 - Reabrir si: las ideas pasan a ser tantas que la lista se vuelve larga de recorrer en el teléfono.
+
+## DEC-019 — Un plan con fecha no vuelve a ser idea
+- Fecha: 2026-10-05
+- Estado: Aceptada
+- Contexto: REQ-PLAN-003 no decía qué pasa si al editar un plan se le borra el día de inicio. Hasta 1.7.0, `updatePlan` tomaba una fecha vacía como "no la cambies".
+- Opciones consideradas: (A) no se puede: la fecha se cambia pero no se vacía; (B) se puede si está pendiente: vuelve a "Algún día" y se borran los acuerdos de cierre, Termina y Vencimiento.
+- Decisión: A (Franco, 2026-10-05; era la recomendada por Bob). El servidor sigue ignorando una fecha vacía al editar y el front avisa "Un plan con fecha no puede quedar sin fecha".
+- Motivo: el contrato de `updatePlan` casi no cambia y no hay que decidir qué pasa con los acuerdos que ya se dieron.
+- Reabrir si: en uso aparece la necesidad de "postergar sin fecha" un plan ya agendado.

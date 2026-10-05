@@ -2863,3 +2863,131 @@ function probarPLAN002() {
 
   return R.finalizar();
 }
+
+// ============================================================
+// probarPLAN003() — REQ-PLAN-003: ideas sin fecha ("Algún día"). createPlan
+// guarda sin fechaProgramada; sin inicio no hay fin ni vencimiento; una idea
+// no se completa ni recibe acuerdo; ponerle fecha la pasa a plan; a un plan
+// con fecha no se le puede vaciar. BL-038: conteoPlanesSinCategoria.
+//   clasp push -f -P .clasp-test.json -I .claspignore-test
+//   clasp run probarPLAN003 -P .clasp-test.json -u duck
+// Planilla scratch propia, se borra al terminar.
+// ============================================================
+
+function probarPLAN003() {
+  const R = nuevoReporte('REQ-PLAN-003');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarPLAN003 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);   // trae la categoría cat_mant y usr_fran / usr_noe
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const base = { titulo: 'Idea', userId: 'usr_fran', categoriaId: 'cat_mant' };
+    const crear = extra => parseResp(handleCreatePlan(Object.assign({}, base, extra)));
+    const planDe = planId => parseResp(handleGetPlanes({})).planes.filter(p => p.planId === planId)[0];
+    const upd = body => parseResp(handleUpdatePlan(Object.assign({ authUserId: 'usr_fran' }, body)));
+    const acuerdo = (planId, deAcuerdo) =>
+      parseResp(handleSetAcuerdoCierre({ planId: planId, deAcuerdo: deAcuerdo, authUserId: 'usr_fran' }));
+    const celdaInicio = planId => filaPorId('Planes', planId)[col('Planes', 'fecha_programada')];
+
+    // I1 · Crear una idea.
+    const idea = crear({});
+    R.eq('I1 · createPlan sin fechaProgramada -> 200', idea.status, 200);
+    R.eq('I1 · la celda fecha_programada queda vacía', idea.planId ? celdaInicio(idea.planId) : null, '');
+    R.eq('I1 · getPlanes la devuelve con fechaProgramada null', idea.planId ? planDe(idea.planId).fechaProgramada : 'sin idea', null);
+    R.eq('I1 · createPlan con fechaProgramada vacía -> 200', crear({ fechaProgramada: '' }).status, 200);
+    R.eq('I1 · createPlan con fecha sigue andando -> 200', crear({ fechaProgramada: '2026-10-10' }).status, 200);
+    // Sin idea creada (Code.gs viejo) el resto no tiene sobre qué correr.
+    const ideaId = idea.planId || crear({ fechaProgramada: '2026-10-10' }).planId;
+
+    // I2 · Sin inicio no hay fin ni vencimiento; fecha inválida.
+    const filasAntes = filasDe('Planes').length;
+    R.eq('I2 · sin inicio con fechaFin -> 400', crear({ fechaFin: '2026-10-12' }).status, 400);
+    R.eq('I2 · sin inicio con fechaVencimiento -> 400', crear({ fechaVencimiento: '2026-10-12' }).status, 400);
+    R.eq('I2 · inicio inexistente (31/02) -> 400', crear({ fechaProgramada: '2026-02-31' }).status, 400);
+    R.eq('I2 · inicio que no es fecha -> 400', crear({ fechaProgramada: 'mañana' }).status, 400);
+    R.eq('I2 · sin título -> 400', crear({ titulo: '' }).status, 400);
+    R.eq('I2 · los rechazados no agregaron filas', filasDe('Planes').length, filasAntes);
+
+    // I3 · Editar una idea sin ponerle fecha.
+    R.eq('I3 · update de título de una idea -> 200', upd({ planId: ideaId, titulo: 'Idea editada', fechaProgramada: '' }).status, 200);
+    R.eq('I3 · sigue siendo idea', planDe(ideaId).fechaProgramada, null);
+    R.eq('I3 · idea + fechaFin sin inicio -> 400', upd({ planId: ideaId, fechaFin: '2026-10-12' }).status, 400);
+    R.eq('I3 · idea + vencimiento sin inicio -> 400', upd({ planId: ideaId, fechaVencimiento: '2026-10-12' }).status, 400);
+    R.eq('I3 · idea + fechas vacías -> 200', upd({ planId: ideaId, fechaFin: '', fechaVencimiento: '' }).status, 200);
+
+    // I4 · Una idea no se completa ni recibe acuerdo.
+    const comp = parseResp(handleCompletePlan({ planId: ideaId, authUserId: 'usr_fran' }));
+    R.eq('I4 · completePlan de una idea -> 409 SIN_FECHA', comp.status + ' ' + comp.code, '409 SIN_FECHA');
+    const dar = acuerdo(ideaId, true);
+    R.eq('I4 · dar acuerdo a una idea -> 409 SIN_FECHA', dar.status + ' ' + dar.code, '409 SIN_FECHA');
+    R.eq('I4 · la idea sigue sin acuerdos', planDe(ideaId).acuerdos.length, 0);
+    R.eq('I4 · sacar acuerdo de una idea -> 200', acuerdo(ideaId, false).status, 200);
+    R.eq('I4 · sigue pendiente', planDe(ideaId).estado, 'pendiente');
+
+    // I5 · Ponerle fecha la pasa a plan.
+    R.eq('I5 · update con fecha inválida -> 400', upd({ planId: ideaId, fechaProgramada: '2026-13-01' }).status, 400);
+    R.eq('I5 · la inválida no la tocó', planDe(ideaId).fechaProgramada, null);
+    R.eq('I5 · ponerle fecha, fin y vencimiento -> 200',
+         upd({ planId: ideaId, fechaProgramada: '2026-11-01', fechaFin: '2026-11-03', fechaVencimiento: '2026-11-05' }).status, 200);
+    const yaPlan = planDe(ideaId);
+    R.eq('I5 · quedó con inicio', yaPlan.fechaProgramada, '2026-11-01');
+    R.eq('I5 · quedó con fin', yaPlan.fechaFin, '2026-11-03');
+    R.eq('I5 · quedó con vencimiento', yaPlan.fechaVencimiento, '2026-11-05');
+    R.eq('I5 · ya con fecha, dar acuerdo -> 200', acuerdo(ideaId, true).status, 200);
+
+    // I6 · A un plan con fecha no se le vacía (decisión de Franco 2026-10-05).
+    R.eq('I6 · update con fechaProgramada vacía -> 200', upd({ planId: ideaId, fechaProgramada: '' }).status, 200);
+    R.eq('I6 · la fecha sigue', planDe(ideaId).fechaProgramada, '2026-11-01');
+    R.eq('I6 · update con fechaProgramada null -> 200', upd({ planId: ideaId, fechaProgramada: null }).status, 200);
+    R.eq('I6 · la fecha sigue (null)', planDe(ideaId).fechaProgramada, '2026-11-01');
+    R.eq('I6 · el acuerdo dado sigue', planDe(ideaId).acuerdos.join(','), 'usr_fran');
+
+    // I7 · Por doPost, como el front.
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    const porPost = pedir({ action: 'createPlan', sessionToken: t, titulo: 'Idea de Noe', categoriaId: 'cat_mant',
+                            fechaProgramada: '', fechaVencimiento: '', fechaFin: '' });
+    R.eq('I7 · doPost createPlan sin fecha -> 200', porPost.status, 200);
+    R.eq('I7 · la creó Noelia (sale de la sesión)', porPost.planId ? planDe(porPost.planId).creadoPor : null, 'usr_noe');
+    R.eq('I7 · doPost completePlan de la idea -> 409',
+         porPost.planId ? pedir({ action: 'completePlan', sessionToken: t, planId: porPost.planId }).status : null, 409);
+
+    // I8 · BL-038: conteo de tareas sin categoría (solo lectura).
+    const sinCat = crear({ titulo: 'Vieja sin categoría', fechaProgramada: '2026-10-10' }).planId;
+    const hoja = SpreadsheetApp.openById(scratchId).getSheetByName('Planes');
+    const ids = hoja.getRange(1, 1, hoja.getLastRow(), 1).getValues().map(r => r[0]);
+    hoja.getRange(ids.indexOf(sinCat) + 1, col('Planes', 'categoria_id') + 1).setValue('');
+    SpreadsheetApp.flush();
+    const filasPrevias = JSON.stringify(filasDe('Planes'));
+    const conteo = typeof conteoPlanesSinCategoria === 'function'
+      ? conteoPlanesSinCategoria() : { cantidad: -1, titulos: [] };
+    R.eq('I8 · cuenta una sin categoría', conteo.cantidad, 1);
+    R.eq('I8 · devuelve su título', conteo.titulos.join('|'), 'Vieja sin categoría');
+    R.eq('I8 · no escribió nada', JSON.stringify(filasDe('Planes')), filasPrevias);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}

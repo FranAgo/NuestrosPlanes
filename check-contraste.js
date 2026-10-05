@@ -66,6 +66,7 @@ const PARES = [
   ['--red-venc', '--red-venc-bg', 4.5, 'rojo sobre su fondo (badge, error)'],
   ['--red-venc', '--bg-elevated', 4.5, 'error de campo sobre modal (REQ-PLAN-002)'],
   ['--green-ok', '--bg-elevated', 4.5, 'confirmación de campo sobre modal (REQ-PLAN-002)'],
+  ['--amber', '--bg-card', 4.5, 'idea anotada hace más de 3 meses (REQ-PLAN-003)'],
   ['--border-control', '--bg-elevated', 3, 'borde de campo sobre modal'],
   ['--red-line', '--bg-input', 3, 'borde de campo con error (REQ-PLAN-002)'],
   ['--border-control', '--bg-card', 3, 'borde de botón secundario sobre tarjeta'],

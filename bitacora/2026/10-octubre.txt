@@ -184,3 +184,23 @@ Cambios:
 - Deploy 1.7.0 con OK de Franco: commit d0d934f + tag v1.7.0, push a main; GitHub Pages sirve 1.7.0 (confirmado con curl). Servidor: clasp push a prod, versión 33, redeploy de AKfycbyKWC… @33.
 - Cierre de sesión: REQ-PLAN-003 ("Algún día") queda PROPUESTO para la próxima sesión, con diseño decidido (DEC-018). BL-038 se sube junto con él. Sin cuidados nuevos para convenciones-tecnicas.
 ========================================================
+========================================================
+2026-10-05 13:33 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- REQ-PLAN-003 ("Algún día", ideas sin fecha), paso dos del pedido de Noelia. Antes de implementar, Franco decidió que un plan con fecha no vuelve a idea (DEC-019).
+- Code.gs — 1.8.0. createPlan acepta guardar sin fechaProgramada (idea, celda vacía). validarInicio(): si llega inicio tiene que ser un día real; sin inicio no hay Termina ni Vencimiento (400). updatePlan valida contra lo que va a quedar y una fecha vacía sigue sin borrar la que hay. completePlan y setAcuerdoCierre (dar) rechazan una idea con 409 SIN_FECHA; sacar el acuerdo sí se permite. Bug de paso: updatePlan aceptaba un inicio imposible (2026-13-01) y lo guardaba como 1970-01-01; ahora da 400. BL-038: conteoPlanesSinCategoria(), solo lectura, fuera de doPost.
+- Tests.gs — probarPLAN003 (39 casos, incluye doPost y BL-038).
+- index.html — 1.8.0. Chip "Algún día · N"; ideas agrupadas por categoría (ordenadas por su idea más vieja), de la más vieja a la más nueva, dos columnas desde 720px; tarjeta con círculo punteado, "Anotada hace X · quién" (ámbar con más de 3 meses) y "Ponerle fecha" (formulario con foco en la fecha; guardar o cancelar cierra el modal). "Todos" sin ideas. Detalle de una idea sin estado ni acuerdo, con "Ponerle fecha". Formulario: "Empieza" opcional con aviso; frena vaciar la fecha de un plan y Termina/Vencimiento sin inicio.
+- check-contraste.js — par nuevo: --amber sobre tarjeta.
+- docs/DESIGN.md — estados "Idea sin fecha" e "Idea anotada hace más de 3 meses" (--amber #DDB061, solo para eso).
+- CHANGELOG.md — entrada 1.8.0.
+- docs/requerimientos/REQ-PLAN-003.md — HECHO, versión 1.8.0.
+- docs/decisiones.md — DEC-019: un plan con fecha no vuelve a ser idea.
+- docs/backlog.md — BL-038 Hecho (1.8.0): en prod hay 0 tareas sin categoría.
+- Verificado: node check-sintaxis.js y check-contraste.js OK. Test: probarPLAN003 con el Code.gs de 1.7.0 20/39 FAIL (el test muerde), con el nuevo 39/39; probarPLAN002 26/26, probarPLAN001 44/44, probarMEDIA005 59/59, probarDATA002 70/70. Front en 127.0.0.1 con fetch simulado, sin pedidos a prod: filtros, orden, Ponerle fecha desde la lista y desde el detalle, crear idea, vaciar fecha de un plan, cancelar; 375, 719/720 y 1366 sin scroll horizontal; consola limpia.
+- Deploy servidor con OK de Franco: clasp push a prod, versión 34, redeploy de AKfycbyKWC… @34. Después, clasp run conteoPlanesSinCategoria -u duck contra prod: { cantidad: 0, titulos: [] }.
+- Deploy front con OK de Franco: commit + tag v1.8.0, push a main.
+========================================================

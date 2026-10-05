@@ -5,6 +5,26 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.8.0] - 2026-10-05
+
+### Agregado
+- "Algún día": ideas de planes que todavía no tienen día. Si guardás un
+  plan sin "Empieza", queda como idea en el filtro "Algún día" (con la
+  cantidad al lado), agrupada por categoría y de la más vieja a la más
+  nueva. Cada idea dice hace cuánto se anotó y quién; si pasaron más de 3
+  meses, en ámbar. Con "Ponerle fecha" elegís el día y pasa sola a Planes.
+  (REQ-PLAN-003)
+
+### Cambiado
+- "Todos" muestra solo los planes con fecha: las ideas están en "Algún
+  día". Una idea no se puede completar ni dar el acuerdo de cierre hasta
+  que tenga fecha, y a un plan que ya tiene fecha no se le puede quitar.
+  (REQ-PLAN-003)
+
+### Corregido
+- Una fecha de inicio imposible (por ejemplo, mes 13) ya no se guarda como
+  1/1/1970: el servidor la rechaza.
+
 ## [1.7.0] - 2026-10-05
 
 ### Agregado

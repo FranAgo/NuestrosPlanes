@@ -1186,13 +1186,17 @@ function handleGetPlanes(body) {
 function handleCreatePlan(body) {
   const { titulo, categoriaId, userId, fechaProgramada, fechaVencimiento, fechaFin } = body;
 
-  if (!titulo || !userId || !fechaProgramada) {
-    return respond(400, { error: 'Título, usuario y fecha programada son requeridos.' });
+  if (!titulo || !userId) {
+    return respond(400, { error: 'Título y usuario son requeridos.' });
   }
   // REQ-PLAN-002: toda tarea lleva categoría.
   if (!categoriaId) {
     return respond(400, { error: 'Elegí una categoría para guardar.' });
   }
+
+  // REQ-PLAN-003: sin día de inicio es una idea ("Algún día").
+  const errorInicio = validarInicio(fechaProgramada || '', fechaVencimiento, fechaFin);
+  if (errorInicio) return respond(400, { error: errorInicio });
 
   const errorFin = validarFechaFin(fechaFin, fechaProgramada);
   if (errorFin) return respond(400, { error: errorFin });
@@ -1217,7 +1221,7 @@ function handleCreatePlan(body) {
       case 'categoria_id':       return categoriaId;
       case 'creado_por':         return userId;
       case 'fecha_creacion':     return ahora;
-      case 'fecha_programada':   return new Date(fechaProgramada);
+      case 'fecha_programada':   return fechaProgramada ? new Date(fechaProgramada) : '';
       case 'fecha_vencimiento':  return fechaVencimiento ? new Date(fechaVencimiento) : '';
       case 'fecha_fin':          return normalizarFechaFin(fechaFin, fechaProgramada);
       case 'estado':             return 'pendiente';
@@ -1247,10 +1251,16 @@ function handleUpdatePlan(body) {
   // REQ-MEDIA-005: el fin se valida contra el inicio que va a quedar (el
   // que llega o, si no llega, el de la hoja) antes de escribir nada. Si
   // solo cambia el inicio y queda después del fin guardado, se rechaza.
+  // REQ-PLAN-003: una fecha vacía no borra la que hay (un plan con fecha no
+  // vuelve a idea, decisión de Franco 2026-10-05); una idea sigue siéndolo.
   const inicioFinal = fechaProgramada ||
-    formatDate(sheet.getRange(rowIndex, col('fecha_programada')).getValue());
+    formatDate(sheet.getRange(rowIndex, col('fecha_programada')).getValue()) || '';
   const finFinal = fechaFin !== undefined ? fechaFin :
     (col('fecha_fin') ? formatDate(sheet.getRange(rowIndex, col('fecha_fin')).getValue()) : '');
+  const vencFinal = fechaVencimiento !== undefined ? fechaVencimiento :
+    formatDate(sheet.getRange(rowIndex, col('fecha_vencimiento')).getValue());
+  const errorInicio = validarInicio(inicioFinal, vencFinal, finFinal);
+  if (errorInicio) return respond(400, { error: errorInicio });
   const errorFin = validarFechaFin(finFinal, inicioFinal);
   if (errorFin) return respond(400, { error: errorFin });
 
@@ -1307,6 +1317,8 @@ function handleCompletePlan(body) {
     if (fila[h.indexOf('estado')] !== 'pendiente') {
       return respond(409, { error: 'La tarea ya está completada.', code: 'NO_PENDIENTE' });
     }
+    // REQ-PLAN-003: una idea no se completa sin ponerle fecha antes.
+    if (!fila[h.indexOf('fecha_programada')]) return respond(409, ERROR_IDEA_SIN_FECHA);
 
     // REQ-PLAN-001: primero el acuerdo de todos los habilitados; recién
     // después la foto (el REQ pide ese orden, punto 4).
@@ -1372,6 +1384,10 @@ function handleSetAcuerdoCierre(body) {
         code: 'NO_PENDIENTE',
       });
     }
+
+    // REQ-PLAN-003: a una idea no se le da acuerdo de cierre (sacarlo sí,
+    // por si una fila editada a mano quedó con acuerdos y sin fecha).
+    if (deAcuerdo && !fila[h.indexOf('fecha_programada')]) return respond(409, ERROR_IDEA_SIN_FECHA);
 
     const antes    = parseAcuerdos(fila[col('acuerdos_cierre') - 1]);
     const acuerdos = antes.filter(id => id !== authUserId);
@@ -1579,7 +1595,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
@@ -1620,6 +1636,24 @@ function esFechaDia(valor) {
   const f = new Date(Date.UTC(a, m - 1, d));
   return f.getUTCFullYear() === a && f.getUTCMonth() === m - 1 && f.getUTCDate() === d;
 }
+
+// REQ-PLAN-003: el día de inicio es opcional (sin él es una idea), pero si
+// llega tiene que ser un día real, y sin inicio no hay fin ni vencimiento.
+// Devuelve el mensaje de error, o '' si está bien.
+function validarInicio(fechaProgramada, fechaVencimiento, fechaFin) {
+  if (fechaProgramada) {
+    return esFechaDia(String(fechaProgramada)) ? '' : 'El día de inicio no es una fecha válida.';
+  }
+  if (fechaFin || fechaVencimiento) {
+    return 'Para poner cuándo termina o vence, primero elegí el día de inicio.';
+  }
+  return '';
+}
+
+const ERROR_IDEA_SIN_FECHA = {
+  error: 'Es una idea sin fecha: primero ponele fecha para poder cerrarla.',
+  code: 'SIN_FECHA',
+};
 
 // Día de fin de una tarea: vacío (un día) o un día real que no sea anterior
 // al inicio. Devuelve el mensaje de error, o '' si está bien.
@@ -2751,6 +2785,22 @@ function setupSheets() {
   ensureSheet(SHEETS.AUDITORIA, AUDITORIA_HEADERS);
 
   Logger.log('Hojas creadas/actualizadas correctamente.');
+}
+
+// ------------------------------------------------------------
+// BL-038 — Solo lectura, para correr suelta con clasp run -u duck: cuántas
+// tareas activas quedaron sin categoría (anteriores a REQ-PLAN-002) y sus
+// títulos. No escribe nada ni lo expone doPost.
+// ------------------------------------------------------------
+function conteoPlanesSinCategoria() {
+  const data = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const h = data[0];
+  const iId = h.indexOf('plan_id'), iTit = h.indexOf('titulo');
+  const iCat = h.indexOf('categoria_id'), iEst = h.indexOf('estado');
+  const titulos = data.slice(1)
+    .filter(r => r[iId] && r[iEst] !== 'eliminado' && !r[iCat])
+    .map(r => String(r[iTit]));
+  return { cantidad: titulos.length, titulos: titulos };
 }
 
 // ------------------------------------------------------------

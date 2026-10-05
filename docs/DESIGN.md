@@ -149,10 +149,14 @@ repite en tarjetas ni modales.
 | Esperando acuerdo (REQ-PLAN-001) | `--copper` | — | `--copper-dim` | `.estado-pill.esperando`, `.btn-acuerdo` sin activar |
 | Lista para cerrar | `--bg` | `--copper` | `--copper` | `.estado-pill.lista` |
 | Mi acuerdo dado | `--on-copper` | metal | `--copper` | `.btn-acuerdo[aria-pressed=true]` |
+| Idea sin fecha (REQ-PLAN-003) | `--text-soft` | `--bg-card` | círculo punteado `--text-muted` | `.idea-card`, `.idea-marca` |
+| Idea anotada hace más de 3 meses | `--amber` (`#DDB061`) | — | — | `.idea-anotada.vieja`, solo el texto "Anotada hace X" |
 
-No hay ámbar ni azul. El acuerdo para cerrar (REQ-PLAN-001, DEC-006) usa
-el cobre porque es una acción en curso, no un color nuevo. Un estado nuevo
-que no sea ninguno de estos se pregunta antes de inventar un color.
+No hay azul. El ámbar es solo para avisar que una idea lleva más de 3 meses
+sin fecha (Franco lo eligió en el mockup de "Algún día", DEC-018); no se usa
+para otra cosa. El acuerdo para cerrar (REQ-PLAN-001, DEC-006) usa el cobre
+porque es una acción en curso, no un color nuevo. Un estado nuevo que no sea
+ninguno de estos se pregunta antes de inventar un color.
 
 ### Colores de categoría
 

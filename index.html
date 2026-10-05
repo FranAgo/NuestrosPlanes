@@ -48,6 +48,7 @@
       --red-venc:     #D5837A;
       --red-venc-bg:  #2B1311;
       --red-line:     rgba(213,131,122,0.62);
+      --amber:        #DDB061;   /* idea anotada hace más de 3 meses (REQ-PLAN-003) */
       --white:        #FDFAF7;
       --radius-sm:    6px;
       --radius-md:    10px;
@@ -1114,6 +1115,52 @@
     .plan-card:hover .plan-titulo-chevron { color: var(--copper); transform: translateX(2px); }
     .plan-card-actions { pointer-events: none; }
     .plan-card-actions > * { pointer-events: auto; position: relative; z-index: 1; }
+
+    /* REQ-PLAN-003 (DEC-018, variante A): "Algún día". Un título por
+       categoría y, dentro, las ideas de la más vieja a la más nueva; en la
+       computadora, dos columnas por categoría. */
+    .ideas-grupo { grid-column: 1 / -1; }
+    .ideas-grupo + .ideas-grupo { margin-top: 0.9rem; }
+    .ideas-grupo-titulo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 0 0.7rem;
+      font-family: 'Jost', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+    .ideas-punto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ideas-grupo-cuenta { color: var(--text-muted); }
+    .ideas-lista { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+    @media (min-width: 720px) {
+      .ideas-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .idea-card { padding: 1rem 1.2rem; }
+    .idea-cabeza { display: flex; align-items: flex-start; gap: 0.6rem; }
+    .idea-cabeza .plan-titulo { flex: 1; min-width: 0; margin-bottom: 0.35rem; }
+    /* Círculo punteado en lugar del estado: todavía no es un plan. */
+    .idea-marca {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      margin-top: 0.3rem;
+      border-radius: 50%;
+      border: 2px dotted var(--text-muted);
+    }
+    .idea-anotada {
+      margin: 0 0 0.8rem calc(14px + 0.6rem);
+      font-size: 0.78rem;
+      color: var(--text-soft);
+    }
+    .idea-anotada.vieja { color: var(--amber); }
+    .idea-card .plan-card-actions { margin-left: calc(14px + 0.6rem); }
+    .btn-ponerle-fecha svg { width: 12px; height: 12px; }
+    .plan-detalle-meta .btn-ponerle-fecha { margin-top: 0.7rem; }
+    .filter-chip-cuenta { margin-left: 0.15em; }
 
     /* REQ-UX-003: detalle de la tarea (modal de plan en modo detalle). */
     .plan-detalle-meta { margin: -0.8rem 0 1.2rem; }
@@ -3003,6 +3050,8 @@
           <button type="button" class="filter-chip active" data-filter="planes">Planes</button>
           <button type="button" class="filter-chip" data-filter="completados">Completados</button>
           <button type="button" class="filter-chip" data-filter="todos">Todos</button>
+          <!-- REQ-PLAN-003: ideas sin fecha. La cantidad la pone renderPlanes. -->
+          <button type="button" class="filter-chip" data-filter="algundia">Algún día<span class="filter-chip-cuenta" id="cuenta-algundia"></span></button>
         </div>
 
         <div class="plans-grid" id="plans-grid"></div>
@@ -3144,14 +3193,14 @@
            fin, la tarea es de un solo día. -->
       <div class="form-row-fechas">
         <div class="form-group">
-          <label for="plan-fecha-programada">Empieza *</label>
-          <input type="date" id="plan-fecha-programada" />
+          <label for="plan-fecha-programada">Empieza</label>
+          <input type="date" id="plan-fecha-programada" aria-describedby="plan-fecha-fin-hint" />
         </div>
         <div class="form-group">
           <label for="plan-fecha-fin">Termina</label>
           <input type="date" id="plan-fecha-fin" aria-describedby="plan-fecha-fin-hint" />
         </div>
-        <p class="form-hint" id="plan-fecha-fin-hint">Dejá "Termina" vacío si es de un solo día.</p>
+        <p class="form-hint" id="plan-fecha-fin-hint"><span id="plan-hint-idea">Sin "Empieza", queda como idea en "Algún día". </span>Dejá "Termina" vacío si es de un solo día.</p>
       </div>
       <div class="form-group">
         <label for="plan-fecha-vencimiento">Fecha de vencimiento (opcional)</label>
@@ -3405,7 +3454,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.7.0';
+    const APP_VERSION = '1.8.0';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -4993,12 +5042,79 @@
       return ga === 2 ? fb.localeCompare(fa) : fa.localeCompare(fb);
     }
 
+    // REQ-PLAN-003: sin día de inicio es una idea, no un plan. No entra en
+    // Planes ni en Todos; vive en "Algún día".
+    function esIdea(plan) { return !plan.fechaProgramada && plan.estado !== 'completado'; }
+
     function filteredPlanes() {
       return state.planes.filter(plan => {
+        if (state.activeFilter === 'algundia')    return esIdea(plan);
+        if (esIdea(plan))                         return false;
         if (state.activeFilter === 'planes')      return plan.estado !== 'completado';
         if (state.activeFilter === 'completados') return plan.estado === 'completado';
         return true;
       }).sort(compararPlanes);
+    }
+
+    // "Anotada hace 2 meses". vieja: más de 3 meses (va en ámbar).
+    function textoAnotada(plan) {
+      const dias = plan.fechaCreacion ? Math.max(0, diasEntre(plan.fechaCreacion, hoyIso())) : 0;
+      let cuando;
+      if (dias === 0)       cuando = 'hoy';
+      else if (dias === 1)  cuando = 'ayer';
+      else if (dias < 30)   cuando = `hace ${dias} días`;
+      else if (dias < 365)  { const m = Math.floor(dias / 30);  cuando = m === 1 ? 'hace 1 mes' : `hace ${m} meses`; }
+      else                  { const a = Math.floor(dias / 365); cuando = a === 1 ? 'hace 1 año' : `hace ${a} años`; }
+      return { texto: `Anotada ${cuando}`, vieja: dias > 90 };
+    }
+
+    const SVG_CALENDARIO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg>';
+
+    // REQ-PLAN-003 (DEC-018, variante A): un grupo por categoría, ordenados
+    // por su idea más vieja; dentro, de la más vieja a la más nueva.
+    function htmlIdeas(ideas) {
+      const porCat = new Map();
+      ideas.slice()
+        .sort((a, b) => (a.fechaCreacion || '').localeCompare(b.fechaCreacion || ''))
+        .forEach(p => {
+          const k = p.categoriaId || '';
+          if (!porCat.has(k)) porCat.set(k, []);
+          porCat.get(k).push(p);
+        });
+      return [...porCat.entries()].map(([catId, lista], gi) => {
+        const cat   = getCategoriaById(catId);
+        const color = cat ? safeColor(cat.colorHex) : 'var(--text-muted)';
+        const tarjetas = lista.map(plan => {
+          const pid = safeId(plan.planId);
+          const an  = textoAnotada(plan);
+          return `
+            <div class="plan-card idea-card" data-plan-id="${pid}">
+              <div class="idea-cabeza">
+                <span class="idea-marca" aria-hidden="true"></span>
+                <div class="plan-titulo"><button type="button" class="plan-titulo-btn" onclick="abrirDetallePlan('${pid}')" title="Ver detalle"><span>${escapeHtml(plan.titulo)}</span><svg class="plan-titulo-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>
+              </div>
+              <p class="idea-anotada${an.vieja ? ' vieja' : ''}">${an.texto} · ${escapeHtml(getUserDisplay(plan.creadoPor))}</p>
+              <div class="plan-card-actions">
+                <button type="button" class="btn-reabrir btn-ponerle-fecha" onclick="ponerleFecha('${pid}')">${SVG_CALENDARIO}Ponerle fecha</button>
+              </div>
+            </div>`;
+        }).join('');
+        return `
+          <section class="ideas-grupo" aria-labelledby="ideas-grupo-${gi}">
+            <h3 class="ideas-grupo-titulo" id="ideas-grupo-${gi}"><span class="ideas-punto" style="background:${color}" aria-hidden="true"></span>${cat ? escapeHtml(cat.nombre) : 'Sin categoría'}<span class="ideas-grupo-cuenta">· ${lista.length}</span></h3>
+            <div class="ideas-lista">${tarjetas}</div>
+          </section>`;
+      }).join('');
+    }
+
+    // "Ponerle fecha" desde la lista: el formulario con el foco en la fecha;
+    // guardar o cancelar cierra el modal (no pasa por el detalle).
+    function ponerleFecha(planId) {
+      openModalPlan(planId);
+      state.editarDesdeLista = true;
+      setModoPlan('editar');
+      document.getElementById('modal-plan-title').textContent = 'Ponerle fecha';
+      document.getElementById('plan-fecha-programada').focus();
     }
 
     function getCategoriaById(id) {
@@ -5058,12 +5174,22 @@
       // (acuerdo del otro, cierre, reabrir).
       if (state.planModo === 'detalle') renderDetallePlan();
 
+      const nIdeas = state.planes.filter(esIdea).length;
+      document.getElementById('cuenta-algundia').textContent = nIdeas ? ` · ${nIdeas}` : '';
+
       if (planes.length === 0) {
         grid.innerHTML = `
           <div class="empty-state" style="grid-column:1/-1">
             <span class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c.6 4.6 3.9 8.4 9 9-5.1.6-8.4 4.4-9 9-.6-4.6-3.9-8.4-9-9 5.1-.6 8.4-4.4 9-9z"/></svg></span>
-            <p>No hay planes aquí todavía.</p>
+            <p>${state.activeFilter === 'algundia'
+              ? 'No hay ideas anotadas. Guardá un plan sin "Empieza" y queda acá.'
+              : 'No hay planes aquí todavía.'}</p>
           </div>`;
+        return;
+      }
+
+      if (state.activeFilter === 'algundia') {
+        grid.innerHTML = htmlIdeas(planes);
         return;
       }
 
@@ -5870,6 +5996,7 @@
 
     function openModalPlan(planId) {
       state.editingPlanId = planId || null;
+      state.editarDesdeLista = false;
       document.getElementById('plan-titulo-input').value = planId
         ? (state.planes.find(p => p.planId === planId)?.titulo || '')
         : '';
@@ -5894,6 +6021,10 @@
         document.getElementById('plan-fecha-vencimiento').value = '';
       }
       sincronizarMinFechaFin();
+      // REQ-PLAN-003: un plan con fecha no vuelve a idea; el aviso de "Algún
+      // día" solo va al crear o al editar una idea.
+      const conFecha = !!(planId && state.planes.find(p => p.planId === planId)?.fechaProgramada);
+      document.getElementById('plan-hint-idea').hidden = conFecha;
 
       // Fotos (REQ-MEDIA-002): solo tiene sentido editando un plan que ya
       // existe — "Nuevo Plan" todavía no tiene planId para asociarle fotos.
@@ -5938,10 +6069,12 @@
       if (!plan) return;
       const cat      = getCategoriaById(plan.categoriaId);
       const catColor = cat ? safeColor(cat.colorHex) : '';
-      const conAcuerdo = state.participantes.length > 0;
+      const idea     = esIdea(plan);
+      // REQ-PLAN-003: una idea no tiene estado ni acuerdo de cierre.
+      const conAcuerdo = state.participantes.length > 0 && !idea;
       const pill     = conAcuerdo ? htmlEstadoPill(plan, estadoCierre(plan)) : '';
       const vencBadge = isVencido(plan) ? '<span class="vencido-badge">Vencido</span>' : '';
-      const linea = [textoFechasPlan(plan)];
+      const linea = [idea ? textoAnotada(plan).texto : textoFechasPlan(plan)];
       if (plan.fechaVencimiento) linea.push(`vence el ${formatDateDisplay(plan.fechaVencimiento)}`);
       linea.push(`por ${escapeHtml(getUserDisplay(plan.creadoPor))}`);
       cont.innerHTML = `
@@ -5949,12 +6082,19 @@
           ${cat ? `<span class="categoria-badge" style="background:${catColor}22;color:${catColor}">${escapeHtml(cat.nombre)}</span>` : ''}
           <span class="plan-badges">${pill}${vencBadge}</span>
         </div>
-        <p class="plan-detalle-linea">${linea.join(' · ')}</p>
-        ${conAcuerdo ? htmlFilaAcuerdo(plan) : ''}`;
+        <p class="plan-detalle-linea">${idea ? 'Idea sin fecha · ' : ''}${linea.join(' · ')}</p>
+        ${conAcuerdo ? htmlFilaAcuerdo(plan) : ''}
+        ${idea ? `<button type="button" class="btn-reabrir btn-ponerle-fecha" id="btn-detalle-ponerle-fecha">${SVG_CALENDARIO}Ponerle fecha</button>` : ''}`;
+      if (idea) {
+        document.getElementById('btn-detalle-ponerle-fecha').addEventListener('click', () => {
+          setModoPlan('editar');
+          document.getElementById('plan-fecha-programada').focus();
+        });
+      }
       document.getElementById('modal-plan-title').textContent = plan.titulo;
       const completa = plan.estado === 'completado';
       document.getElementById('btn-menu-plan').hidden   = completa;
-      document.getElementById('plan-fotos-hint').hidden = completa;
+      document.getElementById('plan-fotos-hint').hidden = completa || idea;
     }
 
     function cerrarMenuPlan() {
@@ -5999,7 +6139,7 @@
 
     // Cancelar en "Editar tarea" vuelve al detalle con los datos guardados.
     function cancelarPlan() {
-      if (state.planModo === 'editar' && state.editingPlanId) {
+      if (state.planModo === 'editar' && state.editingPlanId && !state.editarDesdeLista) {
         const id = state.editingPlanId;
         const plan = state.planes.find(p => p.planId === id);
         if (plan) {
@@ -6027,6 +6167,7 @@
       cerrarMenuPlan();
       state.planModo = null;
       state.editingPlanId = null;
+      state.editarDesdeLista = false;
       resetPlanFotosSeleccion();   // corta una subida en curso (planFotosLote)
       planFotosYaToken++;          // descarta una carga de "Ya subidas" en vuelo
     }
@@ -6046,13 +6187,27 @@
       // servidor también la exige.
       const faltaCategoria = !categoriaId || categoriaId === CAT_NUEVA;
       marcarErrorCategoria(faltaCategoria);
-      if (!titulo || !fechaProgramada) {
-        errorEl.textContent = 'El título y el día en que empieza son obligatorios.';
+      if (!titulo) {
+        errorEl.textContent = 'El título es obligatorio.';
         errorEl.classList.add('visible');
         return;
       }
       if (faltaCategoria) {
         document.getElementById('plan-categoria-select').focus();
+        return;
+      }
+      // REQ-PLAN-003. Sin "Empieza" es una idea; el servidor lo vuelve a validar.
+      const planAntes = state.editingPlanId ? state.planes.find(p => p.planId === state.editingPlanId) : null;
+      if (!fechaProgramada && planAntes?.fechaProgramada) {
+        errorEl.textContent = 'Un plan con fecha no puede quedar sin fecha. Elegí el día en que empieza.';
+        errorEl.classList.add('visible');
+        document.getElementById('plan-fecha-programada').focus();
+        return;
+      }
+      if (!fechaProgramada && (fechaFin || fechaVencimiento)) {
+        errorEl.textContent = 'Para poner cuándo termina o vence, primero elegí el día en que empieza.';
+        errorEl.classList.add('visible');
+        document.getElementById('plan-fecha-programada').focus();
         return;
       }
       // REQ-MEDIA-005. El servidor lo vuelve a validar.
@@ -6092,7 +6247,7 @@
           await refreshPlanes();
           renderPlanes();
           // REQ-UX-003: editar se abre desde el detalle, y vuelve ahí.
-          if (state.editingPlanId && state.planModo === 'editar') {
+          if (state.editingPlanId && state.planModo === 'editar' && !state.editarDesdeLista) {
             setModoPlan('detalle');
             if (planFotosYa.estado === 'ok') renderFotosYaSubidas();
             document.getElementById('btn-menu-plan').focus();
