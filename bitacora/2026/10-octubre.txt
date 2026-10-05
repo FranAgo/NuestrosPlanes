@@ -155,3 +155,23 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10 bis: con viewport emulado los clicks por ref llegan corridos.
 - Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado, sin pedidos a prod: cancelar no manda nada; confirmar muestra el aviso, bloquea lo de atrás (elementFromPoint = overlay, inert) y recarga al login; logout colgado recarga a los 6,05 s; 401 muestra el aviso y "Tu sesión expiró"; 375 sin desborde, área táctil 44,6px sin pisar el chip; consola limpia. No probado: login real de Google después de salir (el Browser pane no permite el login).
 ========================================================
+========================================================
+2026-10-05 12:53 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Pedido de Noelia (ideas de planes sin fecha) + categoría obligatoria + crear categoría desde el plan. Investigación de cómo lo resuelven Things 3, Todoist y otros: docs/investigacion/2026-10-05-ideas-sin-fecha.md. Orden acordado: primero REQ-PLAN-002, después REQ-PLAN-003 ("Algún día" agrupa por categoría).
+- docs/requerimientos/REQ-PLAN-002.md — nuevo, HECHO, versión 1.7.0.
+- docs/requerimientos/REQ-PLAN-003.md — nuevo, PROPUESTO: "Algún día", ideas sin fecha (variante A del mockup; "Todos" solo con fecha; una idea no se completa sin fecha).
+- docs/decisiones.md — DEC-018: diseño de "Algún día" (A contra B, C y una mezcla; misma hoja Planes con fecha_programada vacía).
+- Code.gs — createPlan exige categoriaId (400); updatePlan rechaza vaciarla (400) y valida la categoría antes de escribir nada (antes un 404 dejaba el título cambiado). APP_VERSION 1.7.0.
+- Tests.gs — probarPLAN002 (26 casos, entra también por doPost); simPLAN001_preparar usa la primera categoría de la planilla de test en vez de categoriaId vacío.
+- index.html — 1.7.0. "Categoría *"; select con "Elegí una categoría", separador y "+ Nueva categoría". Guardar sin categoría: .campo-error bajo el campo, aria-invalid y foco, sin pedir nada al servidor. Paso "Nueva categoría" dentro del mismo modal (#plan-nueva-cat; flecha de volver en el encabezado, sin la X; Cancelar; "Crear y elegir"; Enter crea), vuelve con la categoría elegida y .campo-ok. Si la relectura de categorías falla, la nueva se suma a mano. renderColorOptions acepta el contenedor.
+- check-contraste.js — pares nuevos: rojo y verde sobre modal, borde rojo de campo.
+- docs/DESIGN.md — error o confirmación de un campo (.campo-error / .campo-ok).
+- CHANGELOG.md — entrada 1.7.0.
+- docs/backlog.md — BL-038: contar las tareas de prod sin categoría con una función de solo lectura, a subir junto con REQ-PLAN-003.
+- Deploy 1.7.0 aprobado por Franco (front y servidor).
+- Verificado: node check-sintaxis.js y check-contraste.js OK. Test: probarPLAN002 con el Code.gs anterior 10/26 FAIL (el test muerde), con el nuevo 26/26; probarDATA002 70/70, probarMEDIA005 59/59, probarPLAN001 44/44. Front en 127.0.0.1 con fetch simulado, sin pedidos a prod: 375 y 1366, guardar sin categoría, nueva categoría vacía / repetida / lenta (botones bloqueados) / con Enter, volver y cancelar, tarea vieja sin categoría; consola limpia. No contadas las tareas sin categoría en prod.
+========================================================

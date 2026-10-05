@@ -1922,8 +1922,11 @@ function simPLAN001_preparar() {
   invalidarCacheHoja(SHEETS.USUARIOS);
   SpreadsheetApp.flush();
 
+  // REQ-PLAN-002: toda tarea lleva categoría. Usa la primera de la planilla de test.
+  const cats = parseResp(handleGetCategorias({})).categorias || [];
+  if (!cats.length) throw new Error('La planilla de test no tiene categorías: creá una desde la app de test.');
   const crear = parseResp(handleCreatePlan({
-    titulo: 'SIM PLAN-001 (borrar)', categoriaId: '', userId: usrA,
+    titulo: 'SIM PLAN-001 (borrar)', categoriaId: cats[0].categoriaId, userId: usrA,
     fechaProgramada: fechaDiaArgentina(new Date()),
   }));
   insertArchivo({
@@ -2760,4 +2763,103 @@ function medirBL032_arranque() {
     out.push(k + ': ' + (iguales[k] === p.getProperty(k) ? 'igual' : 'DISTINTA') + (iguales[k] ? '' : ' (vacía)'));
   });
   return out;
+}
+
+
+// ============================================================
+// probarPLAN002() — REQ-PLAN-002: toda tarea lleva categoría. createPlan
+// la exige, updatePlan no deja vaciarla y valida antes de escribir nada.
+// Una tarea vieja sin categoría se sigue pudiendo editar sin mandarla.
+//   clasp push -f -P .clasp-test.json -I .claspignore-test
+//   clasp run probarPLAN002 -P .clasp-test.json -u duck
+// Planilla scratch propia, se borra al terminar.
+// ============================================================
+
+function probarPLAN002() {
+  const R = nuevoReporte('REQ-PLAN-002');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarPLAN002 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);   // trae la categoría cat_mant
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const base = { titulo: 'Cena', userId: 'usr_fran', fechaProgramada: '2026-10-10' };
+    const crear = extra => parseResp(handleCreatePlan(Object.assign({}, base, extra)));
+    const planDe = planId => parseResp(handleGetPlanes({})).planes.filter(p => p.planId === planId)[0];
+    const upd = body => parseResp(handleUpdatePlan(Object.assign({ authUserId: 'usr_fran' }, body)));
+
+    // Crear.
+    R.eq('C1 · createPlan sin categoriaId -> 400', crear({}).status, 400);
+    R.eq('C1 · createPlan con categoriaId vacío -> 400', crear({ categoriaId: '' }).status, 400);
+    R.eq('C1 · createPlan con categoriaId null -> 400', crear({ categoriaId: null }).status, 400);
+    R.eq('C1 · createPlan con categoría inexistente -> 404', crear({ categoriaId: 'cat_no_existe' }).status, 404);
+    const filasAntes = filasDe('Planes').length;
+    const ok = crear({ categoriaId: 'cat_mant' });
+    R.eq('C1 · createPlan con categoría -> 200', ok.status, 200);
+    R.eq('C1 · los rechazados no agregaron filas', filasDe('Planes').length, filasAntes + 1);
+    R.eq('C1 · guarda la categoría', planDe(ok.planId).categoriaId, 'cat_mant');
+
+    // Categoría creada desde el formulario del plan (mismo endpoint) y usada enseguida.
+    const nueva = parseResp(handleCreateCategoria({ nombre: 'Salidas', colorHex: '#7FA7D9', authUserId: 'usr_noe' }));
+    R.eq('C4 · createCategoria -> 200 con categoriaId', nueva.status === 200 && !!nueva.categoriaId, true);
+    R.eq('C4 · createPlan con la categoría recién creada -> 200', crear({ categoriaId: nueva.categoriaId }).status, 200);
+
+    // Editar.
+    R.eq('C2 · update con categoriaId vacío -> 400', upd({ planId: ok.planId, categoriaId: '' }).status, 400);
+    R.eq('C2 · update con categoriaId null -> 400', upd({ planId: ok.planId, categoriaId: null }).status, 400);
+    R.eq('C2 · update rechazado: la categoría sigue', planDe(ok.planId).categoriaId, 'cat_mant');
+    R.eq('C2 · update con título y categoría inexistente -> 404',
+         upd({ planId: ok.planId, titulo: 'No debería quedar', categoriaId: 'cat_no_existe' }).status, 404);
+    R.eq('C2 · el 404 no cambió el título', planDe(ok.planId).titulo, 'Cena');
+    R.eq('C2 · update con título y categoría vacía -> 400',
+         upd({ planId: ok.planId, titulo: 'Tampoco', categoriaId: '' }).status, 400);
+    R.eq('C2 · el 400 no cambió el título', planDe(ok.planId).titulo, 'Cena');
+    R.eq('C2 · update a otra categoría -> 200', upd({ planId: ok.planId, categoriaId: nueva.categoriaId }).status, 200);
+    R.eq('C2 · guarda la categoría nueva', planDe(ok.planId).categoriaId, nueva.categoriaId);
+    R.eq('C2 · update sin categoriaId -> 200', upd({ planId: ok.planId, titulo: 'Cena larga' }).status, 200);
+    R.eq('C2 · update sin categoriaId no la toca', planDe(ok.planId).categoriaId, nueva.categoriaId);
+
+    // Tarea vieja sin categoría (anterior a REQ-PLAN-002).
+    const vieja = crear({ titulo: 'Vieja', categoriaId: 'cat_mant' }).planId;
+    const hoja = SpreadsheetApp.openById(scratchId).getSheetByName('Planes');
+    const ids = hoja.getRange(1, 1, hoja.getLastRow(), 1).getValues().map(r => r[0]);
+    hoja.getRange(ids.indexOf(vieja) + 1, col('Planes', 'categoria_id') + 1).setValue('');
+    SpreadsheetApp.flush();
+    R.eq('C3 · la vieja quedó sin categoría', planDe(vieja).categoriaId || '', '');
+    R.eq('C3 · vieja: update sin categoriaId -> 200', upd({ planId: vieja, titulo: 'Vieja editada' }).status, 200);
+    R.eq('C3 · vieja: update con categoría -> 200', upd({ planId: vieja, categoriaId: 'cat_mant' }).status, 200);
+    R.eq('C3 · vieja: ahora tiene categoría', planDe(vieja).categoriaId, 'cat_mant');
+
+    // Por doPost, como el front.
+    const t = crearSesion('usr_noe');
+    sesionesCreadas.push(t.split('.')[0]);
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    R.eq('C5 · doPost createPlan sin categoría -> 400',
+         pedir({ action: 'createPlan', sessionToken: t, titulo: 'x', fechaProgramada: '2026-10-10' }).status, 400);
+    R.eq('C5 · doPost createPlan con categoría -> 200',
+         pedir({ action: 'createPlan', sessionToken: t, titulo: 'x', categoriaId: 'cat_mant', fechaProgramada: '2026-10-10' }).status, 200);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
 }

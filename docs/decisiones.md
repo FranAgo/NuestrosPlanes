@@ -172,3 +172,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: 3, con Mi perfil por secciones y dos columnas desde 720 px (Franco, 2026-10-05; REQ-MEDIA-007, 1.6.0 y 1.6.1).
 - Motivo: en el iPhone el navegador no dice si hay wifi, así que sin la opción manual nunca precargaría; con solo la manual, Android y la computadora no aprovecharían lo que sí se sabe. Las secciones dejan lugar para los ajustes que vengan en Mi perfil.
 - Reabrir si: Safari implementa `navigator.connection`, si los datos móviles se vuelven un problema aun en "lo justo", o si la app pasa a ser nativa.
+
+## DEC-018 — "Algún día": ideas sin fecha agrupadas por categoría (variante A)
+- Fecha: 2026-10-05
+- Estado: Aceptada
+- Contexto: REQ-PLAN-003, pedido de Noelia. Investigación: `docs/investigacion/2026-10-05-ideas-sin-fecha.md`. Mockup de Jay (widget en la conversación, no versionado) con tres variantes, teléfono y computadora.
+- Opciones consideradas: (A) un título por categoría y las ideas de la más vieja a la más nueva; (B) una sola lista por antigüedad con filtro por categoría; (C) secciones plegables por categoría. Después, una mezcla: A por defecto, secciones plegables y un botón "Todas juntas" para la vista B. Aparte: si "Todos" incluye ideas y si una idea se puede completar sin fecha. Una hoja aparte para las ideas contra la misma hoja `Planes` sin fecha.
+- Decisión: A tal como estaba en el primer mockup (Franco: "dejamos la variante A original"). "Todos" muestra solo planes con fecha y una idea no se completa sin ponerle fecha antes ("las ideas sin definir días aún no son realmente un plan"). Misma hoja `Planes`, idea = `fecha_programada` vacía. Nombre del chip: "Algún día". Jay había recomendado A; Paul, la mezcla con todo abierto al entrar.
+- Motivo: A obliga a ver todas las ideas cada vez que se entra, que es el objetivo (ponerles fecha). Plegar o separar en otra vista esconde justo lo que se quiere que no se olvide. Con la misma hoja, pasar a plan es ponerle fecha: fotos, auditoría y permisos no cambian.
+- Reabrir si: las ideas pasan a ser tantas que la lista se vuelve larga de recorrer en el teléfono.

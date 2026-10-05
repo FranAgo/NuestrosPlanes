@@ -5,6 +5,20 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.7.0] - 2026-10-05
+
+### Agregado
+- Desde el formulario de un plan se puede crear una categoría nueva: al
+  final del desplegable está "+ Nueva categoría". Al crearla volvés al plan
+  con la categoría ya elegida y sin perder lo que escribiste; con la flecha
+  o con Cancelar volvés sin crear nada. (REQ-PLAN-002)
+
+### Cambiado
+- Todo plan necesita una categoría. Si tocás Guardar sin elegirla, el campo
+  se marca y avisa "Elegí una categoría para guardar". Los planes viejos
+  sin categoría te la van a pedir la próxima vez que los edites.
+  (REQ-PLAN-002)
+
 ## [1.6.2] - 2026-10-05
 
 ### Cambiado

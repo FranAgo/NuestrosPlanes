@@ -398,3 +398,12 @@ estado de cada cosa vive en su ítem o su REQ):
    (reordenar), BL-008 (tope de fotos), BL-023 (videos), BL-003 (rol
    admin), BL-006 (retención de Auditoría), BL-019 (alerta de
    autorización), BL-001 (carga inicial única).
+
+
+## Sesión 2026-10-05 (3)
+
+### BL-038 — Cuántas tareas reales quedaron sin categoría
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: REQ-PLAN-002 (2026-10-05). La categoría pasó a ser obligatoria y no se pudo contar cuántas tareas viejas en prod no la tienen: hace falta una función de lectura nueva en el servidor. Franco pidió anotarlo.
+- Nota: sumar a `Code.gs` una función de solo lectura (ej. `conteoPlanesSinCategoria`) que devuelva solo el número y los títulos, nada más, para correrla suelta con `clasp run -u duck` (`verificacion-navegador.md` §6). Conviene subirla junto con REQ-PLAN-003, que igual toca el servidor, así no hace falta otra subida. Si hay varias, en vez de corregir la planilla a mano, que la app las muestre para elegirles categoría (Franco quiere todo desde la app). Hoy no rompe nada: al editar una, el formulario pide la categoría.

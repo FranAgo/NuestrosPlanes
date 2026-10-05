@@ -670,6 +670,26 @@
       display: block;
     }
 
+    /* REQ-PLAN-002: error y confirmación pegados a un campo. */
+    .campo-error,
+    .campo-ok {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      margin: 0.45rem 0 0;
+      font-size: 0.82rem;
+      text-align: left;
+    }
+    .campo-error { color: var(--red-venc); }
+    .campo-ok    { color: var(--green-ok); }
+    .campo-error svg,
+    .campo-ok svg { width: 15px; height: 15px; flex: none; }
+    .form-group select[aria-invalid="true"],
+    .form-group input[aria-invalid="true"] {
+      border-color: var(--red-line);
+      box-shadow: 0 0 0 1px var(--red-line);
+    }
+
     /* ====================================================
        APP PRINCIPAL
     ==================================================== */
@@ -1743,6 +1763,11 @@
       justify-content: space-between;
       margin-bottom: 1.5rem;
     }
+
+    /* REQ-PLAN-002: "volver al plan" desde Nueva categoría. */
+    .modal-header .btn-volver-cat { margin: 0 0.5rem 0 -0.3rem; }
+    .modal-header .btn-volver-cat svg { width: 20px; height: 20px; }
+    .plan-nueva-cat-hint { margin: -0.6rem 0 1.1rem; font-size: 0.82rem; color: var(--text-muted); text-align: left; }
 
     .modal-header h3 {
       font-family: 'DM Serif Display', serif;
@@ -3071,6 +3096,10 @@
   <div class="modal-overlay" id="modal-plan">
     <div class="modal">
       <div class="modal-header">
+        <!-- REQ-PLAN-002: solo en el paso "Nueva categoría". -->
+        <button type="button" class="btn-icon btn-volver-cat" id="btn-volver-plan-cat" aria-label="Volver al plan" title="Volver al plan" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
         <h3 id="modal-plan-title">Nuevo Plan</h3>
         <!-- REQ-UX-003: en el detalle, editar y eliminar van en este menú. -->
         <div class="plan-menu-wrap">
@@ -3102,8 +3131,14 @@
         <input type="text" id="plan-titulo-input" placeholder="¿Qué quieren hacer?" />
       </div>
       <div class="form-group">
-        <label for="plan-categoria-select">Categoría (opcional)</label>
-        <select id="plan-categoria-select"></select>
+        <label for="plan-categoria-select">Categoría *</label>
+        <!-- REQ-PLAN-002: obligatoria. La última opción abre "Nueva categoría". -->
+        <select id="plan-categoria-select" aria-describedby="plan-categoria-error plan-categoria-ok"></select>
+        <p class="campo-error" id="plan-categoria-error" role="alert" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+          Elegí una categoría para guardar.
+        </p>
+        <p class="campo-ok" id="plan-categoria-ok" role="status" hidden></p>
       </div>
       <!-- REQ-MEDIA-005 (DEC-008, variante A): inicio y fin lado a lado. Sin
            fin, la tarea es de un solo día. -->
@@ -3155,6 +3190,25 @@
         <button type="button" class="btn btn-primary" id="btn-save-plan">Guardar</button>
       </div>
       <div class="error-msg" id="plan-error"></div>
+
+      <!-- REQ-PLAN-002: crear una categoría sin salir del plan. Ocupa el lugar
+           del formulario en el mismo modal (no otro modal encima). -->
+      <div id="plan-nueva-cat" hidden>
+        <p class="plan-nueva-cat-hint">Al crearla volvés al plan con la categoría elegida. Lo que escribiste no se pierde.</p>
+        <div class="form-group">
+          <label for="plan-cat-nombre-input">Nombre *</label>
+          <input type="text" id="plan-cat-nombre-input" placeholder="Ej: Salidas, Viajes, Casa..." autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label id="plan-cat-color-label">Color *</label>
+          <div class="color-options" id="plan-cat-color-options" role="group" aria-labelledby="plan-cat-color-label"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-plan-cat">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-save-plan-cat">Crear y elegir</button>
+        </div>
+        <div class="error-msg" id="plan-cat-error"></div>
+      </div>
     </div>
   </div>
 
@@ -3351,7 +3405,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.6.2';
+    const APP_VERSION = '1.7.0';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -5821,16 +5875,15 @@
         : '';
       document.getElementById('plan-error').classList.remove('visible');
 
-      // Select de categorías — primera opción vacía (opcional)
-      const select = document.getElementById('plan-categoria-select');
-      select.innerHTML =
-        '<option value="">Sin categoría</option>' +
-        state.categorias.map(c => `<option value="${safeId(c.categoriaId)}">${escapeHtml(c.nombre)}</option>`).join('');
+      salirNuevaCatPlan(false);
+      marcarErrorCategoria(false);
+      mostrarOkCategoria('');
+      llenarSelectCategorias('');
 
       if (planId) {
         const plan = state.planes.find(p => p.planId === planId);
         if (plan) {
-          select.value = plan.categoriaId || '';
+          llenarSelectCategorias(plan.categoriaId || '');
           document.getElementById('plan-fecha-programada').value  = plan.fechaProgramada  || '';
           document.getElementById('plan-fecha-fin').value         = plan.fechaFin         || '';
           document.getElementById('plan-fecha-vencimiento').value = plan.fechaVencimiento || '';
@@ -5951,13 +6004,15 @@
         const plan = state.planes.find(p => p.planId === id);
         if (plan) {
           document.getElementById('plan-titulo-input').value       = plan.titulo || '';
-          document.getElementById('plan-categoria-select').value   = plan.categoriaId || '';
+          llenarSelectCategorias(plan.categoriaId || '');
           document.getElementById('plan-fecha-programada').value   = plan.fechaProgramada || '';
           document.getElementById('plan-fecha-fin').value          = plan.fechaFin || '';
           document.getElementById('plan-fecha-vencimiento').value  = plan.fechaVencimiento || '';
           sincronizarMinFechaFin();
         }
         document.getElementById('plan-error').classList.remove('visible');
+        marcarErrorCategoria(false);
+        mostrarOkCategoria('');
         setModoPlan('detalle');
         if (planFotosYa.estado === 'ok') renderFotosYaSubidas();
         document.getElementById('btn-menu-plan').focus();
@@ -5968,6 +6023,7 @@
 
     function closeModalPlan() {
       document.getElementById('modal-plan').classList.remove('visible');
+      salirNuevaCatPlan(false);
       cerrarMenuPlan();
       state.planModo = null;
       state.editingPlanId = null;
@@ -5977,7 +6033,7 @@
 
     async function savePlan() {
       const titulo           = document.getElementById('plan-titulo-input').value.trim();
-      const categoriaId      = document.getElementById('plan-categoria-select').value; // puede ser ''
+      const categoriaId      = document.getElementById('plan-categoria-select').value;
       const fechaProgramada  = document.getElementById('plan-fecha-programada').value;
       const fechaFin         = document.getElementById('plan-fecha-fin').value;
       const fechaVencimiento = document.getElementById('plan-fecha-vencimiento').value;
@@ -5986,10 +6042,17 @@
 
       errorEl.classList.remove('visible');
 
-      // categoría ya NO es obligatoria
+      // REQ-PLAN-002: la categoría es obligatoria. El aviso va en el campo; el
+      // servidor también la exige.
+      const faltaCategoria = !categoriaId || categoriaId === CAT_NUEVA;
+      marcarErrorCategoria(faltaCategoria);
       if (!titulo || !fechaProgramada) {
         errorEl.textContent = 'El título y el día en que empieza son obligatorios.';
         errorEl.classList.add('visible');
+        return;
+      }
+      if (faltaCategoria) {
+        document.getElementById('plan-categoria-select').focus();
         return;
       }
       // REQ-MEDIA-005. El servidor lo vuelve a validar.
@@ -6009,7 +6072,7 @@
           data = await api('updatePlan', {
             planId: state.editingPlanId,
             titulo,
-            categoriaId:      categoriaId || null,
+            categoriaId,
             fechaProgramada,
             fechaFin:         fechaFin || '',   // '' borra el fin: vuelve a ser de un día
             fechaVencimiento: fechaVencimiento || null,
@@ -6017,7 +6080,7 @@
         } else {
           data = await api('createPlan', {
             titulo,
-            categoriaId:      categoriaId || null,
+            categoriaId,
             userId:           state.session.userId,
             fechaProgramada,
             fechaFin:         fechaFin || '',
@@ -6348,8 +6411,8 @@
       saveCategoria();
     });
 
-    function renderColorOptions(selectedColor) {
-      const container = document.getElementById('color-options');
+    function renderColorOptions(selectedColor, containerId) {
+      const container = document.getElementById(containerId || 'color-options');
       container.innerHTML = PRESET_COLORS.map(color => `
         <button type="button" class="color-option" data-color="${color}"
                 style="--color:${color}" aria-label="${NOMBRES_COLOR[color]}" title="${NOMBRES_COLOR[color]}"
@@ -6433,6 +6496,145 @@
     }
 
     function editarCategoria(catId) { openModalCat(catId); }
+
+    // ====================================================
+    // PLAN — CATEGORÍA OBLIGATORIA Y "NUEVA CATEGORÍA" (REQ-PLAN-002)
+    // La última opción del select cambia el modal del plan al formulario de
+    // categoría; al crearla vuelve al plan con ella elegida. Volver y
+    // Cancelar dejan la categoría que había.
+    // ====================================================
+    const CAT_NUEVA = '__nueva';
+    let catPlanPrevia = '';      // la elegida antes de tocar "+ Nueva categoría"
+    let creandoCatPlan = false;
+
+    function llenarSelectCategorias(valor) {
+      const select  = document.getElementById('plan-categoria-select');
+      const elegida = state.categorias.some(c => c.categoriaId === valor) ? valor : '';
+      select.innerHTML =
+        `<option value="" disabled${elegida ? '' : ' selected'}>Elegí una categoría</option>` +
+        state.categorias.map(c => `<option value="${safeId(c.categoriaId)}">${escapeHtml(c.nombre)}</option>`).join('') +
+        '<option disabled>──────────</option>' +
+        `<option value="${CAT_NUEVA}">+ Nueva categoría</option>`;
+      select.value  = elegida;
+      catPlanPrevia = elegida;
+    }
+
+    function marcarErrorCategoria(hay) {
+      document.getElementById('plan-categoria-select').setAttribute('aria-invalid', String(hay));
+      document.getElementById('plan-categoria-error').hidden = !hay;
+    }
+
+    function mostrarOkCategoria(texto) {
+      const ok = document.getElementById('plan-categoria-ok');
+      ok.hidden = !texto;
+      ok.innerHTML = texto
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>${escapeHtml(texto)}`
+        : '';
+    }
+
+    document.getElementById('plan-categoria-select').addEventListener('change', e => {
+      mostrarOkCategoria('');
+      if (e.target.value === CAT_NUEVA) { entrarNuevaCatPlan(); return; }
+      catPlanPrevia = e.target.value;
+      marcarErrorCategoria(false);
+    });
+
+    function entrarNuevaCatPlan() {
+      document.getElementById('plan-categoria-select').value = catPlanPrevia;
+      document.getElementById('plan-form-campos').hidden   = true;
+      document.getElementById('plan-form-acciones').hidden = true;
+      document.getElementById('plan-error').classList.remove('visible');
+      document.getElementById('btn-close-modal-plan').hidden = true;
+      document.getElementById('btn-volver-plan-cat').hidden  = false;
+      document.getElementById('modal-plan-title').textContent = 'Nueva categoría';
+      const input = document.getElementById('plan-cat-nombre-input');
+      input.value = '';
+      input.removeAttribute('aria-invalid');
+      document.getElementById('plan-cat-error').classList.remove('visible');
+      renderColorOptions(PRESET_COLORS[0], 'plan-cat-color-options');
+      document.getElementById('plan-nueva-cat').hidden = false;
+      input.focus();
+    }
+
+    // Vuelve al formulario del plan. Con foco = true lo deja en el select.
+    function salirNuevaCatPlan(foco) {
+      const sub = document.getElementById('plan-nueva-cat');
+      if (sub.hidden) return;
+      sub.hidden = true;
+      document.getElementById('btn-volver-plan-cat').hidden  = true;
+      document.getElementById('btn-close-modal-plan').hidden = false;
+      document.getElementById('plan-form-campos').hidden   = false;
+      document.getElementById('plan-form-acciones').hidden = false;
+      document.getElementById('modal-plan-title').textContent =
+        state.planModo === 'editar' ? 'Editar tarea' : 'Nuevo Plan';
+      if (foco) document.getElementById('plan-categoria-select').focus();
+    }
+
+    document.getElementById('btn-volver-plan-cat').addEventListener('click', () => salirNuevaCatPlan(true));
+    document.getElementById('btn-cancel-plan-cat').addEventListener('click', () => salirNuevaCatPlan(true));
+    document.getElementById('plan-cat-nombre-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); crearCategoriaDesdePlan(); }
+    });
+    document.getElementById('btn-save-plan-cat').addEventListener('click', e => {
+      addRipple(e.currentTarget, e);
+      crearCategoriaDesdePlan();
+    });
+
+    async function crearCategoriaDesdePlan() {
+      if (creandoCatPlan) return;
+      const input    = document.getElementById('plan-cat-nombre-input');
+      const nombre   = input.value.trim();
+      const colorHex = state.selectedColor;
+      const errorEl  = document.getElementById('plan-cat-error');
+      const btn      = document.getElementById('btn-save-plan-cat');
+      const otros    = [document.getElementById('btn-cancel-plan-cat'), document.getElementById('btn-volver-plan-cat')];
+
+      errorEl.classList.remove('visible');
+      input.removeAttribute('aria-invalid');
+      if (!nombre) {
+        errorEl.textContent = 'Escribí un nombre para la categoría.';
+        errorEl.classList.add('visible');
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
+        return;
+      }
+
+      creandoCatPlan = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled  = true;
+      otros.forEach(b => { b.disabled = true; });
+      try {
+        const data = await api('createCategoria', { nombre, colorHex });
+        if (data.status === 200 && data.categoriaId) {
+          // Ya está creada: si la relectura falla, se suma a mano (si no, un
+          // reintento daría "ya existe").
+          try { await loadCategorias(); } catch { /* sigue abajo */ }
+          if (!state.categorias.some(c => c.categoriaId === data.categoriaId)) {
+            state.categorias.push({ categoriaId: data.categoriaId, nombre, colorHex });
+          }
+          renderCategorias();
+          // Si cerraron el modal mientras esperaba, no hay plan al que volver.
+          if (!document.getElementById('plan-nueva-cat').hidden) {
+            llenarSelectCategorias(data.categoriaId);
+            marcarErrorCategoria(false);
+            salirNuevaCatPlan(true);
+            mostrarOkCategoria(`Categoría "${nombre}" creada y elegida.`);
+          }
+        } else {
+          errorEl.textContent = data.error || 'No se pudo crear la categoría.';
+          errorEl.classList.add('visible');
+          if (data.status === 409) { input.setAttribute('aria-invalid', 'true'); input.focus(); }
+        }
+      } catch {
+        errorEl.textContent = 'Error de conexión. Probá de nuevo.';
+        errorEl.classList.add('visible');
+      } finally {
+        creandoCatPlan = false;
+        btn.innerHTML = 'Crear y elegir';
+        btn.disabled  = false;
+        otros.forEach(b => { b.disabled = false; });
+      }
+    }
 
     async function eliminarCategoria(catId) {
       if (!(await confirmarModal('¿Eliminar esta categoría?'))) return;

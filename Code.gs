@@ -1189,12 +1189,16 @@ function handleCreatePlan(body) {
   if (!titulo || !userId || !fechaProgramada) {
     return respond(400, { error: 'Título, usuario y fecha programada son requeridos.' });
   }
+  // REQ-PLAN-002: toda tarea lleva categoría.
+  if (!categoriaId) {
+    return respond(400, { error: 'Elegí una categoría para guardar.' });
+  }
 
   const errorFin = validarFechaFin(fechaFin, fechaProgramada);
   if (errorFin) return respond(400, { error: errorFin });
 
-  // Validar que la categoría existe (y no está eliminada) solo si se proporcionó
-  if (categoriaId && !categoriaExists(categoriaId)) {
+  // Que exista y no esté eliminada.
+  if (!categoriaExists(categoriaId)) {
     return respond(404, { error: 'La categoría indicada no existe.' });
   }
 
@@ -1210,7 +1214,7 @@ function handleCreatePlan(body) {
     switch (col) {
       case 'plan_id':            return planId;
       case 'titulo':             return titulo;
-      case 'categoria_id':       return categoriaId || '';
+      case 'categoria_id':       return categoriaId;
       case 'creado_por':         return userId;
       case 'fecha_creacion':     return ahora;
       case 'fecha_programada':   return new Date(fechaProgramada);
@@ -1250,13 +1254,20 @@ function handleUpdatePlan(body) {
   const errorFin = validarFechaFin(finFinal, inicioFinal);
   if (errorFin) return respond(400, { error: errorFin });
 
+  // REQ-PLAN-002: la categoría no se puede vaciar (sin categoriaId en el
+  // pedido, no se toca). Se valida antes de escribir nada: antes un 404 acá
+  // dejaba el título ya cambiado.
+  if (categoriaId !== undefined) {
+    if (!categoriaId) return respond(400, { error: 'Elegí una categoría para guardar.' });
+    if (!categoriaExists(categoriaId)) {
+      return respond(404, { error: 'La categoría indicada no existe.' });
+    }
+  }
+
   if (titulo) sheet.getRange(rowIndex, col('titulo')).setValue(titulo);
 
   if (categoriaId !== undefined) {
-    if (categoriaId && !categoriaExists(categoriaId)) {
-      return respond(404, { error: 'La categoría indicada no existe.' });
-    }
-    sheet.getRange(rowIndex, col('categoria_id')).setValue(categoriaId || '');
+    sheet.getRange(rowIndex, col('categoria_id')).setValue(categoriaId);
   }
 
   if (fechaProgramada) {
@@ -1568,7 +1579,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.7.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así

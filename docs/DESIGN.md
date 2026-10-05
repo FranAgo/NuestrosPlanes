@@ -319,6 +319,11 @@ marcan con " *" en el label y los opcionales con "(opcional)".
 `.visible`. El texto dice qué corregir ("El título y la fecha programada
 son obligatorios.").
 
+**Error o confirmación de un campo** (REQ-PLAN-002): `.campo-error` /
+`.campo-ok` justo debajo del campo, con ícono SVG, en `--red-venc` /
+`--green-ok`; el campo lleva `aria-invalid="true"` (borde `--red-line`) y
+el foco. Se usa cuando el problema es de un campo puntual.
+
 **Modal:** `.modal-overlay` (fondo `rgba(8,7,6,0.75)` + `blur(4px)`,
 visible con `.visible`) > `.modal` (`--bg-elevated`, filo de luz y sombra
 corta) > `.modal-header` (h3 + `btn-icon` de cerrar con la X SVG) >
