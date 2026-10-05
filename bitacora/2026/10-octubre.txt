@@ -132,3 +132,14 @@ Cambios:
 - docs/backlog.md — BL-037 nuevo: la X del encabezado cierra sesión sin confirmar ni avisar (pedido de Franco; el diseño del aviso se debate en otra sesión, con mockup).
 - Verificado: node check-sintaxis.js OK; 127.0.0.1 con fetch simulado, sin pedidos a prod. 1366: dos columnas (240 + 572px), bordes de las tarjetas alineados (top 232), sin scroll horizontal. 719: una columna de 420px; 720: dos columnas. 411 (panel): apilado. Captura a 960. Consola limpia.
 ========================================================
+========================================================
+2026-10-05 11:37 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy 1.6.1: commit 8c86fa2 + tag v1.6.1, push a main con OK de Franco. GitHub Pages sirve 1.6.1 desde las 10:45 (confirmado con curl).
+- docs/decisiones.md — DEC-017: precarga del visor automática según la conexión más opción manual en Mi perfil; Mi perfil por secciones y en dos columnas en la computadora.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §10 bis: viewport emulado más grande que el panel da capturas ilegibles; medir con JS y capturar a un ancho que entre.
+- Cierre de sesión: backlog al día (BL-036 pasó a REQ-MEDIA-007, BL-037 nuevo); REQ-UX-003 y REQ-MEDIA-006 cerrados; REQ-MEDIA-007 en HECHO hasta que Franco confirme en uso (pendiente además ver "Automático" en un Android real con wifi y con datos).
+========================================================

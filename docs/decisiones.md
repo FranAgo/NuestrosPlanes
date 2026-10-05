@@ -163,3 +163,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Motivo: A depende de acordarse, que es lo que ya falló cinco veces. B es lo que hacen las empresas, pero saca el estado de los archivos que leen las skills y la bitácora, y para dos personas es más de lo que hace falta. C saca la causa (estados que vencen y copias) y el chequeo cubre lo que hacía el evento automático.
 - Reabrir si: el chequeo deja pasar estados viejos de nuevo, o el proyecto suma gente o un tablero y conviene pasar a GitHub Issues.
 - Ajuste (2026-10-05, mismo día): el primer chequeo buscaba frases conocidas ("falta el push") y en la misma sesión se coló "sin deploy todavía" en el backlog. Se cambia a formato fijo: la línea de estado solo admite el valor y una fecha o versión, y todo el texto libre pasa a `Historia:` (REQ) o `Resuelto:` (BL). Se rechaza lo que no tenga la forma, en lugar de buscar lo prohibido.
+
+## DEC-017 — Precarga del visor según la conexión, automática y con opción manual en Mi perfil
+- Fecha: 2026-10-05
+- Estado: Aceptada
+- Contexto: el visor tardaba ~4 s por foto (BL-036). Franco pidió precargar con wifi y ahorrar datos con el celular. Investigación: `docs/investigacion/2026-10-05-visor-foto-siguiente.md`. Las apps nativas (WhatsApp, Instagram) le preguntan al sistema operativo qué red hay y dejan que el usuario elija qué hacer con cada una; una página web solo lo sabe en Chrome de Android (`navigator.connection`), no en Safari del iPhone ni en la computadora.
+- Opciones consideradas: (1) automático donde se puede y una regla fija donde no (táctil ahorra, mouse precarga); (2) solo una opción manual en Mi perfil, como WhatsApp; (3) las dos: automático por defecto y la opción manual para cambiarlo. Para la pantalla: Mi perfil con el control en la tarjeta actual (A) o por secciones (B); en la computadora, columna centrada (A), dos columnas (B) o opciones en fila (C). Fuera: una app nativa para tener el dato del iPhone (otro proyecto).
+- Decisión: 3, con Mi perfil por secciones y dos columnas desde 720 px (Franco, 2026-10-05; REQ-MEDIA-007, 1.6.0 y 1.6.1).
+- Motivo: en el iPhone el navegador no dice si hay wifi, así que sin la opción manual nunca precargaría; con solo la manual, Android y la computadora no aprovecharían lo que sí se sabe. Las secciones dejan lugar para los ajustes que vengan en Mi perfil.
+- Reabrir si: Safari implementa `navigator.connection`, si los datos móviles se vuelven un problema aun en "lo justo", o si la app pasa a ser nativa.

@@ -202,6 +202,18 @@ commit vacío c63f2a1 el 2026-09-28.
 cambiaba" era una transición quieta, y una lista "corrida" a 375 era un
 cuadro viejo. Las mediciones daban bien.
 
+## 10 bis. Viewport emulado más grande que el panel: la captura no sirve
+
+**Qué cuidar:** `resize_window` a 1366 en un panel angosto achica todo
+para que entre y la captura sale ilegible (y `zoom` por región no anda
+en el Browser pane). Para el layout de escritorio: medir con
+`getBoundingClientRect` a 1366 (posiciones, anchos, `scrollWidth`), y para
+la captura usar un ancho que el panel muestre legible (960 anduvo). Volver
+a `preset: desktop` al terminar.
+
+**Por qué:** 1.6.1 (2026-10-05): la captura de Mi perfil a 1366 salió como
+un recuadro diminuto en una esquina.
+
 ## 11. Safari de iPhone: lo que el Browser pane no muestra
 
 **Qué cuidar:**
