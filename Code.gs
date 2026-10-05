@@ -17,6 +17,8 @@
 //   DRIVE_FOLDER_ID  -> carpeta de Drive para fotos de perfil
 //   OAUTH_CLIENT_ID  -> Client ID de Google OAuth (mismo que usa el frontend)
 //   SESSION_SECRET   -> string aleatorio largo para firmar los tokens de sesión
+//   AUDIT_PSEUDONYM_KEY -> clave del seudónimo de emails en Auditoria (BL-005).
+//                       No hace falta cargarla: se crea sola la primera vez.
 // Esto corre en cada pedido: una sola lectura (~45 ms) en vez de cuatro
 // getProperty (~150 ms). BL-032. `|| null` mantiene lo que devolvía
 // getProperty para una propiedad que falta.
@@ -167,13 +169,64 @@ const AUDITORIA_HEADERS = [
 // Prohibido explícito: token, token_hash, sessionToken, secreto, google_sub,
 // password y cualquier contenido binario/base64.
 const AUDITORIA_DETALLE_CLAVES_OK = [
-  'email', 'nombre', 'titulo', 'valor_anterior', 'valor_nuevo', 'motivo',
+  // 'email' no está a propósito (BL-005): un email nunca entra a Auditoria,
+  // ni aunque el que llama lo pase. Va su seudónimo.
+  'email_seudonimo', 'nombre', 'titulo', 'valor_anterior', 'valor_nuevo', 'motivo',
   'acuerdos', // REQ-PLAN-001: IDs de usuario (no son datos personales)
+  'fotos_archivadas', // BL-017: cuántas fotos se archivaron al borrar la tarea
 ];
 
 // ------------------------------------------------------------
 // ENTRY POINT — Router principal
 // ------------------------------------------------------------
+
+// Acciones que se atienden sin sesión válida. Cualquier otra pasa por el
+// gate de doPost. probarParche181 exige que esta lista sea exactamente esta:
+// sumar una es una decisión de seguridad, no un detalle.
+const ACCIONES_SIN_SESION = ['loginGoogle', 'logout'];
+
+// Inventario único de lo que atiende el servidor (BL-002): doPost rutea con
+// esto y probarParche181 lo recorre entero, así una acción nueva queda
+// cubierta por el test de "sin sesión -> 401" sin que nadie se acuerde.
+// Es una función y no una constante para no depender del orden de carga.
+function accionesDelServidor() {
+  return {
+    // Auth
+    loginGoogle:     handleLoginGoogle,
+    logout:          handleLogout,
+
+    // Usuarios
+    getUser:         handleGetUser,
+    uploadPhoto:     handleUploadPhoto,
+
+    // Archivos
+    getArchivo:      handleGetArchivo,
+    getArchivos:     handleGetArchivos,
+    getMiniaturas:   handleGetMiniaturas,
+
+    // Categorías
+    getCategorias:   handleGetCategorias,
+    createCategoria: handleCreateCategoria,
+    updateCategoria: handleUpdateCategoria,
+    deleteCategoria: handleDeleteCategoria,
+
+    // Planes
+    getPlanes:        handleGetPlanes,
+    createPlan:       handleCreatePlan,
+    updatePlan:       handleUpdatePlan,
+    completePlan:     handleCompletePlan,
+    setAcuerdoCierre: handleSetAcuerdoCierre,
+    reopenPlan:       handleReopenPlan,
+    deletePlan:       handleDeletePlan,
+
+    // Fotos de tareas (REQ-MEDIA-002)
+    uploadPlanPhotos:    handleUploadPlanPhotos,
+    getRecentPlanPhotos: handleGetRecentPlanPhotos,
+    getRecuerdos:        handleGetRecuerdos,
+    getFotosPlan:        handleGetFotosPlan,
+    setFechaFoto:        handleSetFechaFoto,
+  };
+}
 
 function doPost(e) {
   // Fuera del try para que el catch sepa qué acción falló (BUG-CARGA-001).
@@ -182,14 +235,11 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     action = body.action;
 
-    // Endpoints que NO requieren sesión válida
-    const publicActions = ['loginGoogle'];
-
     // logout no pasa por el gate de sesión: cerrar sesión tiene que funcionar
     // siempre, incluso si el token ya venció o ya se revocó (idempotente).
     if (action === 'logout') return handleLogout(body);
 
-    if (!publicActions.includes(action)) {
+    if (ACCIONES_SIN_SESION.indexOf(action) === -1) {
       const sesion = validarSesion(body.sessionToken);
       if (sesion.error) return respond(401, { error: sesion.error });
 
@@ -211,44 +261,13 @@ function doPost(e) {
       if (action !== 'getUser') body.userId = sesion.userId;
     }
 
-    switch (action) {
-      // Auth
-      case 'loginGoogle':     return handleLoginGoogle(body);
-
-      // Usuarios
-      case 'getUser':         return handleGetUser(body);
-      case 'uploadPhoto':     return handleUploadPhoto(body);
-
-      // Archivos
-      case 'getArchivo':      return handleGetArchivo(body);
-      case 'getArchivos':     return handleGetArchivos(body);
-      case 'getMiniaturas':   return handleGetMiniaturas(body);
-
-      // Categorías
-      case 'getCategorias':   return handleGetCategorias(body);
-      case 'createCategoria': return handleCreateCategoria(body);
-      case 'updateCategoria': return handleUpdateCategoria(body);
-      case 'deleteCategoria': return handleDeleteCategoria(body);
-
-      // Planes
-      case 'getPlanes':       return handleGetPlanes(body);
-      case 'createPlan':      return handleCreatePlan(body);
-      case 'updatePlan':      return handleUpdatePlan(body);
-      case 'completePlan':    return handleCompletePlan(body);
-      case 'setAcuerdoCierre': return handleSetAcuerdoCierre(body);
-      case 'reopenPlan':      return handleReopenPlan(body);
-      case 'deletePlan':      return handleDeletePlan(body);
-
-      // Fotos de tareas (REQ-MEDIA-002)
-      case 'uploadPlanPhotos':    return handleUploadPlanPhotos(body);
-      case 'getRecentPlanPhotos': return handleGetRecentPlanPhotos(body);
-      case 'getRecuerdos':        return handleGetRecuerdos(body);
-      case 'getFotosPlan':        return handleGetFotosPlan(body);
-      case 'setFechaFoto':        return handleSetFechaFoto(body);
-
-      default:
-        return respond(400, { error: 'Acción no reconocida.' });
+    // hasOwnProperty: un action como 'constructor' o '__proto__' no puede
+    // caer en lo que el objeto hereda.
+    const acciones = accionesDelServidor();
+    if (!Object.prototype.hasOwnProperty.call(acciones, action)) {
+      return respond(400, { error: 'Acción no reconocida.' });
     }
+    return acciones[action](body);
   } catch (err) {
     // BUG-CARGA-001: antes solo se hacía Logger.log y la ejecución quedaba
     // como "Completada" sin rastro útil en el panel de Ejecuciones.
@@ -371,10 +390,10 @@ function handleLoginGoogle(body) {
     }
   }
 
-  // Email con token de Google válido pero fuera de la lista blanca. Se
-  // enmascara: es PII de un tercero que no es usuario del sistema y solo nos
-  // interesa detectar reintentos del mismo origen (revisión de Julia).
-  registrarAuditoria('', 'login_denegado', 'Usuarios', '', { email: enmascararEmail(email) });
+  // Email con token de Google válido pero fuera de la lista blanca. Es PII
+  // de un tercero que no es usuario del sistema y solo nos interesa detectar
+  // reintentos del mismo origen: se guarda su seudónimo (BL-005, DEC-020).
+  registrarAuditoria('', 'login_denegado', 'Usuarios', '', { email_seudonimo: seudonimoEmail(email) });
   return respond(403, { error: 'Cuenta no autorizada para esta aplicación.' });
 }
 
@@ -1495,8 +1514,76 @@ function handleDeletePlan(body) {
   if (col('eliminado_por'))     sheet.getRange(rowIndex, col('eliminado_por')).setValue(authUserId || '');
   if (col('fecha_eliminacion')) sheet.getRange(rowIndex, col('fecha_eliminacion')).setValue(new Date().toISOString());
 
-  registrarAuditoria(authUserId, 'plan.eliminar', 'Planes', planId, { titulo: titulo });
+  // BL-017: las fotos de la tarea pasan a 'archivado' (docs/modelo-datos.md,
+  // Cascada): dejan de verse en todos lados y no se borra nada de Drive.
+  const fotos = archivarFotosDePlanes([planId], authUserId);
+
+  registrarAuditoria(authUserId, 'plan.eliminar', 'Planes', planId, { titulo: titulo, fotos_archivadas: fotos });
   return respond(200, { success: true });
+}
+
+// Pasa a 'archivado' las fotos activas ('adjunto') de las tareas pedidas.
+// Devuelve cuántas tocó. Un solo pase por Archivos para todas las tareas.
+function archivarFotosDePlanes(planIds, usuarioId) {
+  const sheet = getSheet(SHEETS.ARCHIVOS);
+  const data  = sheet.getDataRange().getValues();
+  const h     = data[0];
+  const iOwnerT  = h.indexOf('owner_tipo');
+  const iOwnerId = h.indexOf('owner_id');
+  const iProp    = h.indexOf('proposito');
+  const iEstado  = h.indexOf('estado');
+  const iModPor  = h.indexOf('modificado_por');
+  const iMod     = h.indexOf('fecha_modificacion');
+  const ahora    = new Date().toISOString();
+
+  let n = 0;
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (r[iOwnerT] === 'plan' && planIds.indexOf(r[iOwnerId]) !== -1 &&
+        r[iProp] === 'adjunto' && r[iEstado] === 'activo') {
+      sheet.getRange(i + 1, iEstado + 1).setValue('archivado');
+      if (iModPor !== -1) sheet.getRange(i + 1, iModPor + 1).setValue(usuarioId || '');
+      if (iMod !== -1)    sheet.getRange(i + 1, iMod + 1).setValue(ahora);
+      n++;
+    }
+  }
+  return n;
+}
+
+// BL-017, una sola vez: las tareas borradas antes de 1.8.1 dejaron sus fotos
+// activas. No la expone doPost; se corre suelta con clasp run -u duck.
+// soloContar = true no escribe nada. Cada foto queda modificada por quien
+// borró su tarea. Correrla de nuevo no hace nada (ya no quedan activas).
+function archivarFotosDePlanesEliminados(soloContar) {
+  const data = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const h    = data[0];
+  const iId  = h.indexOf('plan_id');
+  const iEst = h.indexOf('estado');
+  const iPor = h.indexOf('eliminado_por');
+  const porQuien = {};
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][iEst] === 'eliminado') porQuien[data[i][iId]] = iPor !== -1 ? data[i][iPor] : '';
+  }
+
+  const archivos = getSheet(SHEETS.ARCHIVOS).getDataRange().getValues();
+  const ha = archivos[0];
+  const cuenta = {};
+  for (let i = 1; i < archivos.length; i++) {
+    const r = archivos[i];
+    const planId = r[ha.indexOf('owner_id')];
+    if (r[ha.indexOf('owner_tipo')] === 'plan' && Object.prototype.hasOwnProperty.call(porQuien, planId) &&
+        r[ha.indexOf('proposito')] === 'adjunto' && r[ha.indexOf('estado')] === 'activo') {
+      cuenta[planId] = (cuenta[planId] || 0) + 1;
+    }
+  }
+
+  const planes = Object.keys(cuenta);
+  let fotos = 0;
+  planes.forEach(planId => {
+    fotos += soloContar ? cuenta[planId] : archivarFotosDePlanes([planId], porQuien[planId]);
+  });
+  if (!soloContar && fotos) SpreadsheetApp.flush();
+  return { soloContar: !!soloContar, tareas: planes.length, fotos: fotos };
 }
 
 // ------------------------------------------------------------
@@ -1595,7 +1682,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.8.1';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
@@ -2696,14 +2783,46 @@ function sanitizarDetalleAuditoria(detalle) {
   return json;
 }
 
-// Enmascara un email para el log: guarda lo justo para detectar reintentos del
-// mismo origen sin almacenar el dato personal completo de un tercero que no es
-// usuario del sistema (Ley 25.326). fran@example.com -> f***@example.com
-function enmascararEmail(email) {
-  const s  = (email || '').toString();
-  const at = s.indexOf('@');
-  if (at < 1) return '***';
-  return s[0] + '***' + s.slice(at);
+// Seudónimo de un email para Auditoria (BL-005, DEC-020). Un login_denegado
+// es de un tercero que no es usuario del sistema (Ley 25.326): del email no
+// se guarda nada, ni enmascarado. Solo 'v1:' + 16 hex de
+// HMAC-SHA256(email normalizado, AUDIT_PSEUDONYM_KEY): el mismo email da
+// siempre el mismo seudónimo (se ven los reintentos) y sin la clave no se
+// vuelve al email. La clave es propia, no SESSION_SECRET: rotar una no toca
+// la otra. 'v1' cambia si algún día se rota esta clave.
+// Para saber si un seudónimo es de alguien concreto: correr esta función
+// suelta con su email (clasp run -u duck). No la expone doPost.
+// Nunca tira: si algo falla devuelve '' y la auditoría queda sin ese dato.
+function seudonimoEmail(email) {
+  const s = (email || '').toString().trim().toLowerCase();
+  if (!s) return '';
+  try {
+    const raw = Utilities.computeHmacSha256Signature(s, claveSeudonimo());
+    return 'v1:' + raw.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('').slice(0, 16);
+  } catch (err) {
+    Logger.log('seudonimoEmail: no se pudo calcular el seudónimo.');
+    return '';
+  }
+}
+
+// AUDIT_PSEUDONYM_KEY de Script Properties. Si falta (primera vez en un
+// proyecto), se crea sola, bajo lock para que dos pedidos a la vez no creen
+// dos claves distintas.
+function claveSeudonimo() {
+  if (CONFIG_PROPS.AUDIT_PSEUDONYM_KEY) return CONFIG_PROPS.AUDIT_PSEUDONYM_KEY;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    let clave = PROPS.getProperty('AUDIT_PSEUDONYM_KEY');
+    if (!clave) {
+      clave = generarSecretoSesion();   // mismo generador: 64 hex aleatorios
+      PROPS.setProperty('AUDIT_PSEUDONYM_KEY', clave);
+    }
+    CONFIG_PROPS.AUDIT_PSEUDONYM_KEY = clave;
+    return clave;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Escribe una fila en Auditoria. Fallo silencioso: si la hoja no existe o el

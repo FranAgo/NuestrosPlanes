@@ -333,8 +333,9 @@ function grupoSanitizar(R) {
   const s = sanitizarDetalleAuditoria(
     { email: 'a@b.com', token_hash: 'HASH', google_sub: 'SUB', sessionToken: 'T', nombre: 'N' });
   const o = JSON.parse(s);
-  R.check('C15 · sanitizar conserva claves de la allowlist (email, nombre)',
-          o.email === 'a@b.com' && o.nombre === 'N');
+  // BL-005: 'email' salió de la allowlist (va su seudónimo, ver probarParche181).
+  R.check('C15 · sanitizar conserva claves de la allowlist (nombre) y descarta email',
+          o.nombre === 'N' && !('email' in o));
   R.check('C15 · sanitizar descarta token_hash / google_sub / sessionToken',
           !('token_hash' in o) && !('google_sub' in o) && !('sessionToken' in o));
   R.eq('C15 · sanitizar objeto vacío -> ""', sanitizarDetalleAuditoria({}), '');
@@ -343,7 +344,8 @@ function grupoSanitizar(R) {
        sanitizarDetalleAuditoria({ email: { token_hash: 'x' } }), '');
   const trunc = JSON.parse(sanitizarDetalleAuditoria({ motivo: 'x'.repeat(600) }));
   R.check('C15 · detalle > 500 chars -> {"_truncado":true}', trunc._truncado === true);
-  R.eq('C15 · enmascararEmail oculta el local-part', enmascararEmail('intruso@example.com'), 'i***@example.com');
+  R.check('C15 · login_denegado guarda un seudónimo, nada del email (BL-005)',
+          /^v1:[0-9a-f]{16}$/.test(seudonimoEmail('intruso@example.com')));
 }
 
 // Criterio 16 — sin regresión funcional en lo no relacionado con el borrado.
@@ -2972,6 +2974,187 @@ function probarPLAN003() {
     R.eq('I8 · cuenta una sin categoría', conteo.cantidad, 1);
     R.eq('I8 · devuelve su título', conteo.titulos.join('|'), 'Vieja sin categoría');
     R.eq('I8 · no escribió nada', JSON.stringify(filasDe('Planes')), filasPrevias);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    try {
+      const claves = [];
+      sesionesCreadas.forEach(id => { claves.push('sesion:' + id, 'sesion-ok:' + id, 'revocada-pendiente:' + id); });
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      if (claves.length) CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ' — borrala a mano: ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}
+
+// ============================================================
+// probarParche181() — parche 1.8.1:
+//   B/M · BL-017: borrar una tarea archiva sus fotos; migración de las
+//         tareas borradas antes del parche.
+//   S   · BL-002: TODAS las acciones del inventario (accionesDelServidor),
+//         salvo las públicas, rechazan sin sesión y con token falso, sin
+//         escribir nada. Una acción nueva queda cubierta sola.
+//   E   · BL-005: seudónimo HMAC del email en Auditoria (DEC-020).
+// Las fotos son filas de Archivos sin Drive: ningún caso lee el binario.
+//
+// Uso (Duck):  clasp push -f -P .clasp-test.json -I .claspignore-test
+//              clasp run probarParche181 -P .clasp-test.json -u duck
+// Crea AUDIT_PSEUDONYM_KEY en las Script Properties de TEST si no estaba.
+// ============================================================
+function probarParche181() {
+  const R = nuevoReporte('Parche 1.8.1');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  const sesionesCreadas = [];
+  let scratchId = null;
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarParche181 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    const crear = titulo => parseResp(handleCreatePlan({
+      titulo: titulo, userId: 'usr_fran', categoriaId: 'cat_mant', fechaProgramada: '2026-10-10',
+    })).planId;
+    const archivos = getSheet(SHEETS.ARCHIVOS);
+    const foto = (id, ownerTipo, ownerId, proposito) => archivos.appendRow(ARCHIVOS_HEADERS.map(c => {
+      switch (c) {
+        case 'archivo_id':      return id;
+        case 'owner_tipo':      return ownerTipo;
+        case 'owner_id':        return ownerId;
+        case 'proposito':       return proposito;
+        case 'fecha_contenido': return '2026-10-01';
+        case 'drive_file_id':   return 'drive_fake_' + id;
+        case 'fecha_subida':    return '2026-10-01T15:00:00.000Z';
+        case 'estado':          return 'activo';
+        default:                return '';
+      }
+    }));
+    const estadoDe = id => filaPorId('Archivos', id)[col('Archivos', 'estado')];
+    const recientes = () => (parseResp(handleGetRecentPlanPhotos({ limit: 100 })).fotos || []).map(f => f.archivoId);
+
+    const pBorrar = crear('Tarea que se borra');
+    const pQueda  = crear('Tarea que queda');
+    foto('arc_b1', 'plan', pBorrar, 'adjunto');
+    foto('arc_b2', 'plan', pBorrar, 'adjunto');
+    foto('arc_q1', 'plan', pQueda, 'adjunto');
+    foto('arc_av', 'usuario', 'usr_fran', 'avatar');
+    SpreadsheetApp.flush();
+
+    // B1 · Borrar una tarea archiva sus fotos y nada más.
+    R.eq('B1 · deletePlan -> 200', parseResp(handleDeletePlan({ planId: pBorrar, authUserId: 'usr_noe' })).status, 200);
+    R.eq('B1 · 1ra foto de la tarea -> archivado', estadoDe('arc_b1'), 'archivado');
+    R.eq('B1 · 2da foto de la tarea -> archivado', estadoDe('arc_b2'), 'archivado');
+    R.eq('B1 · queda modificada por quien borró', filaPorId('Archivos', 'arc_b1')[col('Archivos', 'modificado_por')], 'usr_noe');
+    R.check('B1 · con fecha_modificacion ISO', ISO_UTC.test(filaPorId('Archivos', 'arc_b1')[col('Archivos', 'fecha_modificacion')]));
+    R.eq('B1 · la foto de otra tarea sigue activa', estadoDe('arc_q1'), 'activo');
+    R.eq('B1 · el avatar sigue activo', estadoDe('arc_av'), 'activo');
+
+    // B2 · Ya no se ven por ningún lado.
+    R.eq('B2 · getArchivo de una foto archivada -> 404', parseResp(handleGetArchivo({ archivoId: 'arc_b1' })).status, 404);
+    const lote = parseResp(handleGetArchivos({ archivoIds: ['arc_b1', 'arc_b2'] }));
+    R.check('B2 · getArchivos las devuelve con error y sin binario',
+            (lote.archivos || []).length === 2 && lote.archivos.every(a => a.error && !a.base64));
+    const rec = recientes();
+    R.check('B2 · getRecentPlanPhotos no las trae', rec.indexOf('arc_b1') === -1 && rec.indexOf('arc_b2') === -1);
+    R.check('B2 · getRecentPlanPhotos sigue trayendo la de la otra tarea', rec.indexOf('arc_q1') !== -1);
+
+    // B3 · Auditoría con la cantidad.
+    const audit = filasDe('Auditoria').filter(r => r[col('Auditoria', 'accion')] === 'plan.eliminar' &&
+                                                   r[col('Auditoria', 'entidad_id')] === pBorrar)[0];
+    const detalle = audit ? JSON.parse(audit[col('Auditoria', 'detalle')] || '{}') : {};
+    R.eq('B3 · plan.eliminar registra fotos_archivadas', detalle.fotos_archivadas, 2);
+
+    // B4 · Borrar una tarea sin fotos no toca las de otra.
+    const pSinFotos = crear('Sin fotos');
+    R.eq('B4 · deletePlan sin fotos -> 200', parseResp(handleDeletePlan({ planId: pSinFotos, authUserId: 'usr_fran' })).status, 200);
+    R.eq('B4 · la de la otra tarea sigue activa', estadoDe('arc_q1'), 'activo');
+
+    // M · Migración de las tareas borradas antes de 1.8.1.
+    const pVieja = crear('Borrada antes del parche');
+    foto('arc_v1', 'plan', pVieja, 'adjunto');
+    foto('arc_v2', 'plan', pVieja, 'adjunto');
+    const hojaPlanes = SpreadsheetApp.openById(scratchId).getSheetByName('Planes');
+    const ids = hojaPlanes.getRange(1, 1, hojaPlanes.getLastRow(), 1).getValues().map(r => r[0]);
+    hojaPlanes.getRange(ids.indexOf(pVieja) + 1, col('Planes', 'estado') + 1).setValue('eliminado');
+    hojaPlanes.getRange(ids.indexOf(pVieja) + 1, col('Planes', 'eliminado_por') + 1).setValue('usr_noe');
+    SpreadsheetApp.flush();
+    if (typeof archivarFotosDePlanesEliminados !== 'function') {
+      R.fail('M · no existe archivarFotosDePlanesEliminados');
+    } else {
+      const antes = JSON.stringify(filasDe('Archivos'));
+      const conteo = archivarFotosDePlanesEliminados(true);
+      R.eq('M1 · soloContar: 1 tarea, 2 fotos', conteo.tareas + '/' + conteo.fotos, '1/2');
+      R.eq('M1 · soloContar no escribió nada', JSON.stringify(filasDe('Archivos')), antes);
+      const hecho = archivarFotosDePlanesEliminados(false);
+      R.eq('M2 · archiva 1 tarea, 2 fotos', hecho.tareas + '/' + hecho.fotos, '1/2');
+      R.eq('M2 · arc_v1 -> archivado', estadoDe('arc_v1'), 'archivado');
+      R.eq('M2 · modificada por quien borró la tarea', filaPorId('Archivos', 'arc_v2')[col('Archivos', 'modificado_por')], 'usr_noe');
+      R.eq('M2 · la de la tarea activa sigue activa', estadoDe('arc_q1'), 'activo');
+      R.eq('M3 · correrla de nuevo no hace nada', archivarFotosDePlanesEliminados(false).fotos, 0);
+    }
+
+    // S · BL-002: todo el inventario, sin sesión y con token falso.
+    const pedir = payload => parseResp(doPost({ postData: { contents: JSON.stringify(payload) } }));
+    if (typeof accionesDelServidor !== 'function') {
+      R.fail('S · no existe accionesDelServidor (inventario de acciones)');
+    } else {
+      R.eq('S · las únicas acciones sin sesión son loginGoogle y logout',
+           JSON.stringify(ACCIONES_SIN_SESION.slice().sort()), '["loginGoogle","logout"]');
+      const protegidas = Object.keys(accionesDelServidor()).filter(a => ACCIONES_SIN_SESION.indexOf(a) === -1);
+      R.check('S · el inventario tiene las acciones de siempre (' + protegidas.length + ')', protegidas.length >= 20);
+      // Parámetros creíbles: si el gate fallara, el handler haría algo de verdad.
+      const params = { planId: pQueda, archivoId: 'arc_q1', archivoIds: ['arc_q1'], categoriaId: 'cat_mant',
+                       titulo: 'intruso', nombre: 'intruso', fecha: '2026-10-01', deAcuerdo: true, userId: 'usr_fran' };
+      const hojas = ['Planes', 'Archivos', 'Categorias', 'Usuarios', 'Auditoria'];
+      const foto0 = JSON.stringify(hojas.map(filasDe));
+      const sinSesion = [], conFalso = [];
+      protegidas.forEach(a => {
+        if (pedir(Object.assign({ action: a }, params)).status !== 401) sinSesion.push(a);
+        if (pedir(Object.assign({ action: a, sessionToken: 'ses_x.yyyy' }, params)).status !== 401) conFalso.push(a);
+      });
+      R.eq('S · sin sesión, todas -> 401 (las que no: ' + sinSesion.join(',') + ')', sinSesion.length, 0);
+      R.eq('S · con token falso, todas -> 401 (las que no: ' + conFalso.join(',') + ')', conFalso.length, 0);
+      R.eq('S · los rechazos no escribieron nada', JSON.stringify(hojas.map(filasDe)), foto0);
+      R.eq('S · acción desconocida sin sesión -> 401', pedir({ action: 'noExiste' }).status, 401);
+
+      const t = crearSesion('usr_fran');
+      sesionesCreadas.push(t.split('.')[0]);
+      R.eq('S · getArchivos con sesión -> 200', pedir({ action: 'getArchivos', archivoIds: ['arc_b1'], sessionToken: t }).status, 200);
+      R.eq('S · getRecentPlanPhotos con sesión -> 200', pedir({ action: 'getRecentPlanPhotos', sessionToken: t }).status, 200);
+      R.eq('S · acción desconocida con sesión -> 400', pedir({ action: 'noExiste', sessionToken: t }).status, 400);
+      ['constructor', '__proto__', 'toString', 'hasOwnProperty'].forEach(a => {
+        R.eq('S · "' + a + '" con sesión -> 400 (no hereda del objeto)', pedir({ action: a, sessionToken: t }).status, 400);
+      });
+    }
+
+    // E · BL-005: seudónimo del email.
+    if (typeof seudonimoEmail !== 'function') {
+      R.fail('E · no existe seudonimoEmail');
+    } else {
+      const s1 = seudonimoEmail('intruso@empresa-privada.com');
+      R.check('E · formato v1: + 16 hex (' + s1 + ')', /^v1:[0-9a-f]{16}$/.test(s1));
+      R.eq('E · mayúsculas y espacios dan el mismo seudónimo', seudonimoEmail('  Intruso@Empresa-Privada.COM '), s1);
+      R.check('E · otro email da otro seudónimo', seudonimoEmail('otro@empresa-privada.com') !== s1);
+      R.check('E · no deja ver nada del email', s1.indexOf('intruso') === -1 && s1.indexOf('empresa') === -1);
+      R.eq('E · vacío -> ""', seudonimoEmail(''), '');
+      R.check('E · usa su propia clave, no SESSION_SECRET',
+              s1 !== 'v1:' + hmacHex('intruso@empresa-privada.com').slice(0, 16));
+      const clave = PropertiesService.getScriptProperties().getProperty('AUDIT_PSEUDONYM_KEY') || '';
+      R.check('E · la clave quedó guardada (64 hex)', /^[0-9a-f]{64}$/.test(clave));
+      R.eq('E · Auditoria descarta un email aunque se lo pasen', sanitizarDetalleAuditoria({ email: 'a@b.com' }), '');
+      R.eq('E · Auditoria guarda el seudónimo',
+           sanitizarDetalleAuditoria({ email_seudonimo: s1 }), JSON.stringify({ email_seudonimo: s1 }));
+    }
 
   } catch (err) {
     R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));

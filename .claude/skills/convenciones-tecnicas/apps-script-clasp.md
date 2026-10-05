@@ -143,3 +143,10 @@ otra respuesta).
 
 **Por qué:** BL-032 (2026-09-28): `getFotosPlan` tardaba ~4 s y el
 handler se llevaba 0,4 a 1,2 s de eso.
+
+**Con curl, lo mismo:** `curl -L -X POST` contra el Web App devuelve un
+411 de Google ("POST requests require a Content-length"), no la
+respuesta de la app: al seguir el redirect repite el POST sin cuerpo.
+Sacar el `location` con `curl -s -o /dev/null -w "%{redirect_url}" -X
+POST --data '…'` y después un `curl -s` (GET) a esa URL. (Smoke de prod
+de 1.8.1, 2026-10-05.)

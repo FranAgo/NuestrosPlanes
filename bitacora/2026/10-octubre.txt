@@ -214,3 +214,21 @@ Cambios:
 - docs/requerimientos/REQ-PLAN-003.md — CERRADO: Franco confirmó en uso que anda todo bien.
 - Cierre de sesión: backlog al día (BL-038 Hecho), DEC-019 registrada, sin cuidados nuevos para convenciones-tecnicas.
 ========================================================
+========================================================
+2026-10-05 16:52 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Parche 1.8.1: BL-017, BL-002 y BL-005 (propuesta de Paul de la sesión anterior). Antes de implementar, Franco pidió investigar qué hacen empresas grandes: cascada de borrado lógico (Google Photos, guías de soft delete), OWASP Authorization Regression Testing y OWASP Logging / seudonimización GDPR. Franco eligió: BL-002 con el test que recorre todo el inventario de acciones; BL-005 con la opción más formal (seudónimo HMAC).
+- Code.gs — 1.8.1. deletePlan pasa a 'archivado' las fotos activas de la tarea (archivarFotosDePlanes; Drive no se toca) y Auditoría registra fotos_archivadas. archivarFotosDePlanesEliminados(soloContar), suelta y fuera de doPost, para las tareas borradas antes. Router: el switch pasó a un inventario único (accionesDelServidor() + ACCIONES_SIN_SESION); lookup con hasOwnProperty ('constructor', '__proto__' -> 400). login_denegado guarda email_seudonimo (v1: + 16 hex de HMAC-SHA256 con AUDIT_PSEUDONYM_KEY, propia, creada sola bajo lock) en vez de f***@dominio; 'email' fuera de la lista blanca de Auditoría; enmascararEmail eliminada.
+- Tests.gs — probarParche181 (43 casos: borrado y migración, 401 de todo el inventario sin sesión y con token falso sin escribir nada, seudónimo). probarDATA002 C15 actualizado a la regla nueva.
+- index.html — APP_VERSION 1.8.1 (sin otros cambios).
+- docs/backlog.md — BL-002, BL-005 y BL-017 Hecho (1.8.1); BL-039 nuevo (fotos que pueden quedar activas en una tarea borrada: falla a mitad del borrado o subida simultánea; y qué devolver al "recuperar tarea"), de la revisión de Duck.
+- docs/decisiones.md — DEC-020: email de un login rechazado, seudónimo HMAC (opciones A dejarlo, B enmascarar el dominio, C HMAC).
+- docs/modelo-datos.md — nota en Auditoria: un email nunca entra a detalle.
+- CHANGELOG.md — entrada 1.8.1.
+- .claude/skills/convenciones-tecnicas/apps-script-clasp.md — curl -L contra el Web App da 411: sacar el redirect a mano.
+- Verificado: node check-sintaxis.js OK. Test: probarParche181 con el Code.gs de 1.8.0 10/17 FAIL (el test muerde; getArchivo intentaba servir la foto de una tarea borrada), con el nuevo 43/43. Regresión en test: DATA002 70/70, MEDIA001 22/22, MEDIA002 43/43, BL015 12/12, BUGLOGIN001B 38/38, PLAN001 44/44, PLAN002 26/26, PLAN003 39/39, MEDIA003 36/36, MEDIA004 21/21, MEDIA005 59/59, PERF004 22/22, BUGCARGA001 9/9, BUGFECHA001 21/21.
+- Deploy servidor con OK de Franco: clasp push a prod, versión 35, redeploy de AKfycbyKWC… @35. Smoke sin sesión contra prod: getPlanes y 'constructor' -> 401. clasp run archivarFotosDePlanesEliminados(true) -u duck contra prod: { tareas: 0, fotos: 0 }, no hizo falta correr la corrección.
+========================================================

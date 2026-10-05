@@ -5,6 +5,21 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.8.1] - 2026-10-05
+
+### Corregido
+- Al borrar un plan, sus fotos también quedan archivadas (siguen en Drive,
+  no se pierden). Antes quedaban como activas y el servidor las podía
+  seguir entregando aunque la app no las mostrara. Lo mismo para los planes
+  que ya se habían borrado. (BL-017)
+
+### Seguridad
+- Si alguien que no está autorizado intenta entrar, el registro de
+  accesos ya no guarda nada de su email: solo un código que permite ver si
+  es la misma persona que reintenta. (BL-005)
+- Una prueba automática revisa que todo lo que atiende el servidor pida la
+  sesión, también lo que se agregue más adelante. (BL-002)
+
 ## [1.8.0] - 2026-10-05
 
 ### Agregado

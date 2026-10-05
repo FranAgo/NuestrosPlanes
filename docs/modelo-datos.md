@@ -323,6 +323,9 @@ bajo la **Ley 25.326** (Argentina). Log liviano de accesos y cambios sensibles.
 | `entidad_id` | ID afectado |
 | `detalle` | JSON corto opcional (valor anterior/nuevo) |
 
+Un email nunca entra a `detalle` (BL-005, DEC-020): en `login_denegado` va
+`email_seudonimo` (`v1:` + 16 hex de HMAC-SHA256 con `AUDIT_PSEUDONYM_KEY`).
+
 ---
 
 ## 9. Datos sensibles (marcado explícito)

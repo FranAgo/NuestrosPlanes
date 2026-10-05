@@ -46,13 +46,14 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
   del lado del servidor de Gary.
 
 ### BL-002 — Test automatizado permanente para getArchivos (batch)
-- Estado: Propuesto
+- Estado: Hecho (1.8.1)
 - Prioridad: Baja
 - Origen: REQ-PERF-001 (2026-09-15)
 - Nota: hoy solo tiene el smoke que corrió Duck una vez; no quedó como test
   permanente en Tests.gs. *(2026-09-27, validación de skills: tampoco hay
   test de 401 por `doPost` para `getArchivos` ni `getRecentPlanPhotos`;
   `getArchivo` sí lo tiene. Sumarlos acá.)*
+- Resuelto: en 1.8.1 (2026-10-05). El lote ya tenía test en `probarMEDIA002` (C2/C3). Para el 401, en vez de sumar dos casos sueltos, Franco eligió lo que recomienda OWASP (Authorization Regression Testing): el router de `doPost` pasó a un inventario único (`accionesDelServidor()`, más `ACCIONES_SIN_SESION`) y `probarParche181` lo recorre entero, sin sesión y con token falso, y verifica que no se escribió nada. Una acción nueva queda cubierta sola; sumar una pública hace fallar el test a propósito. De paso, un `action` como `constructor` o `__proto__` da 400.
 
 ### BL-003 — REQ-ADMIN-001: rol admin + panel
 - Estado: Propuesto
@@ -80,12 +81,13 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Resuelto: en `main` (GitHub Pages) desde el 2026-09-27 (commit a95c10d)
 
 ### BL-005 — Enmascarar también el dominio en enmascararEmail()
-- Estado: Propuesto
+- Estado: Hecho (1.8.1)
 - Prioridad: Baja
 - Origen: revisión de Julia en REQ-DATA-002 (2026-09-10)
 - Nota: hoy `enmascararEmail` solo oculta el usuario (`f***@dominio.com`);
   el dominio completo queda expuesto en el log de Auditoria para
   `login_denegado`.
+- Resuelto: en 1.8.1 (2026-10-05), con la opción más formal (DEC-020): del email no se guarda nada, solo un seudónimo `v1:` + 16 hex de HMAC-SHA256 con una clave propia (`AUDIT_PSEUDONYM_KEY`, se crea sola). `email` salió de la lista blanca de Auditoría. Las filas viejas (`f***@dominio`) no se reescriben: su vencimiento es BL-006.
 
 ### BL-006 — Purga/retención del log de Auditoría
 - Estado: Propuesto
@@ -184,11 +186,12 @@ el nivel de los encabezados; el contenido de cada ítem es el original).
 - Resuelto: en `main` (GitHub Pages) desde el 2026-09-27 (commit afe9cbf)
 
 ### BL-017 — ¿Las fotos de un plan eliminado siguen en "recuerdos"?
-- Estado: Propuesto
+- Estado: Hecho (1.8.1)
 - Prioridad: Sin definir
 - Origen: validación A/B de `hjulia-revision-cambio` (2026-09-27), verificado a mano
 - Nota: `handleGetRecentPlanPhotos` filtra por el estado de la foto, no del plan, y borrar un plan no toca `Archivos`. Las fotos de planes eliminados siguen en el carrusel. Decisión de producto (¿un recuerdo sobrevive al plan?). Se cruza con BL-007 y BL-009.
   *(2026-09-28, estado: lo que queda: pasar las fotos a `archivado` al borrar la tarea, como dice `docs/modelo-datos.md`. La otra mitad (no mostrarlas en "recuerdos", decisión de Franco del 2026-09-28) salió con REQ-MEDIA-003)*
+- Resuelto: en 1.8.1 (2026-10-05). `deletePlan` pasa a `archivado` las fotos activas de la tarea (Drive no se toca) y Auditoría registra `fotos_archivadas`. Para las tareas borradas antes: `archivarFotosDePlanesEliminados(soloContar)`, suelta con `clasp run -u duck`. Contra el código de 1.8.0, `getArchivo` intentaba servir la foto de una tarea borrada. Lo que queda: BL-039.
 
 ### BL-018 — Deudas de UI que dejó a la vista `docs/DESIGN.md`
 - Estado: Hecho (2026-09-27)
@@ -408,3 +411,11 @@ estado de cada cosa vive en su ítem o su REQ):
 - Origen: REQ-PLAN-002 (2026-10-05). La categoría pasó a ser obligatoria y no se pudo contar cuántas tareas viejas en prod no la tienen: hace falta una función de lectura nueva en el servidor. Franco pidió anotarlo.
 - Nota: sumar a `Code.gs` una función de solo lectura (ej. `conteoPlanesSinCategoria`) que devuelva solo el número y los títulos, nada más, para correrla suelta con `clasp run -u duck` (`verificacion-navegador.md` §6). Conviene subirla junto con REQ-PLAN-003, que igual toca el servidor, así no hace falta otra subida. Si hay varias, en vez de corregir la planilla a mano, que la app las muestre para elegirles categoría (Franco quiere todo desde la app). Hoy no rompe nada: al editar una, el formulario pide la categoría.
 - Resuelto: en 1.8.0 (2026-10-05), junto con REQ-PLAN-003. `conteoPlanesSinCategoria()` en `Code.gs` (solo lectura, no la expone `doPost`; probada en `probarPLAN003`, I8). Corrida contra prod con `clasp run -u duck` después del deploy (versión 34): `{ cantidad: 0, titulos: [] }`. No hay tareas sin categoría, así que no hace falta una pantalla para asignarlas.
+
+## Sesión 2026-10-05 (4)
+
+### BL-039 — Fotos que pueden quedar activas en una tarea borrada, y "recuperar tarea"
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: revisión de Duck del parche 1.8.1 (BL-017), 2026-10-05.
+- Nota: dos casos raros dejan una foto `activo` en una tarea borrada: (1) si `archivarFotosDePlanes` falla a mitad del borrado, la tarea queda borrada igual; (2) si alguien sube una foto mientras el otro borra esa tarea (`uploadPlanPhotos` mira la tarea antes de tomar el lock). Ninguno se ve en la app (Recuerdos y el detalle filtran por la tarea) y `archivarFotosDePlanesEliminados()` los corrige. Arreglo de fondo: borrar y subir bajo el mismo lock, y que la subida vuelva a mirar el estado de la tarea adentro del lock. Además, si algún día hay "recuperar tarea", tiene que devolver solo las fotos que archivó ese borrado (misma `fecha_modificacion` que la `fecha_eliminacion` de la tarea), no otras.

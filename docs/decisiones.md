@@ -190,3 +190,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A (Franco, 2026-10-05; era la recomendada por Bob). El servidor sigue ignorando una fecha vacía al editar y el front avisa "Un plan con fecha no puede quedar sin fecha".
 - Motivo: el contrato de `updatePlan` casi no cambia y no hay que decidir qué pasa con los acuerdos que ya se dieron.
 - Reabrir si: en uso aparece la necesidad de "postergar sin fecha" un plan ya agendado.
+
+## DEC-020 — Email de un login rechazado: seudónimo con HMAC, no enmascarado
+- Fecha: 2026-10-05
+- Estado: Aceptada
+- Contexto: BL-005. En `login_denegado` (alguien con cuenta de Google que no está en la lista blanca) Auditoría guardaba `f***@dominio.com`: el dominio completo de un tercero que no es usuario (Ley 25.326). Hace falta poder ver reintentos del mismo origen.
+- Opciones consideradas: (A) dejarlo como estaba: es el ejemplo de OWASP (`j***@example.com`) y lo que muestra Microsoft; (B) enmascarar también el dominio (`f***@e***.com`); (C) seudónimo con HMAC-SHA256 y clave secreta propia, sin nada del email.
+- Decisión: C (Franco, 2026-10-05: "lo más formal y profesional, no importa el costo"). `v1:` + 16 hex; email normalizado (minúsculas, sin espacios); clave `AUDIT_PSEUDONYM_KEY` en Script Properties, separada de `SESSION_SECRET`, que se crea sola bajo lock; `email` fuera de la lista blanca de Auditoría. Para saber si un seudónimo es de alguien: `seudonimoEmail(email)` suelta con `clasp run`.
+- Motivo: es lo que recomiendan OWASP y las guías de GDPR para correlacionar sin guardar el dato (seudonimización con clave). Con A o B queda parte del email; con C, sin la clave no se vuelve al email y los reintentos se siguen viendo. Las filas viejas no se reescriben (un log de auditoría no se edita): vencen con BL-006.
+- Reabrir si: hay que rotar la clave (pasa a `v2:`) o se necesita saber quién intentó entrar sin tener su email para comparar.
