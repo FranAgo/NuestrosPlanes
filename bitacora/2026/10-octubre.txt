@@ -232,3 +232,12 @@ Cambios:
 - Verificado: node check-sintaxis.js OK. Test: probarParche181 con el Code.gs de 1.8.0 10/17 FAIL (el test muerde; getArchivo intentaba servir la foto de una tarea borrada), con el nuevo 43/43. Regresión en test: DATA002 70/70, MEDIA001 22/22, MEDIA002 43/43, BL015 12/12, BUGLOGIN001B 38/38, PLAN001 44/44, PLAN002 26/26, PLAN003 39/39, MEDIA003 36/36, MEDIA004 21/21, MEDIA005 59/59, PERF004 22/22, BUGCARGA001 9/9, BUGFECHA001 21/21.
 - Deploy servidor con OK de Franco: clasp push a prod, versión 35, redeploy de AKfycbyKWC… @35. Smoke sin sesión contra prod: getPlanes y 'constructor' -> 401. clasp run archivarFotosDePlanesEliminados(true) -u duck contra prod: { tareas: 0, fotos: 0 }, no hizo falta correr la corrección.
 ========================================================
+========================================================
+2026-10-06 01:03 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy front 1.8.1 con OK de Franco: commit 09789dd + tag v1.8.1, push a main (cuenta FranAgo).
+- GitHub Pages no lo publicó: incidente de GitHub Actions ("delays in assigning GitHub-hosted runners"). En la corrida #86 el build salió bien y el deploy se canceló a los 15 min (sin runner). El reintento (#86, intento 2) quedó en cola horas, sin botón para cancelarlo. Con Actions de nuevo operativo, se sube este commit para que Pages arme una corrida nueva.
+========================================================
