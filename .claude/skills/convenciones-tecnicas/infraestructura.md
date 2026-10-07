@@ -98,3 +98,17 @@ La frecuencia está en DEC-022.
 
 **Por qué:** la primera pasada (2026-10-06) encontró que no hay respaldo
 propio de los datos, cosa que ninguna sesión anterior había mirado.
+
+## 7. Push rechazado con "Internal Server Error"
+
+**Qué cuidar:** cada push a este repo normalmente le abre a Franco la
+ventana del Git Credential Manager para elegir la cuenta (`FranAgo`). Si
+el push falla con `! [remote rejected] main -> main (Internal Server
+Error)` y esa ventana no apareció, el problema es un token guardado de
+`FranAgo` que quedó mal, aunque GitHub diga "All Systems Operational" y
+el repo se vea normal. Franco corre `git credential-manager github logout
+FranAgo` y el push siguiente vuelve a pedir la cuenta. No reintentar en
+loop ni diagnosticar otra cosa antes de preguntarle por la ventana.
+
+**Por qué:** deploy de 1.10.0 (2026-10-07): 5 intentos con 500, también
+el tag solo; después del logout entró al primer intento.

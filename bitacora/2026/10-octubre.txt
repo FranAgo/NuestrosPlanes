@@ -340,3 +340,15 @@ Cambios:
 - Deploy front 1.10.0 con OK de Franco: commit 3da1961 + tag v1.10.0, push a main (cuenta FranAgo). Los primeros 5 intentos dieron "remote rejected … Internal Server Error" sin la ventana de elegir cuenta (GitHub "operational", repo sin avisos): era un token guardado de FranAgo en el Git Credential Manager. Franco corrió "git credential-manager github logout FranAgo" y el push siguiente entró. GitHub Pages sirve 1.10.0 desde las 12:18 (curl).
 - Deploy servidor con OK de Franco: mismo commit 3da1961; clasp push -f a prod, versión 37, redeploy de AKfycbyKWC… @37 (antes @36). Sin setupSheets (no hay columnas nuevas). Smoke sin sesión contra prod: getPlanes y uploadPlanPhotos -> 401. Vuelta atrás: redeploy -V 36 y clasp push del commit ed8344e.
 ========================================================
+========================================================
+2026-10-07 12:23 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Cierre de sesión. docs/backlog.md — BL-047 nuevo (fotos viejas con el día de subida: marcarlas para corregirlas desde la app). REQ-MEDIA-008 y REQ-MEDIA-009 quedan HECHO hasta que Franco los confirme en uso. Decisiones DEC-024 y DEC-025 en las entradas anteriores.
+- .claude/skills/convenciones-tecnicas/infraestructura.md — §7: push rechazado con "Internal Server Error" sin la ventana de elegir cuenta = token guardado de FranAgo; logout en el Git Credential Manager.
+- .claude/skills/convenciones-tecnicas/verificacion-navegador.md — §12: en un input type="date", computer "type" no escribe; usar "key" con las teclas sueltas.
+- .claude/skills/convenciones-tecnicas/tests.md — §2: ECONNRESET/ENOTFOUND en clasp run es la red, se repite la corrida.
+- Memoria de Claude (fuera del repo): github-cuenta-personal-por-repo con el caso del token.
+========================================================

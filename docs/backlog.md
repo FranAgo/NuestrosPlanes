@@ -472,3 +472,9 @@ estado de cada cosa vive en su ítem o su REQ):
 - Origen: verificación de REQ-MEDIA-008 (2026-10-07).
 - Nota: el `change` de `plan-foto-input` (`index.html`) procesa cada archivo con `files.forEach(async …)` y lo agrega a `planFotosSeleccion` cuando termina de comprimir: una foto chica (o un PNG) queda antes que una grande elegida primero. Desde 1.9.0 la posición en esa lista es la que numera los archivos en Drive. En la app no se nota (ordena por día y hora de captura). Arreglo: reservar el lugar de cada archivo en el orden del selector antes de comprimir.
 - Resuelto: en 1.10.0 (2026-10-07; se armó como 1.9.1 y salió junto con REQ-MEDIA-009, que no se había publicado). Desde REQ-MEDIA-009 la numeración en Drive sigue el día y la hora, y el orden de selección queda como desempate. El handler de `plan-foto-input` reserva el `id` de cada archivo en el orden del selector antes de comprimir y lo inserta en `planFotosSeleccion` según ese `id`. De paso (mismo handler): si el modal se cerró mientras se comprimía, la foto ya no entra en "Por subir" de la tarea que se abra después (no miraba `planFotosLote`, como sí lo hace `subirFotosPlan`). El orden en que el sistema operativo entrega los archivos elegidos no depende de la app.
+
+### BL-047 — Encontrar las fotos viejas que quedaron con el día de subida
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: REQ-MEDIA-009 (2026-10-07), fuera de alcance: la fecha obligatoria vale para las fotos nuevas.
+- Nota: las fotos subidas antes de 1.10.0 sin fecha de captura tienen `fecha_origen = 'subida'` (el día en que se subieron, no el de la foto) y quedan mal ordenadas. Se corrigen desde el visor (REQ-MEDIA-006), pero nada dice cuáles son. Idea: marcarlas en el visor o en "Ya subidas" ("Fecha de subida, no de la foto") para corregirlas desde la app (Franco no toca la planilla). Antes, contar cuántas hay en prod (solo lectura, `hgary-integridad`).

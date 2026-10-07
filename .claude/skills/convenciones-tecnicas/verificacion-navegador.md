@@ -245,3 +245,14 @@ REQ-MEDIA-005, pero con el fondo igual al del modal y el borde de 0,5 px
 no se notaba. El rediseño lo dejó a la vista y Franco lo vio en el
 iPhone. En Chromium las medidas daban bien. Arreglado en 1.3.1 y
 confirmado por Franco.
+
+## 12. Escribir en un campo de fecha con `computer`
+
+**Qué cuidar:** `computer` con `type` no escribe en un `input
+type="date"`: el campo queda vacío y no hay error. Hay que mandar las
+teclas sueltas con `key`, en el orden del campo (`dd/mm/aaaa` en este
+navegador): `"0 3 1 0 2 0 2 6"` deja `2026-10-03`. Leer `value` antes de
+confirmar, para no confundir un campo vacío con un bug de la app.
+
+**Por qué:** REQ-MEDIA-009 (2026-10-07): la fecha tecleada "no quedaba" y
+era la herramienta; con `key` anduvo a la primera.

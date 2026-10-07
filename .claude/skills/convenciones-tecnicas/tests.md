@@ -57,6 +57,11 @@ clasp run probarPLAN003 -P .clasp-test.json -u duck
   acciones, si el cambio toca `doPost` o una acción.
 - Un "No response" es un handler que devuelve `TextOutput`; un
   `invalid_grant`, el token de `duck` vencido (`apps-script-clasp.md`).
+- `request to https://script.googleapis.com/… failed, reason: read
+  ECONNRESET` o `getaddrinfo ENOTFOUND` es la red de la PC, no un rojo: no
+  trae `veredicto`. Se repite la corrida; no cuenta como una de las 3. De a
+  dos suites en paralelo anduvo bien; más, no se probó (2026-10-07,
+  REQ-MEDIA-009: 4 cortes en 18 corridas).
 
 **Dónde ya está bien:** las entradas de la bitácora del 2026-10-05 listan
 cada suite con su `ok/total`.
