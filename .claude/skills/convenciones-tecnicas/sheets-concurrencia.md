@@ -43,3 +43,32 @@ una planilla de test se podía filtrar a otra corrida o a prod. Corregido
 antes de correr un solo test (bitácora 2026-09, REQ-PERF-002).
 
 **Dónde ya está bien:** `claveCacheHoja()` en `Code.gs`.
+
+## El `ScriptLock` es uno solo: nada lento adentro
+
+**Qué cuidar:** `LockService.getScriptLock()` es el mismo lock para todo el
+script: login (`crearSesion`), completar, reabrir, acuerdos, fecha de una
+foto, subidas. Todos esperan con `waitLock(10000)`. Adentro va solo lo que
+evita el choque (leer lo que decide, reservar un número, escribir la fila);
+Drive, `UrlFetchApp` y cualquier cosa de segundos van afuera. Si un número
+tiene que ser único y lo que lo crea queda afuera, se reserva bajo el lock
+con un contador (no contando lo que ya existe, que todavía no se ve). Lo
+que se hizo afuera se revalida en el tramo de escritura (¿la tarea sigue
+activa?).
+
+**Por qué:** REQ-MEDIA-008 (2026-10-06): `handleUploadPlanPhotos` tenía el
+lock ~4,3 s por foto (`createFile` + `setDescription`). Con 3 subidas a la
+vez se serializaban igual y una dio 500 por espera; cualquier otra escritura
+del otro usuario podía fallar igual. Con el lock corto, 16 fotos bajaron de
+113 s a ~40 s y las escrituras concurrentes quedaron en el piso (2-3,6 s).
+
+## Una hora (`HH:MM:SS`) en una celda va como texto
+
+**Qué cuidar:** `appendRow`/`setValue` con `'14:05:33'` hace que Sheets la
+convierta en una hora del 30/12/1899, y al leerla vuelve un `Date` con
+corrimientos de zona. Se escribe con apóstrofo (`"'" + hora`) y al leer se
+valida el formato (`esHoraValida`); una celda que no es texto válido se
+trata como vacía.
+
+**Por qué:** `Archivos.hora_contenido` (REQ-MEDIA-008); `probarMEDIA008` H1
+verifica que la celda vuelva como `'14:05:33'` y `'09:00:01'`.

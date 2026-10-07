@@ -275,3 +275,22 @@ Cambios:
 - Verificado: node check-sintaxis.js OK. probarMEDIA008 con el Code.gs de 1.8.1 25/29 FAIL, con un mutante (sin el chequeo de tarea borrada) 4 FAIL, con el nuevo 33/33 x3. Regresión en test: DATA002 70/70, MEDIA001 22/22, MEDIA002 43/43, BL015 12/12, BUGLOGIN001B 38/38, PLAN001 44/44, PLAN002 26/26, PLAN003 39/39, MEDIA003 36/36, MEDIA004 21/21, MEDIA005 59/59, PERF004 22/22, BUGCARGA001 9/9, BUGFECHA001 21/21, Parche181 43/43. Web App de test @11: 16 fotos de a 3 en 40,1 y 41,3 s sin errores, 0001-0016 sin repetidos; 6 updatePlan durante la subida 2,0-3,6 s, todas 200. Front en 127.0.0.1 con fetch simulado, sin pedidos a prod: 3 a la vez, error aislado, reintento, cerrar a mitad, EXIF con hora, orden, 375 y 1366, consola limpia.
 - Deploy servidor con OK de Franco: commit ec0d1f3; clasp push a prod, clasp run setupSheets -u duck (columna hora_contenido antes del redeploy), versión 36, redeploy de AKfycbyKWC… @36. Smoke sin sesión contra prod: getPlanes y uploadPlanPhotos -> 401.
 ========================================================
+========================================================
+2026-10-07 00:55 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy front 1.9.0 con OK de Franco: commit 1832968 (bitácora) + tag v1.9.0 sobre ec0d1f3, push a main (cuenta FranAgo). GitHub Pages sirve 1.9.0 (confirmado con curl).
+- docs/decisiones.md — DEC-023: subida con bloqueo corto y 3 a la vez, reserva de números por grupo, orden por hora de captura (opciones A/B/C y a/b).
+- .claude/skills/convenciones-tecnicas/sheets-concurrencia.md — dos temas nuevos: el ScriptLock es uno solo (nada lento adentro, reservar con contador, revalidar al escribir) y una hora en una celda va como texto con apóstrofo.
+- docs/infra/inventario.md — Web App de test en @11.
+========================================================
+========================================================
+2026-10-07 01:00 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Cierre de sesión. docs/backlog.md — BL-046 nuevo (el orden de "Por subir" es el de fin de compresión; desde 1.9.0 numera en Drive); nota en BL-039 (la subida revalida la tarea bajo el lock). REQ-MEDIA-008 queda HECHO hasta que Franco lo confirme en uso. Decisión DEC-023 y cuidados de convenciones-tecnicas en la entrada anterior.
+========================================================

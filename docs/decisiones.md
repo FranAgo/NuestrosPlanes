@@ -218,3 +218,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: 2. Próxima: enero de 2027.
 - Motivo: la frecuencia se ajusta al riesgo y a cuánto cambia el sistema (así lo plantean las revisiones de preparación para producción de Google SRE: se revisa al cambiar, no por calendario fijo). Mensual sería casi siempre una pasada sin novedades; solo ante fallas no ve lo que vence sin avisar (la primera pasada encontró que no hay respaldo propio, y sis-web encontró así un runtime ya vencido).
 - Reabrir si: la app suma piezas (otro servicio, automatizaciones, más usuarios) o una pasada trimestral encuentra algo que ya venció.
+
+## DEC-023 — Subir fotos: bloqueo corto y 3 a la vez, numeradas por grupo y ordenadas por hora de captura
+- Fecha: 2026-10-06
+- Estado: Aceptada
+- Contexto: BL-045 / REQ-MEDIA-008. 16 fotos tardaban 113 s de a una. Medido en test: `handleUploadPlanPhotos` tenía el `ScriptLock` ~4,3 s por foto (casi todo Drive), y ese lock es uno solo para todo el script: con 3 a la vez se serializaban igual (69 s) y otra escritura podía fallar con 500 a los 10 s de espera.
+- Opciones consideradas: (A) achicar el lock a la carpeta y la reserva de números y subir de a 3; (B) A más varias fotos por pedido (si se corta no se sabe cuáles llegaron, y se acerca al tope del `doPost`); (C) subir en segundo plano (pantalla nueva). Para el orden: (a) guardar la posición en la selección; (b) guardar la hora de captura del EXIF.
+- Decisión: A + reserva de números por grupo + (b) (Franco, 2026-10-06). Contador por carpeta en Script Properties, bloque del grupo en `CacheService`; columna `Archivos.hora_contenido`. Entre fotos sin hora del mismo día, orden de llegada (Franco, 2026-10-07: "así está bien").
+- Motivo: A resuelve la lentitud y el 500 cruzado sin cambiar la pantalla ni el reintento foto por foto. (b) es el orden que se espera de una galería y no depende de quién subió ni en qué orden; (a) solo respeta la selección de una persona.
+- Reabrir si: 3 a la vez sigue lento en el teléfono (probar B o C), o hace falta ordenar los recuerdos por hora.

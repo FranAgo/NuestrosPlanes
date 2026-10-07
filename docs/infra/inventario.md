@@ -37,7 +37,7 @@ Implementaciones de Apps Script (leídas con `clasp deployments`):
 | prod | `AKfycbyKWCtppz…LxD0d` | Web App que usa el front (`SCRIPT_URL` en `index.html`). Siempre `redeploy` sobre esta: una nueva cambia la URL |
 | prod | `AKfycby0ZA5q…HAMR` @16 | Implementación vieja sin descripción. Probablemente la API Executable para `clasp run`; sin confirmar (BL-041) |
 | prod | `@HEAD` | La que usa `clasp run` (corre el código subido, no la versión publicada) |
-| test | `AKfycbw5O9…8o7gZ` @9 | Web App de test (simulaciones con dos sesiones, `simPLAN001_preparar`) |
+| test | `AKfycbw5O9…8o7gZ` @11 (2026-10-07, REQ-MEDIA-008) | Web App de test (simulaciones con dos sesiones, `simPLAN001_preparar`; mediciones de subida, `medirBL045_*`) |
 | test | `@5 "clasp run — Duck QA"`, `@4 "BUG-LOGIN-001-B"`, `@HEAD` | `clasp run` y pruebas viejas |
 
 ## 2. Configuración y secretos
