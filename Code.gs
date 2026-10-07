@@ -104,6 +104,10 @@ const ARCHIVOS_HEADERS = [
   // Argentina) o 'manual' (corregida desde la app). Vacía en las filas
   // anteriores al REQ y en los avatares.
   'fecha_origen',
+  // REQ-MEDIA-008: hora en que se sacó la foto ('HH:MM:SS', del EXIF), solo
+  // si fecha_origen es 'captura'. Se guarda como texto (con apóstrofo) para
+  // que Sheets no la convierta en una hora de 1899. Vacía en el resto.
+  'hora_contenido',
 ];
 
 // Extensión de archivo según el tipo MIME, para nombrar el archivo en Drive.
@@ -1682,13 +1686,17 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.9.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así
 // que un request del Web App no puede verlo (mismo patrón que
 // TEST_SPREADSHEET_ID_OVERRIDE).
 var RELOJ_OVERRIDE = null;
+
+// REQ-MEDIA-008: Tests.gs lo usa para borrar la tarea entre la escritura en
+// Drive y el registro de las filas de una subida. En la app siempre es null.
+var ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = null;
 
 function ahoraApp() {
   return RELOJ_OVERRIDE ? new Date(RELOJ_OVERRIDE) : new Date();
@@ -2059,6 +2067,10 @@ function handleUploadPlanPhotos(body) {
   if (!Array.isArray(files) || files.length === 0) {
     return respond(400, { error: 'Se requiere al menos un archivo.' });
   }
+  // REQ-MEDIA-008: el grupo es opcional (un front viejo no lo manda), pero
+  // si viene tiene que estar completo y bien formado.
+  const lote = leerLoteSubida(body, files.length);
+  if (lote === false) return respond(400, { error: 'Datos de subida inválidos.' });
 
   const sheet = getSheet(SHEETS.PLANES);
   const { rowIndex, h } = buscarPlanActivo(sheet, planId);
@@ -2068,13 +2080,32 @@ function handleUploadPlanPhotos(body) {
 
   const subidas = [];
   const errores = [];
+  let carpeta, numeros, titulo;
 
-  // Todo el tramo "resolver/crear la carpeta de la tarea + calcular el
-  // próximo número + crear el archivo" queda dentro del lock (mismo patrón
-  // que crearSesion, ver más arriba): dos subidas a la misma tarea en el
-  // mismo instante (los 2 usuarios subiendo a la vez) no pueden calcular el
-  // mismo número siguiente ni crear dos carpetas distintas para la misma
-  // tarea. Con 2 usuarios el costo de serializar este tramo es insignificante.
+  // Las inválidas se descartan antes de reservar números: así las válidas de
+  // un mismo pedido quedan correlativas, sin huecos (REQ-MEDIA-002, C10).
+  const validas = [];
+  files.forEach((archivo, index) => {
+    const { fileBase64, mimeType } = archivo || {};
+    if (!fileBase64 || !mimeType) {
+      errores.push({ index: index, error: 'Archivo y tipo MIME requeridos.' });
+    } else if (!MIME_EXT[mimeType]) {
+      errores.push({ index: index, error: 'Tipo de archivo no permitido. Solo JPG, PNG o WEBP.' });
+    } else {
+      validas.push(index);
+    }
+  });
+
+  // El tramo "resolver/crear la carpeta de la tarea + reservar los números"
+  // queda dentro del lock (mismo patrón que crearSesion, ver más arriba):
+  // dos subidas a la misma tarea en el mismo instante (los 2 usuarios
+  // subiendo a la vez) no pueden tomar el mismo número ni crear dos
+  // carpetas distintas para la misma tarea.
+  //
+  // REQ-MEDIA-008: crear el archivo en Drive y escribir su descripción
+  // (~2,6 s por foto) van AFUERA del lock. El lock es uno solo para todo el
+  // script (login, completar, etc.): con la subida adentro, 3 fotos a la vez
+  // hacían esperar más de 10 s a cualquier otra escritura (500).
   //
   // Importante: la fila del plan se lee RECIÉN ACÁ ADENTRO, no antes de
   // pedir el lock. Si se leyera afuera, dos requests concurrentes a la misma
@@ -2087,8 +2118,8 @@ function handleUploadPlanPhotos(body) {
   try {
     const fila = sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0];
     const val  = name => fila[h.indexOf(name)];
+    titulo = val('titulo');
 
-    let carpeta;
     const carpetaCacheadaId = col('carpeta_fotos_drive_id') ? val('carpeta_fotos_drive_id') : '';
 
     if (carpetaCacheadaId) {
@@ -2122,43 +2153,45 @@ function handleUploadPlanPhotos(body) {
       }
     }
 
-    let siguienteNumero = contarArchivosEnCarpeta(carpeta) + 1;
+    numeros = reservarNumerosFotos(carpeta, planId, validas.length, lote);
+  } finally {
+    lock.releaseLock();
+  }
 
-    files.forEach((archivo, index) => {
-      try {
-        const { fileBase64, mimeType, fechaContenido, fechaOrigen } = archivo || {};
-        if (!fileBase64 || !mimeType) {
-          throw new Error('Archivo y tipo MIME requeridos.');
-        }
-        if (!MIME_EXT[mimeType]) {
-          throw new Error('Tipo de archivo no permitido. Solo JPG, PNG o WEBP.');
-        }
+  // Afuera del lock: Drive.
+  const listas = [];
+  validas.forEach((index, k) => {
+    try {
+      const { fileBase64, mimeType, fechaContenido, fechaOrigen, horaContenido } = files[index];
+      const bytes        = Utilities.base64Decode(fileBase64);
+      const archivoId     = newId('arc');
+      // REQ-MEDIA-005: la fecha que manda el cliente (captura o corregida
+      // antes de subir), validada; si no sirve, el día de subida.
+      const fechaFoto     = resolverFechaFoto(fechaContenido, fechaOrigen);
+      const fechaHoyFoto  = fechaFoto.fecha;
+      // REQ-MEDIA-008: la hora solo acompaña a una fecha de captura.
+      const horaFoto      = fechaFoto.origen === 'captura' && esHoraValida(horaContenido) ? horaContenido : '';
+      const numero        = ('0000' + numeros[k]).slice(-4);
+      const nombreArchivo = numero + '-' + formatFechaDDMMAAAA(fechaHoyFoto) + '-' +
+        normalizarSegmentoRuta(titulo) + '.' + MIME_EXT[mimeType];
 
-        const bytes        = Utilities.base64Decode(fileBase64);
-        const archivoId     = newId('arc');
-        // REQ-MEDIA-005: la fecha que manda el cliente (captura o corregida
-        // antes de subir), validada; si no sirve, el día de subida.
-        const fechaFoto     = resolverFechaFoto(fechaContenido, fechaOrigen);
-        const fechaHoyFoto  = fechaFoto.fecha;
-        const numero        = ('0000' + siguienteNumero).slice(-4);
-        const nombreArchivo = numero + '-' + formatFechaDDMMAAAA(fechaHoyFoto) + '-' +
-          normalizarSegmentoRuta(val('titulo')) + '.' + MIME_EXT[mimeType];
+      const file = carpeta.createFile(Utilities.newBlob(bytes, mimeType, nombreArchivo));
 
-        const file = carpeta.createFile(Utilities.newBlob(bytes, mimeType, nombreArchivo));
+      // Metadata en la descripción del archivo: si se pierde la hoja
+      // Archivos, se puede reconstruir recorriendo Drive (mismo patrón que
+      // handleUploadPhoto).
+      file.setDescription(JSON.stringify({
+        archivo_id:   archivoId,
+        owner_tipo:   'plan',
+        owner_id:     planId,
+        proposito:    'adjunto',
+        subido_por:   authUserId || '',
+        fecha_subida: new Date().toISOString(),
+      }));
 
-        // Metadata en la descripción del archivo: si se pierde la hoja
-        // Archivos, se puede reconstruir recorriendo Drive (mismo patrón que
-        // handleUploadPhoto).
-        file.setDescription(JSON.stringify({
-          archivo_id:   archivoId,
-          owner_tipo:   'plan',
-          owner_id:     planId,
-          proposito:    'adjunto',
-          subido_por:   authUserId || '',
-          fecha_subida: new Date().toISOString(),
-        }));
-
-        insertArchivo({
+      listas.push({
+        index: index,
+        fila: {
           archivoId:   archivoId,
           ownerTipo:   'plan',
           ownerId:     planId,
@@ -2171,21 +2204,93 @@ function handleUploadPlanPhotos(body) {
           // La misma fecha que lleva el nombre del archivo (BUG-FECHA-001).
           fechaContenido: fechaHoyFoto,
           fechaOrigen:    fechaFoto.origen,
-        });
+          horaContenido:  horaFoto,
+        },
+      });
+    } catch (err) {
+      // Sin binario en el log.
+      Logger.log('Error al subir foto de tarea (plan ' + planId + ', índice ' + index + '): ' + err.toString());
+      errores.push({ index: index, error: err.message || 'Error al subir la imagen.' });
+    }
+  });
 
-        subidas.push({ archivoId: archivoId, driveFileId: file.getId() });
-        siguienteNumero++;
-      } catch (err) {
-        // Sin binario en el log.
-        Logger.log('Error al subir foto de tarea (plan ' + planId + ', índice ' + index + '): ' + err.toString());
-        errores.push({ index: index, error: err.message || 'Error al subir la imagen.' });
-      }
-    });
-  } finally {
-    lock.releaseLock();
+  // Las filas de Archivos, bajo el lock como el resto de las escrituras a la
+  // planilla (tramo corto: un appendRow por foto). Mientras se escribía en
+  // Drive el otro pudo borrar la tarea: si pasó, las fotos quedan
+  // archivadas, como las deja un borrado (BL-039).
+  if (listas.length) {
+    if (ANTES_DE_REGISTRAR_FOTOS_OVERRIDE) ANTES_DE_REGISTRAR_FOTOS_OVERRIDE();
+    lock.waitLock(10000);
+    try {
+      const sigueActiva = buscarPlanActivo(sheet, planId).rowIndex !== -1;
+      listas.forEach(l => {
+        try {
+          if (!sigueActiva) {
+            l.fila.estado = 'archivado';
+            insertArchivo(l.fila);
+            errores.push({ index: l.index, error: 'La tarea se eliminó mientras se subía la foto.' });
+            return;
+          }
+          insertArchivo(l.fila);
+          subidas.push({ archivoId: l.fila.archivoId, driveFileId: l.fila.driveFileId });
+        } catch (err) {
+          Logger.log('Error al registrar foto de tarea (plan ' + planId + ', índice ' + l.index + '): ' + err.toString());
+          errores.push({ index: l.index, error: 'Error al subir la imagen.' });
+        }
+      });
+    } finally {
+      lock.releaseLock();
+    }
   }
 
   return respond(200, { success: true, subidas: subidas, errores: errores });
+}
+
+// REQ-MEDIA-008: { loteId, posicion, totalLote } de una subida en grupo.
+// null si el pedido no trae ninguno (front viejo); false si vienen
+// incompletos o mal formados.
+const LOTE_SUBIDA_MAX = 200;
+function leerLoteSubida(body, cantidad) {
+  const { loteId, posicion, totalLote } = body;
+  if (loteId === undefined && posicion === undefined && totalLote === undefined) return null;
+  if (typeof loteId !== 'string' || !/^[A-Za-z0-9_-]{6,40}$/.test(loteId)) return false;
+  if (!Number.isInteger(totalLote) || totalLote < 1 || totalLote > LOTE_SUBIDA_MAX) return false;
+  if (!Number.isInteger(posicion) || posicion < 0 || posicion + cantidad > totalLote) return false;
+  return { loteId: loteId, posicion: posicion, totalLote: totalLote };
+}
+
+function esHoraValida(hora) {
+  return typeof hora === 'string' && /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(hora);
+}
+
+// REQ-MEDIA-008: números de archivo de la carpeta de una tarea. Se llama
+// bajo el lock. El próximo libre sale de un contador por carpeta en Script
+// Properties: contar los archivos no alcanza, porque una subida que ya
+// reservó y todavía no creó su archivo no se ve en la carpeta. Si el
+// contador no existe (carpetas de antes de este REQ), arranca de lo que
+// haya en la carpeta. En un grupo, la primera foto que llega reserva el
+// bloque entero y cada una toma base + posición; la base vive en
+// CacheService (6 h). Si se perdiera a mitad del grupo, la foto reserva un
+// bloque nuevo: queda fuera de orden, nunca repetida.
+function reservarNumerosFotos(carpeta, planId, cantidad, lote) {
+  const props     = PropertiesService.getScriptProperties();
+  const claveCont = 'fotos-sig:' + carpeta.getId();
+  const reservar = n => {
+    const base = Number(props.getProperty(claveCont)) || (contarArchivosEnCarpeta(carpeta) + 1);
+    props.setProperty(claveCont, String(base + n));
+    return base;
+  };
+  const desde = base => Array.from({ length: cantidad }, (_, i) => base + i);
+  if (!lote) return desde(reservar(cantidad));
+
+  const cache     = CacheService.getScriptCache();
+  const claveLote = 'lote-fotos:' + abrirPlanilla().getId() + ':' + planId + ':' + lote.loteId;
+  let base = Number(cache.get(claveLote)) || 0;
+  if (!base) {
+    base = reservar(lote.totalLote);
+    cache.put(claveLote, String(base), 21600);
+  }
+  return desde(base + lote.posicion);
 }
 
 // Fotos de tarea más recientes, para el carrusel post-login (REQ-MEDIA-002
@@ -2433,6 +2538,7 @@ function handleGetFotosPlan(body) {
   const iFSub    = h.indexOf('fecha_subida');
   const iFCon    = h.indexOf('fecha_contenido');
   const iFOri    = h.indexOf('fecha_origen');
+  const iHora    = h.indexOf('hora_contenido');
 
   const fotos = [];
   for (let i = 1; i < data.length; i++) {
@@ -2444,6 +2550,9 @@ function handleGetFotosPlan(body) {
       subidoPor:      r[iSubPor] ? String(r[iSubPor]) : null,
       fechaContenido: r[iFCon] ? formatDate(r[iFCon]) : null,
       fechaOrigen:    iFOri !== -1 && r[iFOri] ? String(r[iFOri]) : null,
+      // REQ-MEDIA-008: solo si quedó como texto válido (una celda que Sheets
+      // convirtió en hora no se adivina).
+      horaContenido:  iHora !== -1 && esHoraValida(r[iHora]) ? r[iHora] : null,
       fechaSubida:    r[iFSub] ? String(r[iFSub]) : '',
     });
   }
@@ -2619,6 +2728,7 @@ function insertArchivo(fields) {
       case 'eliminado_por':      return '';
       case 'fecha_eliminacion':  return '';
       case 'fecha_origen':       return fields.fechaOrigen || '';
+      case 'hora_contenido':     return fields.horaContenido ? "'" + fields.horaContenido : '';
       default:                   return '';
     }
   });

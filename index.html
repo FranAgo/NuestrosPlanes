@@ -3454,7 +3454,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.8.1';
+    const APP_VERSION = '1.9.0';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -5581,11 +5581,15 @@
         cont.innerHTML = '<p class="plan-fotos-vacio">Todavía no hay fotos.</p>';
         return;
       }
-      // REQ-MEDIA-005: por el día en que se sacó cada foto; dentro del día, en
-      // orden de subida. El visor usa el mismo orden (índice en planFotosYa.fotos).
+      // REQ-MEDIA-005: por el día en que se sacó cada foto; dentro del día,
+      // por la hora de captura (REQ-MEDIA-008; las que no la tienen, después)
+      // y después en orden de subida. El visor usa el mismo orden (índice en
+      // planFotosYa.fotos).
       fotos.sort((a, b) => {
         const fa = a.fechaContenido || '', fb = b.fechaContenido || '';
         if (fa !== fb) return fa < fb ? -1 : 1;
+        const ha = a.horaContenido || '', hb = b.horaContenido || '';
+        if (ha !== hb) return !ha ? 1 : !hb ? -1 : ha < hb ? -1 : 1;
         return a.fechaSubida < b.fechaSubida ? -1 : a.fechaSubida > b.fechaSubida ? 1 : 0;
       });
 
@@ -5770,7 +5774,8 @@
 
     // REQ-MEDIA-005: el día en que se sacó la foto, leído del EXIF del archivo
     // ORIGINAL (comprimir con canvas lo borra). Lee solo DateTimeOriginal (o
-    // DateTimeDigitized) y devuelve 'AAAA-MM-DD', o null. No toca ningún otro
+    // DateTimeDigitized) y devuelve { fecha: 'AAAA-MM-DD', hora: 'HH:MM:SS' o
+    // null } (la hora, REQ-MEDIA-008, para ordenar), o null. No toca ningún otro
     // campo del EXIF: ni GPS ni el modelo del celular (Ley 25.326). Solo JPEG;
     // PNG y WEBP casi nunca lo traen y quedan con el día de subida.
     async function leerFechaCaptura(file) {
@@ -5810,16 +5815,18 @@
         const e = buscar(exif, tag);
         if (e === -1 || u32(e + 4) < 10) continue;
         const off = u32(e + 8);
+        const largo = Math.min(19, u32(e + 4));
         let s = '';
-        for (let i = 0; i < 10; i++) s += String.fromCharCode(v.getUint8(base + off + i));
-        const m = /^(\d{4}):(\d{2}):(\d{2})$/.exec(s);    // 'AAAA:MM:DD'
+        for (let i = 0; i < largo; i++) s += String.fromCharCode(v.getUint8(base + off + i));
+        const m = /^(\d{4}):(\d{2}):(\d{2})/.exec(s);    // 'AAAA:MM:DD HH:MM:SS'
         if (!m) continue;
         const fecha = `${m[1]}-${m[2]}-${m[3]}`;
         const [a, mm, d] = fecha.split('-').map(Number);
         const real = new Date(a, mm - 1, d);
         if (real.getMonth() !== mm - 1 || real.getDate() !== d) continue;
         if (fecha < '1990-01-01' || fecha > hoyIso()) continue;  // mismo criterio que el servidor
-        return fecha;
+        const h = /^ ([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(s.slice(10));
+        return { fecha, hora: h ? s.slice(11) : null };
       }
       return null;
     }
@@ -5863,8 +5870,10 @@
           previewUrl:  comprimido.dataUrl,
           // REQ-MEDIA-005: sin fecha de captura, null (queda el día de subida,
           // que decide el servidor). 'manual' si se corrigió en la fila.
-          fecha:       fechaCaptura,
+          fecha:       fechaCaptura ? fechaCaptura.fecha : null,
           origen:      fechaCaptura ? 'captura' : 'subida',
+          // REQ-MEDIA-008: se manda solo mientras la fecha siga siendo la de captura.
+          hora:        fechaCaptura ? fechaCaptura.hora : null,
           estado:      'lista',
           error:       null,
         });
@@ -5910,6 +5919,11 @@
     // pero se perdió la respuesta, reintentar la duplicaría
     // (convenciones-tecnicas, red y archivos). "Reintentar" lo decide la
     // persona, foto por foto.
+    // REQ-MEDIA-008: de a 3 a la vez. Cada foto lleva su posición en el
+    // grupo y el servidor le reserva el número de archivo que le toca, así
+    // en Drive quedan en orden aunque lleguen desordenadas.
+    const SUBIDAS_EN_PARALELO = 3;
+
     async function subirFotosPlan(fotos) {
       const planId = state.editingPlanId;
       const lote   = planFotosLote;
@@ -5919,15 +5933,23 @@
       fotos.forEach(f => { f.estado = 'espera'; f.error = null; });
       renderPlanFotosGrid();
 
+      const loteId = 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      let siguiente = 0;
       let huboCorte = false;
-      for (const f of fotos) {
-        if (lote !== planFotosLote) break;
+      const trabajador = async () => {
+        while (siguiente < fotos.length && lote === planFotosLote) {
+          const posicion = siguiente++;
+          await subirUnaFoto(fotos[posicion], posicion);
+        }
+      };
+      const subirUnaFoto = async (f, posicion) => {
         f.estado = 'subiendo';
         renderPlanFotosGrid();
         try {
           const archivo = { fileBase64: f.fileBase64, mimeType: f.mimeType };
           if (f.fecha) { archivo.fechaContenido = f.fecha; archivo.fechaOrigen = f.origen; }
-          const data = await api('uploadPlanPhotos', { planId, files: [archivo] });
+          if (f.fecha && f.origen === 'captura' && f.hora) archivo.horaContenido = f.hora;
+          const data = await api('uploadPlanPhotos', { planId, files: [archivo], loteId, posicion, totalLote: fotos.length });
           const errorFoto = data.status === 200 && data.errores && data.errores[0] ? data.errores[0].error : null;
           if (data.status === 200 && !errorFoto) {
             f.estado = 'subida';
@@ -5943,9 +5965,9 @@
           f.estado = 'error';
           f.error  = 'No hubo respuesta. Puede que haya llegado igual: fijate en "Ya subidas" antes de reintentar.';
         }
-        if (lote !== planFotosLote) break;
-        renderPlanFotosGrid();
-      }
+        if (lote === planFotosLote) renderPlanFotosGrid();
+      };
+      await Promise.all(Array.from({ length: Math.min(SUBIDAS_EN_PARALELO, fotos.length) }, trabajador));
 
       // Se cerró el modal en el medio: solo se actualiza el conteo.
       if (lote !== planFotosLote) { refrescarConteoFotos(); return; }

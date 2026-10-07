@@ -2769,6 +2769,276 @@ function medirBL032_arranque() {
 
 
 // ============================================================
+// BL-045: cuánto tarda subir 16 fotos al Web App de test, de a una y con
+// varias a la vez. No es una prueba (no afirma nada). Escribe en la
+// planilla y la carpeta de TEST (no en una scratch: el Web App lee la
+// planilla configurada); medirBL045_limpiar deja todo como estaba.
+//   clasp run medirBL045_preparar -P .clasp-test.json -u duck
+//   (subidas desde la PC contra el Web App de test)
+//   clasp run medirBL045_servidor -P .clasp-test.json -u duck
+//   clasp run medirBL045_limpiar -P .clasp-test.json -u duck
+// ============================================================
+const SIM_BL045_TITULO = 'SIM BL-045 (borrar)';
+
+function medirBL045_preparar() {
+  const dataU = getSheet(SHEETS.USUARIOS).getDataRange().getValues();
+  const iEmail = dataU[0].indexOf('email');
+  const usr = dataU.slice(1).filter(r => String(r[iEmail] || '').trim() !== '')[0][0];
+  // Categoría propia (la planilla de test puede no tener ninguna); se borra al limpiar.
+  const cat = parseResp(handleCreateCategoria({ nombre: SIM_BL045_TITULO, colorHex: '#888888', authUserId: usr }));
+  if (!cat.categoriaId) throw new Error('No se pudo crear la categoría: ' + JSON.stringify(cat));
+  const crear = () => parseResp(handleCreatePlan({
+    titulo: SIM_BL045_TITULO, categoriaId: cat.categoriaId, userId: usr,
+    fechaProgramada: fechaDiaArgentina(new Date()),
+  })).planId;
+  return { planes: [crear(), crear(), crear()], sessionToken: crearSesion(usr) };
+}
+
+// Lo que tarda el handler adentro del servidor, sin el viaje ni el piso de
+// la plataforma: casi todo es el tramo bajo el lock. Una foto de ~550 KB
+// (bytes al azar, el servidor no mira el contenido), 4 veces seguidas.
+function medirBL045_servidor() {
+  const planId = medirBL045_planes_()[0];
+  if (!planId) throw new Error('Primero medirBL045_preparar.');
+  const bytes = [];
+  for (let i = 0; i < 550 * 1024; i++) bytes.push((Math.random() * 256 | 0) - 128);
+  const b64 = Utilities.base64Encode(bytes);
+  const out = [];
+  for (let n = 0; n < 4; n++) {
+    const t0 = Date.now();
+    const r = parseResp(handleUploadPlanPhotos({ planId: planId, authUserId: 'medir',
+      files: [{ fileBase64: b64, mimeType: 'image/jpeg' }] }));
+    out.push('handleUploadPlanPhotos ' + (n + 1) + ': ' + (Date.now() - t0) + ' ms (status ' + r.status + ')');
+  }
+  return out;
+}
+
+// Cada paso del tramo bajo el lock por separado, 3 veces.
+function medirBL045_etapas() {
+  const planId = medirBL045_planes_()[2];
+  const sheet = getSheet(SHEETS.PLANES);
+  const { rowIndex, h } = buscarPlanActivo(sheet, planId);
+  const bytes = [];
+  for (let i = 0; i < 550 * 1024; i++) bytes.push((Math.random() * 256 | 0) - 128);
+  const b64 = Utilities.base64Encode(bytes);
+  const out = [];
+  const m = (et, fn) => { const t0 = Date.now(); const v = fn(); out.push(et + ': ' + (Date.now() - t0) + ' ms'); return v; };
+  // Primera foto: crea la carpeta (no se cuenta en las vueltas).
+  handleUploadPlanPhotos({ planId: planId, authUserId: 'medir', files: [{ fileBase64: b64, mimeType: 'image/jpeg' }] });
+  for (let n = 0; n < 3; n++) {
+    const lock = m('waitLock', () => { const l = LockService.getScriptLock(); l.waitLock(10000); return l; });
+    const fila = m('leer fila del plan', () => sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0]);
+    const carpeta = m('getFolderById', () => DriveApp.getFolderById(fila[h.indexOf('carpeta_fotos_drive_id')]));
+    m('contarArchivosEnCarpeta', () => contarArchivosEnCarpeta(carpeta));
+    const bin = m('base64Decode', () => Utilities.base64Decode(b64));
+    const file = m('createFile', () => carpeta.createFile(Utilities.newBlob(bin, 'image/jpeg', 'medir-' + n + '.jpg')));
+    m('setDescription', () => file.setDescription(JSON.stringify({ archivo_id: 'x', owner_id: planId })));
+    m('file.getId', () => file.getId());
+    m('insertArchivo', () => insertArchivo({ ownerTipo: 'plan', ownerId: planId, proposito: 'adjunto',
+      driveFileId: file.getId(), mimeType: 'image/jpeg', tamanoBytes: bin.length, subidoPor: 'medir', estado: 'activo' }));
+    m('releaseLock', () => lock.releaseLock());
+    out.push('---');
+  }
+  return out;
+}
+
+// REQ-MEDIA-008: números de archivo de cada tarea SIM, en el orden de las
+// filas de Archivos (orden de llegada), para ver que no se repiten.
+function medirBL045_numeros() {
+  const ids = medirBL045_planes_();
+  const d = getSheet(SHEETS.ARCHIVOS).getDataRange().getValues();
+  const h = d[0];
+  const out = {};
+  ids.forEach(id => {
+    out[id] = d.slice(1).filter(r => r[h.indexOf('owner_id')] === id)
+      .map(r => DriveApp.getFileById(r[h.indexOf('drive_file_id')]).getName().slice(0, 4));
+  });
+  return out;
+}
+
+function medirBL045_planes_() {
+  const d = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const iTit = d[0].indexOf('titulo');
+  return d.slice(1).filter(r => r[iTit] === SIM_BL045_TITULO).map(r => r[0]);
+}
+
+// Borra las tareas SIM, sus filas de Archivos y manda sus carpetas de
+// Drive a la papelera. La sesión se pasa como parámetro para revocarla.
+function medirBL045_limpiar(sessionToken) {
+  const ids = medirBL045_planes_();
+  const planes = getSheet(SHEETS.PLANES).getDataRange().getValues();
+  const hP = planes[0];
+  const carpetas = planes.slice(1).filter(r => ids.indexOf(r[0]) !== -1)
+    .map(r => r[hP.indexOf('carpeta_fotos_drive_id')]).filter(Boolean);
+  let enPapelera = 0;
+  carpetas.forEach(id => {
+    PropertiesService.getScriptProperties().deleteProperty('fotos-sig:' + id);   // contador de REQ-MEDIA-008
+    try { DriveApp.getFolderById(id).setTrashed(true); enPapelera++; } catch (e) { /* ya no está */ }
+  });
+  const borrarFilas = (nombre, pred) => {
+    const sh = getSheet(nombre);
+    const d = sh.getDataRange().getValues();
+    let n = 0;
+    for (let i = d.length - 1; i >= 1; i--) if (pred(d[i], d[0])) { sh.deleteRow(i + 1); n++; }
+    return n;
+  };
+  const res = {
+    planes: borrarFilas(SHEETS.PLANES, r => ids.indexOf(r[0]) !== -1),
+    archivos: borrarFilas(SHEETS.ARCHIVOS, (r, h) => ids.indexOf(r[h.indexOf('owner_id')]) !== -1),
+    categorias: borrarFilas(SHEETS.CATEGORIAS, (r, h) => r[h.indexOf('nombre')] === SIM_BL045_TITULO),
+    carpetasEnPapelera: enPapelera,
+  };
+  if (sessionToken) { revocarSesion(String(sessionToken).split('.')[0]); res.sesionRevocada = true; }
+  SpreadsheetApp.flush();
+  return res;
+}
+
+// ============================================================
+// probarMEDIA008() — REQ-MEDIA-008: subida en grupo con reserva de
+// números, lote mal formado -> 400, front viejo sin lote, y hora de
+// captura guardada como texto.
+//   clasp push -f -P .clasp-test.json -I .claspignore-test
+//   clasp run probarMEDIA008 -P .clasp-test.json -u duck
+// Planilla scratch propia y carpeta de Drive propia, se borran al terminar.
+// ============================================================
+
+function probarMEDIA008() {
+  const R = nuevoReporte('REQ-MEDIA-008');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  let scratchId = null;
+  let carpetaId = null;
+  let planIdPrueba = null;
+  const lotes = [];
+
+  try {
+    const ss = SpreadsheetApp.create('SCRATCH probarMEDIA008 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    R.nota('planilla scratch: ' + scratchId);
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+
+    R.check('S · setupSheets agrega Archivos.hora_contenido', col('Archivos', 'hora_contenido') !== -1);
+
+    const planId = parseResp(handleCreatePlan({
+      titulo: 'Fotos en grupo', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
+    })).planId;
+    planIdPrueba = planId;
+    const foto = extra => Object.assign({ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }, extra || {});
+    const subir = (extra, archivo) => parseResp(handleUploadPlanPhotos(Object.assign(
+      { planId: planId, authUserId: 'usr_fran', files: [foto(archivo)] }, extra || {})));
+    const numeroDe = r => (r.subidas && r.subidas[0])
+      ? DriveApp.getFileById(r.subidas[0].driveFileId).getName().slice(0, 4) : null;
+    const filasArchivos = () => filasDe('Archivos').length;
+
+    // V: front viejo, sin grupo.
+    const v1 = subir();
+    R.eq('V1 · sin lote -> 200', v1.status, 200);
+    carpetaId = filaPorId('Planes', planId)[col('Planes', 'carpeta_fotos_drive_id')];
+    R.eq('V1 · primera foto -> 0001', numeroDe(v1), '0001');
+
+    // L: un grupo de 3 que llega desordenado (2, 0, 1).
+    const lA = 'loteA_' + Date.now().toString(36);
+    lotes.push(lA);
+    const a2 = subir({ loteId: lA, posicion: 2, totalLote: 3 });
+    const a0 = subir({ loteId: lA, posicion: 0, totalLote: 3 });
+    const a1 = subir({ loteId: lA, posicion: 1, totalLote: 3 });
+    R.eq('L1 · posición 0 -> 0002 (llegó segunda)', numeroDe(a0), '0002');
+    R.eq('L1 · posición 1 -> 0003 (llegó tercera)', numeroDe(a1), '0003');
+    R.eq('L1 · posición 2 -> 0004 (llegó primera)', numeroDe(a2), '0004');
+
+    // I: otro grupo intercalado con una subida sin grupo (los dos subiendo).
+    const lB = 'loteB_' + Date.now().toString(36);
+    lotes.push(lB);
+    const b0 = subir({ loteId: lB, posicion: 0, totalLote: 2 });
+    const v2 = subir();
+    const b1 = subir({ loteId: lB, posicion: 1, totalLote: 2 });
+    R.eq('I1 · grupo B posición 0 -> 0005', numeroDe(b0), '0005');
+    R.eq('I1 · grupo B posición 1 -> 0006 (reservado aunque llegó después)', numeroDe(b1), '0006');
+    R.eq('I1 · la subida sin grupo del medio -> 0007, sin repetir', numeroDe(v2), '0007');
+    const nombres = [];
+    const it = DriveApp.getFolderById(carpetaId).getFiles();
+    while (it.hasNext()) nombres.push(it.next().getName().slice(0, 4));
+    R.eq('I1 · 7 archivos en la carpeta, 7 números distintos',
+         nombres.filter((n, i) => nombres.indexOf(n) === i).length + '/' + nombres.length, '7/7');
+
+    // X: grupo mal formado -> 400 sin escribir nada.
+    const antes = filasArchivos();
+    const malos = [
+      ['loteId corto',          { loteId: 'abc',            posicion: 0, totalLote: 2 }],
+      ['loteId con caracteres', { loteId: 'lote:<x>123',    posicion: 0, totalLote: 2 }],
+      ['falta totalLote',       { loteId: 'loteC_123456',   posicion: 0 }],
+      ['posición fuera',        { loteId: 'loteC_123456',   posicion: 2, totalLote: 2 }],
+      ['posición negativa',     { loteId: 'loteC_123456',   posicion: -1, totalLote: 2 }],
+      ['posición como texto',   { loteId: 'loteC_123456',   posicion: '0', totalLote: 2 }],
+      ['totalLote 0',           { loteId: 'loteC_123456',   posicion: 0, totalLote: 0 }],
+      ['totalLote de más',      { loteId: 'loteC_123456',   posicion: 0, totalLote: 201 }],
+    ];
+    malos.forEach(([desc, extra]) => R.eq('X · ' + desc + ' -> 400', subir(extra).status, 400));
+    R.eq('X · ningún lote mal formado escribió en Archivos', filasArchivos(), antes);
+
+    // H: hora de captura.
+    const fila = r => filaPorId('Archivos', r.subidas[0].archivoId);
+    const horaCelda = r => fila(r)[col('Archivos', 'hora_contenido')];
+    const h1 = subir({}, { fechaContenido: '2026-09-30', fechaOrigen: 'captura', horaContenido: '14:05:33' });
+    R.eq('H1 · la hora queda como texto en la celda', horaCelda(h1), '14:05:33');
+    const h2 = subir({}, { fechaContenido: '2026-09-30', fechaOrigen: 'captura', horaContenido: '09:00:01' });
+    R.eq('H1 · con cero adelante, igual', horaCelda(h2), '09:00:01');
+    const h3 = subir({}, { fechaContenido: '2026-09-30', fechaOrigen: 'captura', horaContenido: '25:00:00' });
+    R.eq('H2 · hora inválida -> vacía', horaCelda(h3), '');
+    const h4 = subir({}, { fechaContenido: 'no-es-fecha', fechaOrigen: 'captura', horaContenido: '10:00:00' });
+    R.eq('H3 · fecha que cae a "subida" -> sin hora', horaCelda(h4), '');
+    const h5 = subir({}, { fechaContenido: '2026-09-29', fechaOrigen: 'manual', horaContenido: '10:00:00' });
+    R.eq('H4 · fecha corregida a mano -> sin hora', horaCelda(h5), '');
+    const h6 = subir({}, { horaContenido: '10:00:00' });
+    R.eq('H5 · sin fecha -> sin hora', horaCelda(h6), '');
+
+    const lista = parseResp(handleGetFotosPlan({ planId: planId }));
+    const porId = {};
+    (lista.fotos || []).forEach(f => { porId[f.archivoId] = f; });
+    R.eq('G1 · getFotosPlan devuelve la hora', (porId[h1.subidas[0].archivoId] || {}).horaContenido, '14:05:33');
+    R.eq('G1 · getFotosPlan: sin hora -> null', (porId[h3.subidas[0].archivoId] || {}).horaContenido, null);
+    R.eq('G1 · getFotosPlan: foto sin hora de antes (V1) -> null', (porId[v1.subidas[0].archivoId] || {}).horaContenido, null);
+    R.eq('G1 · getFotosPlan devuelve las 13 fotos', (lista.fotos || []).length, 13);
+
+    // D: el otro borra la tarea mientras la foto se escribe en Drive (BL-039).
+    ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = () => {
+      handleDeletePlan({ planId: planId, authUserId: 'usr_noe' });
+      ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = null;
+    };
+    const d1 = subir();
+    ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = null;
+    R.eq('D1 · tarea borrada a mitad de la subida -> 0 subidas', (d1.subidas || []).length, 0);
+    R.eq('D1 · la respuesta avisa el error', ((d1.errores || [])[0] || {}).error, 'La tarea se eliminó mientras se subía la foto.');
+    const filasD1 = filasDe('Archivos').filter(r => r[col('Archivos', 'owner_id')] === planId);
+    const ultima = filasD1[filasD1.length - 1];
+    R.eq('D1 · la fila nueva queda archivada', ultima ? ultima[col('Archivos', 'estado')] : null, 'archivado');
+    R.eq('D1 · ninguna foto de la tarea borrada queda activa',
+         filasD1.filter(r => r[col('Archivos', 'estado')] === 'activo').length, 0);
+  } catch (err) {
+    R.fail('excepción: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = null;
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    try {
+      const claves = lotes.map(l => 'lote-fotos:' + scratchId + ':' + planIdPrueba + ':' + l);
+      if (scratchId) claves.push('hoja:' + scratchId + ':' + SHEETS.USUARIOS, 'hoja:' + scratchId + ':' + SHEETS.CATEGORIAS);
+      CacheService.getScriptCache().removeAll(claves);
+    } catch (e) { /* ignorado */ }
+    if (carpetaId) {
+      try { PropertiesService.getScriptProperties().deleteProperty('fotos-sig:' + carpetaId); } catch (e) { /* ignorado */ }
+      try { DriveApp.getFolderById(carpetaId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la carpeta de prueba ' + carpetaId + ': ' + e); }
+    }
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ': ' + e); }
+    }
+  }
+  return R.finalizar();
+}
+
+// ============================================================
 // probarPLAN002() — REQ-PLAN-002: toda tarea lleva categoría. createPlan
 // la exige, updatePlan no deja vaciarla y valida antes de escribir nada.
 // Una tarea vieja sin categoría se sigue pudiendo editar sin mandarla.

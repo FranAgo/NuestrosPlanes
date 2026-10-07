@@ -5,6 +5,22 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.9.0] - 2026-10-06
+
+### Cambiado
+- Subir varias fotos a una tarea es más rápido: van de a 3 a la vez en vez
+  de una por una (16 fotos tardaban casi 2 minutos; ahora menos de la
+  mitad). Cada foto sigue mostrando su estado y, si una falla, se reintenta
+  a mano, como antes. (REQ-MEDIA-008)
+- Las fotos de una tarea se ordenan por el día y la hora en que se sacaron,
+  como en una galería. Las que no traen la hora (capturas, fotos reenviadas)
+  van al final de su día. Las fotos ya subidas quedan en el orden de antes.
+
+### Corregido
+- Mientras uno subía muchas fotos, lo que hacía el otro al mismo tiempo
+  (incluso iniciar sesión) podía fallar con "Error interno del servidor".
+  (REQ-MEDIA-008)
+
 ## [1.8.1] - 2026-10-05
 
 ### Corregido

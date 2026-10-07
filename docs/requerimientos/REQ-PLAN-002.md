@@ -1,7 +1,7 @@
 # REQ-PLAN-002 — Toda tarea lleva categoría, y se puede crear una sin salir del formulario
 
-> **Estado:** HECHO (2026-10-05)
-> **Historia:** PROPUESTO (2026-10-05). Pedido de Franco en la misma conversación que REQ-PLAN-003 (ideas sin fecha). Va primero porque "Algún día" agrupa por categoría y eso solo funciona si toda tarea tiene una. Investigación: `docs/investigacion/2026-10-05-ideas-sin-fecha.md`. Franco aprobó el mockup interactivo el mismo día. HECHO el 2026-10-05: `probarPLAN002` 26/26 en test (10 fallan con el `Code.gs` anterior); front verificado en 127.0.0.1 con fetch simulado a 375 y 1366, sin pedidos a prod.
+> **Estado:** CERRADO (2026-10-06)
+> **Historia:** PROPUESTO (2026-10-05). Pedido de Franco en la misma conversación que REQ-PLAN-003 (ideas sin fecha). Va primero porque "Algún día" agrupa por categoría y eso solo funciona si toda tarea tiene una. Investigación: `docs/investigacion/2026-10-05-ideas-sin-fecha.md`. Franco aprobó el mockup interactivo el mismo día. HECHO el 2026-10-05: `probarPLAN002` 26/26 en test (10 fallan con el `Code.gs` anterior); front verificado en 127.0.0.1 con fetch simulado a 375 y 1366, sin pedidos a prod. CERRADO el 2026-10-06: Franco confirmó en uso el aviso al guardar sin categoría y la creación de una categoría desde el formulario.
 > **Versión:** 1.7.0
 > **Nivel:** cambio de fondo (regla de negocio nueva en el servidor + front).
 > **Dueño técnico:** Jay (front) + Bob (servidor) · **AppSec:** Julia · **QA:** Duck · **PM:** Paul

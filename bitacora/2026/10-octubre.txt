@@ -259,3 +259,17 @@ Cambios:
 - CLAUDE.md — con OK de Franco: el OK de un paso a producción incluye el commit de lo que se publica, hecho justo antes del deploy (las herramientas de deploy piden publicar el mismo commit que se probó). Decisión de Franco: por ahora cada repo mantiene su versión de las skills; las mejoras de acá no se llevan a sis-web (docs/skills/INVENTARIO.md).
 - Verificado: node check-sintaxis.js OK. Sin cambios en index.html ni Code.gs: no hay deploy.
 ========================================================
+========================================================
+2026-10-07 00:39 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-MEDIA-007.md, REQ-PLAN-002.md, REQ-PERF-001.md, REQ-PERF-004.md — CERRADOS: Franco confirmó en uso el visor y Mi perfil, la categoría obligatoria, la rapidez general y las miniaturas en su casa.
+- docs/backlog.md — BL-032 Hecho (1.2.2), confirmado en uso. BL-045 nuevo (subir muchas fotos es lento), pasó a REQ-MEDIA-008.
+- docs/requerimientos/REQ-MEDIA-008.md — nuevo, HECHO (1.9.0). Paso 0 en test: 16 fotos de ~550 KB tardaban 113 s de a una; con 3 a la vez 69 s y un 500, porque handleUploadPlanPhotos tenía el ScriptLock ~4,3 s por foto (createFile ~1,8 s, setDescription ~0,8 s). Ese lock es uno solo para todo el script (login, completar, etc.). Franco eligió la opción A + reserva de números + orden por hora de captura.
+- Code.gs — 1.9.0. handleUploadPlanPhotos: bajo el lock solo la carpeta y la reserva de números (reservarNumerosFotos: contador por carpeta en Script Properties 'fotos-sig:<carpetaId>', bloque por grupo en CacheService 6 h); Drive afuera; filas de Archivos en un segundo tramo corto, que vuelve a mirar la tarea y archiva las fotos si se borró en el medio (BL-039). Campos opcionales loteId/posicion/totalLote (mal formados -> 400) y horaContenido. Las inválidas se descartan antes de reservar (REQ-MEDIA-002 C10). Columna nueva Archivos.hora_contenido (texto con apóstrofo); getFotosPlan la devuelve. Seam ANTES_DE_REGISTRAR_FOTOS_OVERRIDE.
+- index.html — 1.9.0. subirFotosPlan de a 3 con grupo y posición; leerFechaCaptura devuelve también la hora (solo DateTimeOriginal/Digitized); "Ya subidas" y el visor ordenan por día, hora y subida.
+- Tests.gs — probarMEDIA008 (33 casos) y medirBL045_* (medición de punta a punta en test, limpieza incluida).
+- docs/modelo-datos.md — columna hora_contenido. CHANGELOG.md — 1.9.0.
+- Verificado: node check-sintaxis.js OK. probarMEDIA008 con el Code.gs de 1.8.1 25/29 FAIL, con un mutante (sin el chequeo de tarea borrada) 4 FAIL, con el nuevo 33/33 x3. Regresión en test: DATA002 70/70, MEDIA001 22/22, MEDIA002 43/43, BL015 12/12, BUGLOGIN001B 38/38, PLAN001 44/44, PLAN002 26/26, PLAN003 39/39, MEDIA003 36/36, MEDIA004 21/21, MEDIA005 59/59, PERF004 22/22, BUGCARGA001 9/9, BUGFECHA001 21/21, Parche181 43/43. Web App de test @11: 16 fotos de a 3 en 40,1 y 41,3 s sin errores, 0001-0016 sin repetidos; 6 updatePlan durante la subida 2,0-3,6 s, todas 200. Front en 127.0.0.1 con fetch simulado, sin pedidos a prod: 3 a la vez, error aislado, reintento, cerrar a mitad, EXIF con hora, orden, 375 y 1366, consola limpia.

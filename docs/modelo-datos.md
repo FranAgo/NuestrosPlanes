@@ -132,6 +132,7 @@ reserva o un ticket. El modelo no debería mentir sobre eso.
 | `eliminado_por` | string (FK) | `usuario_id` — quién hizo el borrado lógico |
 | `fecha_eliminacion` | datetime | ISO 8601 UTC |
 | `fecha_origen` | enum | REQ-MEDIA-005: `captura` \| `subida` \| `manual` — de dónde salió `fecha_contenido`. Vacía en filas anteriores y en avatares |
+| `hora_contenido` | texto | REQ-MEDIA-008: `HH:MM:SS` en que se sacó la foto (EXIF, leído en el navegador). Solo si `fecha_origen` es `captura`; se escribe con apóstrofo para que Sheets no la convierta en hora. La escribe `insertArchivo` (subida de fotos de tarea) y la lee `getFotosPlan` para ordenar. Vacía en filas anteriores, avatares y fotos sin hora |
 
 `Planes.fecha_fin` (REQ-MEDIA-005): último día de una tarea de varios días,
 al final de la hoja. Vacía = un solo día (`fecha_programada`). Se guarda

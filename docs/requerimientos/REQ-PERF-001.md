@@ -1,7 +1,7 @@
 # REQ-PERF-001 — Performance: compresión de fotos, batch de imágenes, caché de sesión/hojas y carga inicial en paralelo
 
-> **Estado:** HECHO (2026-09-15)
-> **Historia:** HECHO — APTO de Duck. Backend en prod (Web App @20, 2026-09-15). Frontend pusheado a GitHub Pages (commits `90729ed` y `d93e1f0`, 2026-09-15). Un ítem queda **fuera de este REQ** — ver [Alcance — fuera de este REQ](#alcance--fuera-de-este-req-anotado-para-el-futuro).
+> **Estado:** CERRADO (2026-10-06)
+> **Historia:** HECHO — APTO de Duck. Backend en prod (Web App @20, 2026-09-15). Frontend pusheado a GitHub Pages (commits `90729ed` y `d93e1f0`, 2026-09-15). Un ítem queda **fuera de este REQ** — ver [Alcance — fuera de este REQ](#alcance--fuera-de-este-req-anotado-para-el-futuro). CERRADO el 2026-10-06: Franco confirmó en uso que consultar, completar, agregar tareas y subir fotos anda a un ritmo razonable. Lo que nota lento es subir muchas fotos juntas (16 tardan porque van de a una): queda como BL-045.
 > **Dueño técnico:** Bob (back) + Jay (front) · **AppSec:** Julia · **DBA:** Gary · **QA:** Duck · **PM:** Paul
 > **Depende de:** nada aguas arriba. Escrito retroactivamente — Paul lo formaliza después de la implementación, a pedido de Franco, para que el backlog no quede solo en la conversación.
 

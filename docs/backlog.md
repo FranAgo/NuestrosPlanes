@@ -322,7 +322,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
 ## Sesión 2026-09-28 (4)
 
 ### BL-032 — `getFotosPlan` tarda unos 4 s en traer la lista de fotos de una tarea
-- Estado: En curso
+- Estado: Hecho (1.2.2)
 - Prioridad: Media
 - Origen: medición de REQ-PERF-004 en producción (2026-09-28 11:20, hora Argentina, en el Chrome de Franco): con la tarea de 16 fotos, `getFotosPlan` tardó 3,6 s y 4,0 s, y devuelve apenas 2 KB. Con las miniaturas en caché, esos 4 s son todo lo que tarda en aparecer la grilla de "Ya subidas".
 - Nota: sin investigar. Candidatos: el costo fijo de cada invocación de Apps Script más `validarSesion` y `usuarioHabilitado`, y las hojas que lee el handler (`Archivos` completa, `Planes`). Habría que medirlo en el servidor (`console.time` en test) antes de tocar nada. Se cruza con BL-001 (endpoint único de carga) y con REQ-SYNC-001.
@@ -335,6 +335,7 @@ Lo que cambia algo de un REQ quedó escrito en ese REQ.
   *(2026-09-28, lectura única de Script Properties: arriba de `Code.gs`, una `getProperties()` en vez de cuatro `getProperty`. En test las cuatro constantes dan igual que antes y el arranque baja de ~100 ms a ~20 ms. Regresión en test: `probarBUGLOGIN001B` 38/38, `probarBL015` 12/12 y `probarMEDIA004` APTO. `APP_VERSION` de `Code.gs` pasa a 1.2.2: ahora sí cambia el servidor.)*
   *(2026-09-28, pendientes: (1) el piso se midió contra el Web App de **test**; el de prod no se midió aparte, aunque es la misma plataforma. (2) Detalle menor aceptado: si se cierra la tarea antes de que llegue la relectura, esa respuesta se descarta y no actualiza la caché; la próxima apertura muestra la lista anterior y se corrige sola. (3) Medir en el teléfono de Franco cuando 1.2.2 esté en prod.)*
   *(2026-09-28, estado: la opción (a) y la lectura única de Script Properties están en producción con 1.2.2 (servidor Web App @31, front en Pages con c63f2a1); falta medirlo con Franco (computadora y teléfono))*
+- Resuelto: en 1.2.2 (2026-09-28). Franco confirmó en uso el 2026-10-06 que al abrir de nuevo una tarea ya vista las fotos aparecen al toque ("ya como que quedan cargadas"). No se midió el piso de `getFotosPlan` en prod: con la lista guardada en el front dejó de notarse.
 
 ## Sesión 2026-09-28 (5)
 
@@ -451,3 +452,11 @@ estado de cada cosa vive en su ítem o su REQ):
 - Prioridad: Media
 - Origen: validación con Claude B de las herramientas de Roy (2026-10-06).
 - Nota: el repo es público y Pages sirve todo, incluida la bitácora. Hay emails de Franco en `CLAUDE.md`, `apps-script-clasp.md` y en las entradas de la bitácora (campo Autor), y nombres de las dos personas en varios documentos. La app está bajo la Ley 25.326. Opciones a decidir con Franco y Julia: (A) dejarlo, son datos del propio dueño; (B) reemplazar los emails por nombres de acá en adelante; (C) además, que Pages no sirva `docs/` ni `bitacora/` (publicar desde una carpeta con solo la app) o pasar el repo a privado con otro hosting. Reescribir el historial de git es otro tema y no se recomienda sin una razón fuerte.
+
+## Sesión 2026-10-06 (2)
+
+### BL-045 — Subir muchas fotos juntas es lento: van de a una
+- Estado: Propuesto
+- Prioridad: Media (pedido de Franco)
+- Origen: Franco (2026-10-06), al cerrar REQ-PERF-001: "si quiero subir 16 fotos que se suban de a una por una es algo lento".
+- Nota: sin medir todavía. Hoy `subirFotosPlan` (`index.html`) manda una llamada a `uploadPlanPhotos` por foto y espera cada una antes de la siguiente, para mostrar el estado foto por foto y no reintentar solo (una escritura repetida duplicaría la foto). Cada llamada paga el piso de Apps Script (~2 s, BL-032) más la escritura en Drive. Mandarlas en paralelo desde el front no alcanza: `handleUploadPlanPhotos` (`Code.gs`) toma el `ScriptLock` durante toda la subida, incluido `createFile`, así que las llamadas se harían igual de a una en el servidor. Opciones a evaluar (Bob, Jay, Duck): (a) achicar el lock a la numeración del archivo y la fila de `Archivos`, y subir de a 2 o 3 en paralelo; (b) mandar varias fotos por llamada (el endpoint ya acepta `files[]`), con cuidado del tope de tamaño del `doPost`; (c) dejar la subida en segundo plano para poder seguir usando la app. Se cruza con BL-009 (numeración de nombres en Drive) y BL-039 (borrar y subir bajo el mismo lock). Medir primero cuánto tarda hoy una subida de 16 en test.

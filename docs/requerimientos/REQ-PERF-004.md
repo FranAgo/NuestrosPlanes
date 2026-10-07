@@ -1,7 +1,7 @@
 # REQ-PERF-004 — Performance: miniatura real de fotos, generada al subir
 
-> **Estado:** HECHO (2026-09-28)
-> **Historia:** HECHO — en producción desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030. Versión: 1.2.0 (DEC-009: un REQ nuevo sube la versión menor).
+> **Estado:** CERRADO (2026-10-06)
+> **Historia:** HECHO — en producción desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030. Versión: 1.2.0 (DEC-009: un REQ nuevo sube la versión menor). CERRADO el 2026-10-06: Franco confirmó que en su casa las miniaturas de "Ya subidas" aparecen enseguida. La foto completa en el visor puede tardar unos segundos: es el piso de `getArchivo` y lo cubre REQ-MEDIA-007 (miniatura desenfocada mientras llega).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
 > **Versión:** 1.2.0
 
@@ -52,7 +52,7 @@ La medición se hizo en el Chrome de Franco, sobre la app publicada (1.2.0, @29)
 - **Peso:** `getMiniaturas` trajo 242 KB para las 16 fotos, contra 499 KB de la 1.2.0. Todavía queda un poco arriba de los 200 KB.
 - **Resultado:** 16/16, sin "Sin vista previa".
 - **Tiempos:** no sirven. `getFotosPlan` tardó entre 15 y 42 s, y en otra corrida no volvió en más de 40 s. Una de las corridas además se mezcló con otra que seguía andando en la misma pestaña.
-- **Pendiente:** repetir la medición de tiempos con la conexión de casa antes de cerrar el criterio 1.
+- **Pendiente:** repetir la medición de tiempos con la conexión de casa antes de cerrar el criterio 1. *(2026-10-06: Franco lo confirmó en uso en su casa, sin medir tiempos: las miniaturas aparecen enseguida.)*
 
 **Efecto secundario aceptado:** la card de recuerdos ya no deja bajada de antemano la foto completa. Al abrir el carrusel, la primera foto se pide en ese momento, igual que las siguientes desde REQ-PERF-005. Si se nota lenta, se puede precargar solo la primera.
 
