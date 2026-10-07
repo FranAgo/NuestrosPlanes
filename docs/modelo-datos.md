@@ -120,7 +120,7 @@ reserva o un ticket. El modelo no debería mentir sobre eso.
 | `owner_id` | string (FK) | `usuario_id` o `plan_id`; vacío si `owner_tipo='libre'` |
 | `proposito` | enum | `avatar` \| `adjunto` \| `portada` |
 | `titulo` | string | texto libre, editable por el usuario (nullable) |
-| `fecha_contenido` | date | `AAAA-MM-DD` — el día en que se sacó la foto (REQ-MEDIA-005): la fecha de captura que lee el navegador del EXIF, validada en el servidor; si no hay, el día de subida en hora Argentina. Se corrige con `setFechaFoto` |
+| `fecha_contenido` | date | `AAAA-MM-DD` — el día en que se sacó la foto (REQ-MEDIA-005): la fecha de captura que lee el navegador del EXIF, validada en el servidor. Obligatoria desde REQ-MEDIA-009 (sin fecha válida la foto no se sube); antes, si no había, quedaba el día de subida en hora Argentina. Se corrige con `setFechaFoto` |
 | `drive_file_id` | string | **fuente de verdad del binario.** UNIQUE |
 | `mime_type` | enum | `image/jpeg` \| `image/png` \| `image/webp` |
 | `tamano_bytes` | number | control de cuota / diagnóstico |
@@ -131,7 +131,7 @@ reserva o un ticket. El modelo no debería mentir sobre eso.
 | `estado` | enum | `activo` \| `archivado` \| `eliminado` |
 | `eliminado_por` | string (FK) | `usuario_id` — quién hizo el borrado lógico |
 | `fecha_eliminacion` | datetime | ISO 8601 UTC |
-| `fecha_origen` | enum | REQ-MEDIA-005: `captura` \| `subida` \| `manual` — de dónde salió `fecha_contenido`. Vacía en filas anteriores y en avatares |
+| `fecha_origen` | enum | REQ-MEDIA-005: `captura` \| `subida` \| `manual` — de dónde salió `fecha_contenido`. `subida` solo en filas anteriores a REQ-MEDIA-009. Vacía en filas anteriores y en avatares |
 | `hora_contenido` | texto | REQ-MEDIA-008: `HH:MM:SS` en que se sacó la foto (EXIF, leído en el navegador). Solo si `fecha_origen` es `captura`; se escribe con apóstrofo para que Sheets no la convierta en hora. La escribe `insertArchivo` (subida de fotos de tarea) y la lee `getFotosPlan` para ordenar. Vacía en filas anteriores, avatares y fotos sin hora |
 
 `Planes.fecha_fin` (REQ-MEDIA-005): último día de una tarea de varios días,

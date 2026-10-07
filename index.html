@@ -2355,6 +2355,27 @@
 
     .foto-fila-fecha .sin-fecha { color: var(--copper-light); }
 
+    /* REQ-MEDIA-009: al tocar "Subir" con fotos sin fecha, esas filas y el
+       resumen de arriba (mismo rojo que la categoría que falta). */
+    .foto-fila.falta-fecha { border-color: var(--red-line); box-shadow: 0 0 0 1px var(--red-line); }
+    .foto-fila-fecha .falta { display: flex; align-items: center; gap: 0.3rem; color: var(--red-venc); }
+    .foto-fila-fecha .falta svg { width: 14px; height: 14px; flex: none; }
+
+    .plan-fotos-faltan {
+      display: grid;
+      gap: 0.55rem;
+      justify-items: start;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: var(--text-main);
+      border: 1px solid var(--red-line);
+      border-radius: var(--radius-md);
+      background: var(--red-venc-bg);
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .plan-fotos-faltan strong { color: var(--red-venc); font-weight: 600; }
+
     .foto-fila.editando .foto-fila-info { grid-column: 2 / -1; justify-items: stretch; }
     .foto-fila.editando .foto-fila-acciones { display: none; }
     .foto-fila.editando .foto-pill { justify-self: start; }
@@ -3219,6 +3240,8 @@
         </div>
         <div class="plan-fotos-bloque" id="plan-fotos-cola-bloque" hidden>
           <div class="plan-fotos-sub"><span>Por subir</span><em id="plan-fotos-cola-cuenta"></em></div>
+          <!-- REQ-MEDIA-009: aparece al tocar "Subir" si alguna no tiene fecha. -->
+          <div class="plan-fotos-faltan" id="plan-fotos-faltan" role="alert" hidden></div>
           <div class="plan-fotos-cola" id="plan-fotos-cola" aria-live="polite"></div>
           <div id="plan-fotos-resumen" aria-live="polite"></div>
         </div>
@@ -3454,7 +3477,7 @@
     // ====================================================
     // DEC-009: versión de la app entera (front y servidor). Se sube junto con
     // la de Code.gs en cada salida a prod, con su tag vX.Y.Z y CHANGELOG.md.
-    const APP_VERSION = '1.9.0';
+    const APP_VERSION = '1.10.0';
     document.getElementById('app-version').textContent = APP_VERSION;
 
     const SCRIPT_URL ='https://script.google.com/macros/s/AKfycbyKWCtppz-cVBHwQJMezXKuD3ZV3KphGCegfT5qHKtFG3Ym6Kun8OfurkCR_9-LxD0d/exec';
@@ -5360,14 +5383,56 @@
     // REQ-MEDIA-005: id de la foto de "Por subir" cuya fecha se está editando.
     let planFotosEditandoFecha = null;
 
+    // REQ-MEDIA-009: true desde que se tocó "Subir" con fotos sin fecha; marca
+    // esas filas en rojo hasta que todas tienen fecha.
+    let planFotosMarcarSinFecha = false;
+
+    const SVG_ALERTA_CHICA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>';
+
     function htmlTextoFechaCola(f) {
       if (f.origen === 'manual')  return `${diaCorto(f.fecha)} <small>Fecha puesta a mano</small>`;
       if (f.origen === 'captura') return `Sacada el ${diaCorto(f.fecha)}`;
-      return `<span class="sin-fecha">Sin fecha de captura</span> <small>Queda con el día de subida</small>`;
+      if (planFotosMarcarSinFecha) return `<span class="falta">${SVG_ALERTA_CHICA}Poné la fecha de esta foto</span>`;
+      return `<span class="sin-fecha">Sin fecha de captura</span> <small>Ponésela antes de subir</small>`;
+    }
+
+    const faltaFecha = f => f.estado === 'lista' && !f.fecha;
+
+    // El día de la tarea, si sirve para completar las que faltan: tiene fecha,
+    // es de un solo día y no es futura.
+    function fechaDeLaTareaParaFotos() {
+      const plan = state.planes.find(p => p.planId === state.editingPlanId);
+      if (!plan || !plan.fechaProgramada || esVariosDias(plan.fechaProgramada, plan.fechaFin)) return null;
+      return plan.fechaProgramada <= hoyIso() ? plan.fechaProgramada : null;
+    }
+
+    function renderFaltanFechas() {
+      const el     = document.getElementById('plan-fotos-faltan');
+      const faltan = planFotosSeleccion.filter(faltaFecha).length;
+      if (faltan === 0) planFotosMarcarSinFecha = false;
+      if (!planFotosMarcarSinFecha) { el.hidden = true; el.innerHTML = ''; return; }
+      const dia = fechaDeLaTareaParaFotos();
+      el.innerHTML = `<span><strong>${faltan === 1 ? '1 foto no tiene fecha.' : `${faltan} fotos no tienen fecha.`}</strong> ` +
+        (dia ? `Ponésela a cada una, o usá la de la tarea.</span>
+           <button type="button" class="btn btn-secondary btn-sm" id="btn-fotos-fecha-tarea">Ponerles la fecha de la tarea (${diaCorto(dia)})</button>`
+             : `Ponésela a cada una para poder subir.</span>`);
+      el.hidden = false;
+    }
+
+    // Las fotos se mandan en el orden de la app (día, hora, las que tienen
+    // hora primero, y el de selección): así la numeración en Drive sigue la
+    // fecha (REQ-MEDIA-009, cierra BL-046).
+    function ordenarFotosPorFecha(fotos) {
+      return fotos.slice().sort((a, b) =>
+        (a.fecha || '').localeCompare(b.fecha || '') ||
+        (!a.hora - !b.hora) ||
+        (a.hora || '').localeCompare(b.hora || '') ||
+        a.id - b.id);
     }
 
     function resetPlanFotosSeleccion() {
       planFotosEditandoFecha = null;
+      planFotosMarcarSinFecha = false;
       planFotosSeleccion = [];
       planFotosLote++;
       pintarResumenFotos('');
@@ -5408,11 +5473,12 @@
           : '';
         const lineaFecha = editando
           ? `<span class="foto-fila-editar">
-               <input type="date" class="foto-fila-fecha-input" id="foto-fecha-${f.id}" value="${f.fecha || hoyIso()}" max="${hoyIso()}" min="1990-01-01" aria-label="Fecha de ${nombre}" />
+               <input type="date" class="foto-fila-fecha-input" id="foto-fecha-${f.id}" value="${f.fecha || ''}" max="${hoyIso()}" min="1990-01-01" aria-label="Fecha de ${nombre}" />
                <button type="button" class="btn-mini" data-listo-fecha="${f.id}">Listo</button>
              </span>`
           : `<span class="foto-fila-fecha" title="${nombre}">${htmlTextoFechaCola(f)}</span>`;
-        return `<div class="foto-fila ${f.estado}${editando ? ' editando' : ''}">
+        const falta = planFotosMarcarSinFecha && faltaFecha(f) ? ' falta-fecha' : '';
+        return `<div class="foto-fila ${f.estado}${editando ? ' editando' : ''}${falta}">
           <span class="foto-fila-thumb"><img src="${f.previewUrl}" alt="" /></span>
           <div class="foto-fila-info">
             ${lineaFecha}
@@ -5422,6 +5488,7 @@
           ${f.estado === 'error' ? `<p class="foto-fila-motivo">${escapeHtml(f.error || '')}</p>` : ''}
         </div>`;
       }).join('');
+      renderFaltanFechas();
 
       const n = planFotosSeleccion.length;
       document.getElementById('plan-fotos-cola-bloque').hidden = n === 0 && !document.getElementById('plan-fotos-resumen').innerHTML;
@@ -5713,6 +5780,7 @@
       if (f && v && v >= '1990-01-01' && v <= hoyIso() && v !== f.fecha) {
         f.fecha  = v;
         f.origen = 'manual';
+        f.hora   = null;   // el servidor no guarda hora de una fecha puesta a mano
       }
       planFotosEditandoFecha = null;
       renderPlanFotosGrid();
@@ -5732,6 +5800,17 @@
         renderPlanFotosGrid();
         document.querySelector(`[data-cambiar-fecha="${id}"]`)?.focus();
       }
+    });
+
+    // REQ-MEDIA-009: completa solo las que no tienen fecha, como puesta a mano.
+    document.getElementById('plan-fotos-faltan').addEventListener('click', e => {
+      if (!e.target.closest('#btn-fotos-fecha-tarea')) return;
+      const dia = fechaDeLaTareaParaFotos();
+      if (!dia) return;
+      if (planFotosEditandoFecha) planFotosEditandoFecha = null;
+      planFotosSeleccion.filter(faltaFecha).forEach(f => { f.fecha = dia; f.origen = 'manual'; f.hora = null; });
+      renderPlanFotosGrid();
+      document.getElementById('btn-confirmar-fotos-plan').focus();
     });
 
     document.getElementById('btn-agregar-foto-plan').addEventListener('click', () => {
@@ -5839,7 +5918,14 @@
       const errorEl = document.getElementById('plan-error');
       errorEl.classList.remove('visible');
 
+      // BL-046: cada foto se comprime a su ritmo, pero entra a "Por subir" en
+      // el lugar que tenía en el selector (el id se reserva antes de
+      // comprimir): esa posición es la que numera los archivos en Drive
+      // (REQ-MEDIA-008). Si mientras tanto se cerró el modal, no se agrega:
+      // sería la foto de otra tarea.
+      const lote = planFotosLote;
       files.forEach(async file => {
+        const id = ++planFotosSeq;
         // Límite de cordura sobre el ORIGINAL (antes de comprimir): más que
         // esto no vale la pena intentar decodificarlo en el navegador. Como
         // ahora se comprime siempre, este tope es mucho más alto que el
@@ -5857,13 +5943,16 @@
           fechaCaptura = await leerFechaCaptura(file);   // antes de comprimir
           comprimido = await comprimirImagenPlan(file);
         } catch {
+          if (lote !== planFotosLote) return;
           errorEl.textContent = `No se pudo procesar "${file.name}".`;
           errorEl.classList.add('visible');
           return;
         }
+        if (lote !== planFotosLote) return;
 
-        planFotosSeleccion.push({
-          id:          ++planFotosSeq,
+        const lugar = planFotosSeleccion.findIndex(f => f.id > id);
+        planFotosSeleccion.splice(lugar === -1 ? planFotosSeleccion.length : lugar, 0, {
+          id,
           nombre:      file.name || 'foto',
           mimeType:    comprimido.mimeType,
           fileBase64:  comprimido.base64,
@@ -5891,6 +5980,17 @@
       const listas = planFotosSeleccion.filter(f => f.estado === 'lista');
       if (!state.editingPlanId || listas.length === 0) return;
 
+      // REQ-MEDIA-009: sin fecha no se sube ninguna. Las que la traen del
+      // EXIF no se reconfirman. El foco va al calendario de la primera.
+      const sinFecha = listas.filter(faltaFecha);
+      if (sinFecha.length) {
+        planFotosMarcarSinFecha = true;
+        planFotosEditandoFecha  = sinFecha[0].id;
+        renderPlanFotosGrid();
+        document.getElementById('foto-fecha-' + sinFecha[0].id)?.focus();
+        return;
+      }
+
       const plan  = state.planes.find(p => p.planId === state.editingPlanId);
       const texto = textoFotos(listas.length);
       document.getElementById('subir-fotos-titulo').textContent = plan ? `¿Subir ${texto} a ${plan.titulo}?` : `¿Subir ${texto}?`;
@@ -5904,7 +6004,7 @@
       if (!modalSubirFotos.classList.contains('visible')) return;
       modalSubirFotos.classList.remove('visible');
       if (subir) {
-        subirFotosPlan(planFotosSeleccion.filter(f => f.estado === 'lista'));
+        subirFotosPlan(ordenarFotosPorFecha(planFotosSeleccion.filter(f => f.estado === 'lista')));
       } else {
         document.getElementById('btn-confirmar-fotos-plan').focus();
       }

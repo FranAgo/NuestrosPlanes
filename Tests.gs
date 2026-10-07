@@ -1240,7 +1240,7 @@ function grupoGateCompletarSinFoto(R) {
 function grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolderIdsCreados) {
   const subida = parseResp(handleUploadPlanPhotos({
     planId: planId,
-    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }],
     authUserId: 'usr_fran',
   }));
   R.eq('C2 · uploadPlanPhotos (1ra foto) -> 200', subida.status, 200);
@@ -1298,7 +1298,7 @@ function grupoPrimeraFotoCreaCarpeta(R, planId, driveFileIdsCreados, driveFolder
 function grupoSegundaFotoMismaCarpeta(R, contexto, driveFileIdsCreados) {
   const subida2 = parseResp(handleUploadPlanPhotos({
     planId: contexto.planId,
-    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }],
     authUserId: 'usr_noe',
   }));
   R.eq('C4 · uploadPlanPhotos (2da foto) -> 200', subida2.status, 200);
@@ -1330,7 +1330,7 @@ function grupoEditarTituloNoRenombraCarpeta(R, contexto, driveFileIdsCreados) {
 
   const subida3 = parseResp(handleUploadPlanPhotos({
     planId: contexto.planId,
-    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+    files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }],
     authUserId: 'usr_fran',
   }));
   R.eq('C5 · uploadPlanPhotos tras editar título -> 200', subida3.status, 200);
@@ -1373,9 +1373,9 @@ function grupoFalloParcialSubidaMultiple(R, driveFileIdsCreados, driveFolderIdsC
   const subida = parseResp(handleUploadPlanPhotos({
     planId: planId,
     files: [
-      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
-      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'application/pdf' }, // mime no permitido, a propósito
-      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'application/pdf', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }, // mime no permitido, a propósito
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' },
     ],
     authUserId: 'usr_noe',
   }));
@@ -1415,8 +1415,8 @@ function grupoGetArchivosBatch(R, driveFileIdsCreados, driveFolderIdsCreados) {
   const subida = parseResp(handleUploadPlanPhotos({
     planId: crear.planId,
     files: [
-      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
-      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' },
+      { fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' },
     ],
     authUserId: 'usr_fran',
   }));
@@ -1665,7 +1665,7 @@ function probarBUGFECHA001() {
     RELOJ_OVERRIDE = '2026-10-01T01:30:00Z';
     const subida = parseResp(handleUploadPlanPhotos({
       planId: crear.planId,
-      files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }],
+      files: [{ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }],
       authUserId: 'usr_noe',
     }));
     RELOJ_OVERRIDE = relojAnterior;
@@ -2178,51 +2178,50 @@ function probarMEDIA005() {
       { fechaContenido: '1985-01-01', fechaOrigen: 'captura' },  // 6: demasiado vieja
       { fechaContenido: '2026-10-12', fechaOrigen: 'hackeado', gps: '-37.3,-59.1' }, // 7: origen raro y dato extra
     ]);
+    // REQ-MEDIA-009: sin fecha válida (2 a 6) no se sube; las demás sí.
     R.eq('A · uploadPlanPhotos -> 200', s.status, 200);
-    R.eq('A · las 8 se subieron', (s.subidas || []).length, 8);
-    if ((s.subidas || []).length === 8) {
-      const ids = s.subidas.map(x => x.archivoId);
+    R.eq('A · se subieron las 3 con fecha válida', (s.subidas || []).length, 3);
+    R.eq('MEDIA009 C6 · sin fecha, futura, 31/02, otro formato y anterior a 1990 -> error cada una',
+         JSON.stringify((s.errores || []).map(e => e.index + ':' + e.error)),
+         JSON.stringify([2, 3, 4, 5, 6].map(i => i + ':Falta la fecha de la foto.')));
+    if ((s.subidas || []).length === 3) {
+      const ids = s.subidas.map(x => x.archivoId);   // fotos 0, 1 y 7
       R.eq('C1 · foto del sábado subida el martes -> 2026-10-10|captura', fechaDe(ids[0]) + '|' + origenDe(ids[0]), '2026-10-10|captura');
       R.eq('C3 · corregida antes de subir -> 2026-10-11|manual', fechaDe(ids[1]) + '|' + origenDe(ids[1]), '2026-10-11|manual');
-      R.eq('C2 · sin fecha -> día de subida en hora Argentina', fechaDe(ids[2]) + '|' + origenDe(ids[2]), '2026-10-13|subida');
-      R.eq('C4 · futura -> día de subida', fechaDe(ids[3]) + '|' + origenDe(ids[3]), '2026-10-13|subida');
-      R.eq('C4 · 31/02 -> día de subida', fechaDe(ids[4]) + '|' + origenDe(ids[4]), '2026-10-13|subida');
-      R.eq('C4 · formato DD/MM/AAAA -> día de subida', fechaDe(ids[5]) + '|' + origenDe(ids[5]), '2026-10-13|subida');
-      R.eq('C4 · anterior a 1990 -> día de subida', fechaDe(ids[6]) + '|' + origenDe(ids[6]), '2026-10-13|subida');
-      R.eq('C4 · origen desconocido con fecha válida -> captura', fechaDe(ids[7]) + '|' + origenDe(ids[7]), '2026-10-12|captura');
-      R.check('C5 · el dato extra (GPS) no quedó en la hoja', JSON.stringify(archivo(ids[7])).indexOf('-37.3') === -1);
+      R.eq('MEDIA009 C7 · origen desconocido con fecha válida -> captura', fechaDe(ids[2]) + '|' + origenDe(ids[2]), '2026-10-12|captura');
+      R.check('C5 · el dato extra (GPS) no quedó en la hoja', JSON.stringify(archivo(ids[2])).indexOf('-37.3') === -1);
 
       const nombres = s.subidas.map(x => DriveApp.getFileById(x.driveFileId).getName());
       R.check('C9 · el nombre lleva la fecha de captura (' + nombres[0] + ')', nombres[0].indexOf('0001-10-10-2026-') === 0);
       R.check('C9 · la corregida antes de subir, su fecha (' + nombres[1] + ')', nombres[1].indexOf('0002-11-10-2026-') === 0);
-      R.check('C9 · la sin fecha, el día de subida (' + nombres[2] + ')', nombres[2].indexOf('0003-13-10-2026-') === 0);
+      R.check('MEDIA009 C6 · las rechazadas no gastan número (' + nombres[2] + ')', nombres[2].indexOf('0003-12-10-2026-') === 0);
       const padres = s.subidas.map(x => DriveApp.getFileById(x.driveFileId).getParents().next().getId());
-      R.check('C9 · las 8 en la misma carpeta de la tarea', padres.every(p => p === padres[0]));
+      R.check('C9 · las 3 en la misma carpeta de la tarea', padres.every(p => p === padres[0]));
 
       R.eq('A · getFotosPlan devuelve fechaOrigen',
            fotosDe(pViaje.planId).filter(f => f.archivoId === ids[1])[0].fechaOrigen, 'manual');
 
       // C3 — corregir a mano después de subir.
       const set = body => parseResp(handleSetFechaFoto(Object.assign({ authUserId: 'usr_fran' }, body)));
-      R.eq('C3 · setFechaFoto -> 200', set({ archivoId: ids[2], fecha: '2026-10-12' }).status, 200);
+      R.eq('C3 · setFechaFoto -> 200', set({ archivoId: ids[2], fecha: '2026-10-09' }).status, 200);
       const corregida = fotosDe(pViaje.planId).filter(f => f.archivoId === ids[2])[0];
-      R.eq('C3 · getFotosPlan la ve con la fecha nueva', corregida.fechaContenido, '2026-10-12');
+      R.eq('C3 · getFotosPlan la ve con la fecha nueva', corregida.fechaContenido, '2026-10-09');
       R.eq('C3 · y con origen manual', corregida.fechaOrigen, 'manual');
       R.eq('C3 · modificado_por = quien corrigió', archivo(ids[2])[col('Archivos', 'modificado_por')], 'usr_fran');
       const recientes = parseResp(handleGetRecentPlanPhotos({ limit: 20 })).fotos;
-      R.eq('C3 · el carrusel también la ve corregida', recientes.filter(f => f.archivoId === ids[2])[0].fecha, '2026-10-12');
+      R.eq('C3 · el carrusel también la ve corregida', recientes.filter(f => f.archivoId === ids[2])[0].fecha, '2026-10-09');
       R.check('C3 · el nombre del archivo en Drive no cambia',
-              DriveApp.getFileById(s.subidas[2].driveFileId).getName().indexOf('0003-13-10-2026-') === 0);
+              DriveApp.getFileById(s.subidas[2].driveFileId).getName().indexOf('0003-12-10-2026-') === 0);
       const aud = filasDe('Auditoria').filter(r => r[col('Auditoria', 'accion')] === 'foto.fecha');
       R.eq('C3 · queda en Auditoria', aud.length, 1);
       R.check('C3 · con valor anterior y nuevo', aud.length === 1 &&
-              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-13') !== -1 &&
-              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-12') !== -1);
+              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-12') !== -1 &&
+              String(aud[0][col('Auditoria', 'detalle')]).indexOf('2026-10-09') !== -1);
 
       R.eq('C4 · setFechaFoto futura -> 400', set({ archivoId: ids[2], fecha: '2026-10-14' }).status, 400);
       R.eq('C4 · setFechaFoto 31/02 -> 400', set({ archivoId: ids[2], fecha: '2026-02-31' }).status, 400);
       R.eq('C4 · setFechaFoto sin fecha -> 400', set({ archivoId: ids[2] }).status, 400);
-      R.eq('C4 · las rechazadas no cambiaron nada', fechaDe(ids[2]), '2026-10-12');
+      R.eq('C4 · las rechazadas no cambiaron nada', fechaDe(ids[2]), '2026-10-09');
       R.eq('S · setFechaFoto sin archivoId -> 400', set({ fecha: '2026-10-11' }).status, 400);
       R.eq('S · setFechaFoto foto inexistente -> 404', set({ archivoId: 'arc_no_existe', fecha: '2026-10-11' }).status, 404);
       const avatar = insertArchivo({ ownerTipo: 'usuario', ownerId: 'usr_fran', proposito: 'avatar',
@@ -2244,7 +2243,7 @@ function probarMEDIA005() {
       parseResp(handleDeletePlan({ planId: pViaje.planId, authUserId: 'usr_fran' }));
       R.eq('S · setFechaFoto de una tarea eliminada -> 404', set({ archivoId: ids[0], fecha: '2026-10-10' }).status, 404);
     } else {
-      R.fail('A · no se subieron las 8 fotos: ' + JSON.stringify(s));
+      R.fail('A · no se subieron las 3 fotos con fecha: ' + JSON.stringify(s));
     }
 
     // C11 — carpeta con el día de inicio, aunque la primera foto se suba después.
@@ -2542,7 +2541,7 @@ function probarPERF004() {
     })).planId;
     const s = parseResp(handleUploadPlanPhotos({
       planId: planId,
-      files: [{ fileBase64: Utilities.base64Encode(png.getBytes()), mimeType: 'image/jpeg' }],
+      files: [{ fileBase64: Utilities.base64Encode(png.getBytes()), mimeType: 'image/jpeg', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }],
       authUserId: 'usr_fran',
     }));
     (s.subidas || []).forEach(x => driveFileIdsCreados.push(x.driveFileId));
@@ -2807,7 +2806,7 @@ function medirBL045_servidor() {
   for (let n = 0; n < 4; n++) {
     const t0 = Date.now();
     const r = parseResp(handleUploadPlanPhotos({ planId: planId, authUserId: 'medir',
-      files: [{ fileBase64: b64, mimeType: 'image/jpeg' }] }));
+      files: [{ fileBase64: b64, mimeType: 'image/jpeg', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }] }));
     out.push('handleUploadPlanPhotos ' + (n + 1) + ': ' + (Date.now() - t0) + ' ms (status ' + r.status + ')');
   }
   return out;
@@ -2824,7 +2823,7 @@ function medirBL045_etapas() {
   const out = [];
   const m = (et, fn) => { const t0 = Date.now(); const v = fn(); out.push(et + ': ' + (Date.now() - t0) + ' ms'); return v; };
   // Primera foto: crea la carpeta (no se cuenta en las vueltas).
-  handleUploadPlanPhotos({ planId: planId, authUserId: 'medir', files: [{ fileBase64: b64, mimeType: 'image/jpeg' }] });
+  handleUploadPlanPhotos({ planId: planId, authUserId: 'medir', files: [{ fileBase64: b64, mimeType: 'image/jpeg', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }] });
   for (let n = 0; n < 3; n++) {
     const lock = m('waitLock', () => { const l = LockService.getScriptLock(); l.waitLock(10000); return l; });
     const fila = m('leer fila del plan', () => sheet.getRange(rowIndex, 1, 1, h.length).getValues()[0]);
@@ -2924,7 +2923,7 @@ function probarMEDIA008() {
       titulo: 'Fotos en grupo', categoriaId: 'cat_mant', userId: 'usr_fran', fechaProgramada: '2026-10-01',
     })).planId;
     planIdPrueba = planId;
-    const foto = extra => Object.assign({ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png' }, extra || {});
+    const foto = extra => Object.assign({ fileBase64: MEDIA001_PIXEL_PNG_BASE64, mimeType: 'image/png', fechaContenido: fechaDiaArgentina(), fechaOrigen: 'captura' }, extra || {});
     const subir = (extra, archivo) => parseResp(handleUploadPlanPhotos(Object.assign(
       { planId: planId, authUserId: 'usr_fran', files: [foto(archivo)] }, extra || {})));
     const numeroDe = r => (r.subidas && r.subidas[0])
@@ -2987,11 +2986,11 @@ function probarMEDIA008() {
     const h3 = subir({}, { fechaContenido: '2026-09-30', fechaOrigen: 'captura', horaContenido: '25:00:00' });
     R.eq('H2 · hora inválida -> vacía', horaCelda(h3), '');
     const h4 = subir({}, { fechaContenido: 'no-es-fecha', fechaOrigen: 'captura', horaContenido: '10:00:00' });
-    R.eq('H3 · fecha que cae a "subida" -> sin hora', horaCelda(h4), '');
+    R.eq('H3 · fecha inválida -> no se sube (REQ-MEDIA-009)', (h4.errores || [])[0] && h4.errores[0].error, 'Falta la fecha de la foto.');
     const h5 = subir({}, { fechaContenido: '2026-09-29', fechaOrigen: 'manual', horaContenido: '10:00:00' });
     R.eq('H4 · fecha corregida a mano -> sin hora', horaCelda(h5), '');
-    const h6 = subir({}, { horaContenido: '10:00:00' });
-    R.eq('H5 · sin fecha -> sin hora', horaCelda(h6), '');
+    const h6 = subir({}, { fechaContenido: undefined, horaContenido: '10:00:00' });
+    R.eq('H5 · sin fecha -> no se sube (REQ-MEDIA-009)', (h6.errores || [])[0] && h6.errores[0].error, 'Falta la fecha de la foto.');
 
     const lista = parseResp(handleGetFotosPlan({ planId: planId }));
     const porId = {};
@@ -2999,7 +2998,7 @@ function probarMEDIA008() {
     R.eq('G1 · getFotosPlan devuelve la hora', (porId[h1.subidas[0].archivoId] || {}).horaContenido, '14:05:33');
     R.eq('G1 · getFotosPlan: sin hora -> null', (porId[h3.subidas[0].archivoId] || {}).horaContenido, null);
     R.eq('G1 · getFotosPlan: foto sin hora de antes (V1) -> null', (porId[v1.subidas[0].archivoId] || {}).horaContenido, null);
-    R.eq('G1 · getFotosPlan devuelve las 13 fotos', (lista.fotos || []).length, 13);
+    R.eq('G1 · getFotosPlan devuelve las 11 fotos (2 sin fecha no subieron)', (lista.fotos || []).length, 11);
 
     // D: el otro borra la tarea mientras la foto se escribe en Drive (BL-039).
     ANTES_DE_REGISTRAR_FOTOS_OVERRIDE = () => {

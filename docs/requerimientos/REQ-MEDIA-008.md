@@ -3,6 +3,7 @@
 > **Estado:** HECHO (2026-10-07)
 > **Historia:** PROPUESTO (2026-10-06), desde BL-045. Franco eligió la opción A (bloqueo corto y 3 subidas a la vez), con reserva de números por grupo y orden por hora de captura (b), después de la medición del paso 0. EN DESARROLLO el 2026-10-06. HECHO el 2026-10-07: implementado y verificado en test (ver Verificación).
 > **Versión:** 1.9.0
+> **Origen:** BL-045
 > **Nivel:** cambio de fondo (toca `Code.gs` e `index.html`, un lock que comparten todas las escrituras y una columna nueva en `Archivos`).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **DBA:** Gary · **AppSec:** Julia · **Infra:** Roy · **QA:** Duck · **PM:** Paul
 

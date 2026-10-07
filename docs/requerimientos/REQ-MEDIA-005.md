@@ -2,6 +2,7 @@
 
 > **Estado:** CERRADO (2026-10-05)
 > **Historia:** CERRADO (2026-10-05, Franco confirmó que lo usan y anda bien). Antes: en producción desde el 2026-09-28. Servidor en la Web App @27 (con `setupSheets` corrido en prod; rollback `-V 26`) y front con el push a `main` de esta sesión. Franco eligió formulario A y corrección A en el prototipo (DEC-008).
+> **Origen:** BL-025
 > **Nivel:** cambio de fondo (modelo de datos + servidor + front).
 > **Dueño técnico:** Jay (leer la fecha en el navegador, agrupar por día) + Bob (servidor) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** BUG-FECHA-001 (el respaldo "día de subida" tiene que estar en hora Argentina) y REQ-MEDIA-004 (el modal ya muestra las fotos subidas).

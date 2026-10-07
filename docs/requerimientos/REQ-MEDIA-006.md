@@ -5,6 +5,7 @@
 > **Nivel:** cambio de fondo (pantalla que se rehace, cambia cómo se navegan las fotos y toca `index.html` y `Code.gs`).
 > **Dueño técnico:** Jay (front) + Bob (`getRecuerdos`) · **Infra:** Roy · **AppSec:** Julia · **Datos:** Gary · **QA:** Duck · **PM:** Paul
 > **Versión:** 1.5.0
+> **Origen:** BL-027, BL-028
 
 ## Problema
 

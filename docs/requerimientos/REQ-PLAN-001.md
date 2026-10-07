@@ -2,6 +2,7 @@
 
 > **Estado:** CERRADO (2026-10-02)
 > **Historia:** CERRADO (2026-10-02). En producción desde el 2026-09-28 (Web App @25 y front `50b378e`), verificado de punta a punta con el front publicado contra el servidor de test (ver "Verificación del 2026-09-28"). Franco confirmó el 2026-10-02 que ya hicieron varios cierres reales con los dos acuerdos y anduvo todo bien.
+> **Origen:** BL-024
 > **Nivel:** cambio de fondo (modelo de datos + regla de negocio en el servidor + front).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **DBA:** Gary · **AppSec:** Julia · **QA:** Duck · **PM:** Paul
 > **Depende de:** REQ-SYNC-001 (sin él, el otro no ve el acuerdo hasta recargar) y REQ-MEDIA-004 (conteo de fotos).

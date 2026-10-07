@@ -101,7 +101,8 @@ const ARCHIVOS_HEADERS = [
   'estado', 'eliminado_por', 'fecha_eliminacion',
   // REQ-MEDIA-005: de dónde salió fecha_contenido. 'captura' (EXIF de la
   // foto, leído en el navegador), 'subida' (el día de subida, hora
-  // Argentina) o 'manual' (corregida desde la app). Vacía en las filas
+  // Argentina; solo filas anteriores a REQ-MEDIA-009, que hizo la fecha
+  // obligatoria) o 'manual' (corregida desde la app). Vacía en las filas
   // anteriores al REQ y en los avatares.
   'fecha_origen',
   // REQ-MEDIA-008: hora en que se sacó la foto ('HH:MM:SS', del EXIF), solo
@@ -1770,14 +1771,14 @@ function normalizarFechaFin(fechaFin, fechaProgramada) {
 
 // REQ-MEDIA-005: la fecha de una foto que propone el cliente. Se acepta si
 // es un día real, no es futura (en hora Argentina) y no es anterior a 1990;
-// si no, queda el día de subida. El origen solo puede ser 'captura' o
-// 'manual' cuando la fecha se acepta; si no, es 'subida'.
+// si no, null: desde REQ-MEDIA-009 una foto sin fecha válida no se sube
+// (antes quedaba con el día de subida, origen 'subida'). El origen solo
+// puede ser 'captura' o 'manual'.
 function resolverFechaFoto(fechaPropuesta, origenPropuesto) {
-  const hoy = fechaDiaArgentina();
-  if (esFechaDia(fechaPropuesta) && fechaPropuesta <= hoy && fechaPropuesta >= '1990-01-01') {
+  if (esFechaDia(fechaPropuesta) && fechaPropuesta <= fechaDiaArgentina() && fechaPropuesta >= '1990-01-01') {
     return { fecha: fechaPropuesta, origen: origenPropuesto === 'manual' ? 'manual' : 'captura' };
   }
-  return { fecha: hoy, origen: 'subida' };
+  return null;
 }
 
 // Una categoría eliminada lógicamente no "existe" para las FK de Planes.
@@ -2091,6 +2092,9 @@ function handleUploadPlanPhotos(body) {
       errores.push({ index: index, error: 'Archivo y tipo MIME requeridos.' });
     } else if (!MIME_EXT[mimeType]) {
       errores.push({ index: index, error: 'Tipo de archivo no permitido. Solo JPG, PNG o WEBP.' });
+    } else if (!resolverFechaFoto(archivo.fechaContenido, archivo.fechaOrigen)) {
+      // REQ-MEDIA-009: la fecha es obligatoria.
+      errores.push({ index: index, error: 'Falta la fecha de la foto.' });
     } else {
       validas.push(index);
     }
@@ -2166,7 +2170,7 @@ function handleUploadPlanPhotos(body) {
       const bytes        = Utilities.base64Decode(fileBase64);
       const archivoId     = newId('arc');
       // REQ-MEDIA-005: la fecha que manda el cliente (captura o corregida
-      // antes de subir), validada; si no sirve, el día de subida.
+      // antes de subir), ya validada arriba (REQ-MEDIA-009).
       const fechaFoto     = resolverFechaFoto(fechaContenido, fechaOrigen);
       const fechaHoyFoto  = fechaFoto.fecha;
       // REQ-MEDIA-008: la hora solo acompaña a una fecha de captura.

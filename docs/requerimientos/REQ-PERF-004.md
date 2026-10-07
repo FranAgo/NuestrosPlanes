@@ -4,6 +4,7 @@
 > **Historia:** HECHO — en producción desde el 2026-09-28 11:11 (hora Argentina): servidor en la Web App @29, front en `main`. Criterio 1 confirmado por Franco el 2026-09-28 ~15:15 con 1.2.2, en una wifi parecida a la de su casa: las miniaturas de "Ya subidas" aparecen ya listas, sin pasar por "Cargando". Alcance aprobado por Franco el 2026-09-28 10:56, enfoque `thumbnailLink` por el servidor. Motivo de la prioridad: BL-030. Versión: 1.2.0 (DEC-009: un REQ nuevo sube la versión menor). CERRADO el 2026-10-06: Franco confirmó que en su casa las miniaturas de "Ya subidas" aparecen enseguida. La foto completa en el visor puede tardar unos segundos: es el piso de `getArchivo` y lo cubre REQ-MEDIA-007 (miniatura desenfocada mientras llega).
 > **Dueño técnico:** Bob (servidor) + Jay (front) · **Seguridad:** Julia · **QA:** Duck · **PM:** Paul
 > **Versión:** 1.2.0
+> **Origen:** BL-011
 
 ## Alcance aprobado (2026-09-28)
 

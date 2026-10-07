@@ -5,6 +5,7 @@
 > **Nivel:** cambio de fondo (toca todas las pantallas), solo front: `Code.gs` no cambia ni cambia ningún contrato.
 > **Dueño técnico:** Jay (diseño y front) · **QA:** Duck · **PM:** Paul · **Deploy:** Roy (solo GitHub Pages) · Julia y Gary: sin superficie de seguridad ni de hojas (se confirma al cerrar).
 > **Versión:** 1.3.0
+> **Origen:** BL-034
 > **Absorbe:** BL-034 (contraste). Se cruza con BL-012 (revisión de `docs/DESIGN.md`), BL-026 (área táctil) y BL-027 (visor de fotos).
 
 ## Problema

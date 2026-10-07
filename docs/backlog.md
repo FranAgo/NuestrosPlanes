@@ -17,6 +17,9 @@ La línea `- Estado:` lleva solo el valor y, como mucho, una fecha o una
 versión entre paréntesis (`Hecho (1.5.1)`, `Pasó a REQ-UX-001 (2026-10-05)`).
 El detalle va a `- Resuelto:` o a la Nota, con fecha. `node check-sintaxis.js`
 rechaza cualquier otra forma y un "Pasó a" con un REQ que no existe.
+El vínculo se escribe una sola vez, en el REQ (`> **Origen:** BL-NNN`,
+DEC-024): la línea `Pasó a` de acá la escribe `node check-sintaxis.js
+--arreglar`, y el chequeo falla si las dos puntas no coinciden.
 
 ---
 
@@ -456,7 +459,7 @@ estado de cada cosa vive en su ítem o su REQ):
 ## Sesión 2026-10-06 (2)
 
 ### BL-045 — Subir muchas fotos juntas es lento: van de a una
-- Estado: Propuesto
+- Estado: Pasó a REQ-MEDIA-008 (2026-10-06)
 - Prioridad: Media (pedido de Franco)
 - Origen: Franco (2026-10-06), al cerrar REQ-PERF-001: "si quiero subir 16 fotos que se suban de a una por una es algo lento".
 - Nota: sin medir todavía. Hoy `subirFotosPlan` (`index.html`) manda una llamada a `uploadPlanPhotos` por foto y espera cada una antes de la siguiente, para mostrar el estado foto por foto y no reintentar solo (una escritura repetida duplicaría la foto). Cada llamada paga el piso de Apps Script (~2 s, BL-032) más la escritura en Drive. Mandarlas en paralelo desde el front no alcanza: `handleUploadPlanPhotos` (`Code.gs`) toma el `ScriptLock` durante toda la subida, incluido `createFile`, así que las llamadas se harían igual de a una en el servidor. Opciones a evaluar (Bob, Jay, Duck): (a) achicar el lock a la numeración del archivo y la fila de `Archivos`, y subir de a 2 o 3 en paralelo; (b) mandar varias fotos por llamada (el endpoint ya acepta `files[]`), con cuidado del tope de tamaño del `doPost`; (c) dejar la subida en segundo plano para poder seguir usando la app. Se cruza con BL-009 (numeración de nombres en Drive) y BL-039 (borrar y subir bajo el mismo lock). Medir primero cuánto tarda hoy una subida de 16 en test.
@@ -464,7 +467,8 @@ estado de cada cosa vive en su ítem o su REQ):
 ## Sesión 2026-10-07
 
 ### BL-046 — El orden de "Por subir" es el de fin de compresión, no el del selector
-- Estado: Propuesto
+- Estado: Hecho (1.10.0)
 - Prioridad: Baja
 - Origen: verificación de REQ-MEDIA-008 (2026-10-07).
 - Nota: el `change` de `plan-foto-input` (`index.html`) procesa cada archivo con `files.forEach(async …)` y lo agrega a `planFotosSeleccion` cuando termina de comprimir: una foto chica (o un PNG) queda antes que una grande elegida primero. Desde 1.9.0 la posición en esa lista es la que numera los archivos en Drive. En la app no se nota (ordena por día y hora de captura). Arreglo: reservar el lugar de cada archivo en el orden del selector antes de comprimir.
+- Resuelto: en 1.10.0 (2026-10-07; se armó como 1.9.1 y salió junto con REQ-MEDIA-009, que no se había publicado). Desde REQ-MEDIA-009 la numeración en Drive sigue el día y la hora, y el orden de selección queda como desempate. El handler de `plan-foto-input` reserva el `id` de cada archivo en el orden del selector antes de comprimir y lo inserta en `planFotosSeleccion` según ese `id`. De paso (mismo handler): si el modal se cerró mientras se comprimía, la foto ya no entra en "Por subir" de la tarea que se abra después (no miraba `planFotosLote`, como sí lo hace `subirFotosPlan`). El orden en que el sistema operativo entrega los archivos elegidos no depende de la app.

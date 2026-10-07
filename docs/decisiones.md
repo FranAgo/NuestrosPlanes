@@ -227,3 +227,21 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: A + reserva de números por grupo + (b) (Franco, 2026-10-06). Contador por carpeta en Script Properties, bloque del grupo en `CacheService`; columna `Archivos.hora_contenido`. Entre fotos sin hora del mismo día, orden de llegada (Franco, 2026-10-07: "así está bien").
 - Motivo: A resuelve la lentitud y el 500 cruzado sin cambiar la pantalla ni el reintento foto por foto. (b) es el orden que se espera de una galería y no depende de quién subió ni en qué orden; (a) solo respeta la selección de una persona.
 - Reabrir si: 3 a la vez sigue lento en el teléfono (probar B o C), o hace falta ordenar los recuerdos por hora.
+
+## DEC-024 — El vínculo REQ ↔ BL se escribe una vez, en el REQ, y el backlog se deriva
+- Fecha: 2026-10-07
+- Estado: Aceptada
+- Contexto: BL-045 quedó en `Propuesto` aunque REQ-MEDIA-008 salió de él y ya estaba en producción; la bitácora decía que había pasado. El vínculo se escribía dos veces a mano (Historia del REQ y `Pasó a` del BL) y `check-sintaxis.js` solo miraba del BL al REQ. Investigación en `docs/investigacion/2026-10-07-vinculo-backlog-req.md`.
+- Opciones consideradas: (A) seguir escribiendo las dos puntas a mano y que el chequeo compare las dos; (B) una sola fuente, `> **Origen:** BL-NNN` en el REQ, con el `Pasó a` del backlog derivado por `check-sintaxis.js --arreglar` y chequeo en las dos direcciones (modelo de Doorstop; Jira y Azure DevOps escriben la otra punta solos); (C) pasar el backlog y los REQ a GitHub Issues con sub-issues.
+- Decisión: B (Franco, 2026-10-07, con `--arreglar`).
+- Motivo: nadie tipea la otra punta, y si se olvida el `--arreglar` el hook `pre-commit` frena con la línea exacta que corresponde. C saca el estado de los archivos que leen las skills (ya descartado en DEC-016).
+- Reabrir si: aparece otro tipo de vínculo que necesite la misma garantía (por ejemplo, BUG que sale de un REQ), o el `--arreglar` pisa algo que no debía.
+
+## DEC-025 — Fecha obligatoria en las fotos, validada al subir y con "la fecha de la tarea" para completar
+- Fecha: 2026-10-07
+- Estado: Aceptada
+- Contexto: REQ-MEDIA-009. Las fotos sin EXIF quedaban con el día de subida y, desde 1.9.0 (orden por hora, DEC-023), caían entre las de ese día. Franco pidió que la fecha sea obligatoria "como la categoría". Investigación en `docs/investigacion/2026-10-07-fecha-obligatoria-fotos.md`.
+- Opciones consideradas: completar sola como las galerías (fecha del archivo; la de WhatsApp es la de descarga, no la de la foto); deshabilitar "Subir" hasta que todas tengan fecha (idea inicial de Franco; GOV.UK y otros desaconsejan el botón deshabilitado porque no dice qué falta); validar al tocar "Subir" con el botón habilitado, (A) solo marcando las que faltan o (B) además con "Ponerles la fecha de la tarea".
+- Decisión: validar al tocar "Subir", variante B (Franco, 2026-10-07). Las que traen fecha de la cámara no se reconfirman (Franco: "eso traería fricción"). El servidor también la exige. Las fotos se mandan ordenadas por día y hora, así la numeración de Drive coincide con la app (cierra la pregunta de BL-046).
+- Motivo: es el mismo patrón que la categoría (REQ-PLAN-002), dice qué falta y dónde, y B evita fechar de a una un álbum entero de WhatsApp.
+- Reabrir si: el botón de la tarea pone fechas equivocadas a menudo (tareas de varios días, fotos de otro día), o subir varias se vuelve tedioso.

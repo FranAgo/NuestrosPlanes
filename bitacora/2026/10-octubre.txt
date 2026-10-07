@@ -294,3 +294,40 @@ Herramienta: Claude Code (Opus 5.5)
 Cambios:
 - Cierre de sesión. docs/backlog.md — BL-046 nuevo (el orden de "Por subir" es el de fin de compresión; desde 1.9.0 numera en Drive); nota en BL-039 (la subida revalida la tarea bajo el lock). REQ-MEDIA-008 queda HECHO hasta que Franco lo confirme en uso. Decisión DEC-023 y cuidados de convenciones-tecnicas en la entrada anterior.
 ========================================================
+========================================================
+2026-10-07 10:48 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/investigacion/2026-10-07-vinculo-backlog-req.md — nuevo: por qué BL-045 quedó en Propuesto con REQ-MEDIA-008 en prod (el vínculo se escribía dos veces a mano y el chequeo solo miraba del BL al REQ) y cómo lo resuelven Jira, Azure DevOps, GitHub, Sphinx-Needs, Doorstop y Jira Product Discovery: el vínculo se guarda una vez y la otra punta la pone la herramienta.
+- check-sintaxis.js — chequearEstados() lee "> **Origen:** BL-NNN" del encabezado de cada REQ y exige que el BL diga "Pasó a" ese REQ, y al revés; error también si el Origen nombra un BL inexistente o un BL figura en dos REQ. Nuevo --arreglar: escribe el "Pasó a" del backlog a partir del Origen (con la primera fecha de la Historia), sin pisar un BL que ya apunta a otro REQ y conservando CRLF.
+- docs/requerimientos/REQ-MEDIA-003, MEDIA-005, MEDIA-006, MEDIA-007, MEDIA-008, PERF-004, PLAN-001, UX-002 — línea "> **Origen:**" con los BL de los que salieron (tomados de los "Pasó a" existentes).
+- docs/backlog.md — BL-045 pasa a "Pasó a REQ-MEDIA-008 (2026-10-06)", escrito por --arreglar; la cabecera explica el Origen.
+- docs/decisiones.md — DEC-024 (vínculo en el REQ, backlog derivado). CLAUDE.md y docs/skills/INVENTARIO.md — la regla nueva.
+- Verificado: sin Origen, el chequeo nuevo marca los 8 BL con "Pasó a"; con Origen y BL-045 sin corregir, rojo solo en BL-045 con la línea exacta; --arreglar lo deja verde y una segunda corrida no cambia nada. En una copia aparte: BL inexistente, BL en dos REQ, conflicto con otro REQ (--arreglar no lo pisa), Origen mal escrito y BL "Hecho" corregido con CRLF idéntico byte a byte; con error sale con código 1. Sin cambios en index.html ni Code.gs: no hay deploy.
+========================================================
+========================================================
+2026-10-07 10:53 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- index.html — 1.9.1 (BL-046). El change de plan-foto-input reserva el id de cada archivo en el orden del selector antes de comprimir y lo inserta en planFotosSeleccion según ese id: "Por subir" y la posición que numera los archivos en Drive (REQ-MEDIA-008) quedan en el orden elegido aunque una foto termine de comprimirse antes que otra. De paso, en el mismo handler: si el modal se cerró mientras se comprimía, la foto (o su error) ya no aparece en la tarea que se abre después; no miraba planFotosLote.
+- CHANGELOG.md — 1.9.1. docs/backlog.md — BL-046 Hecho (1.9.1) con su Resuelto.
+- Verificado en 127.0.0.1 con fetch simulado y demoras forzadas en comprimirImagenPlan, sin pedidos a script.google: contra 1.9.0 falla (D,B,A en vez de A,B,D; segunda tanda F,E; la foto aparece en la otra tarea); con 1.9.1 pasan los 5 casos (orden con una que tarda, una que falla en el medio, segunda tanda, cierre a mitad de compresión, posiciones 0-4 al subir), el caso del orden 3 veces igual, consola limpia. node check-sintaxis.js OK. Sin deploy todavía: el front 1.9.1 sale con el push a main, con OK de Franco.
+========================================================
+========================================================
+2026-10-07 12:07 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/investigacion/2026-10-07-fecha-obligatoria-fotos.md — nuevo: galerías (completan solas con la fecha del archivo) frente a formularios (GOV.UK y otros: validar al enviar, botón nunca deshabilitado). Mockup A/B; Franco eligió B y que las fotos con fecha de cámara no se reconfirmen.
+- docs/requerimientos/REQ-MEDIA-009.md — nuevo, HECHO (1.10.0): toda foto se sube con fecha.
+- Code.gs — resolverFechaFoto devuelve null sin fecha válida (antes, el día de subida); handleUploadPlanPhotos manda esa foto a errores con "Falta la fecha de la foto." antes de reservar números.
+- index.html — 1.10.0. Al tocar "Subir" con fotos sin fecha no sube ninguna: filas en rojo, resumen arriba y foco en el calendario de la primera; "Ponerles la fecha de la tarea" (si la tarea tiene un solo día y no es futura) completa solo las que faltan; el calendario de una foto sin fecha arranca vacío (antes, hoy); una fecha puesta a mano borra la hora; las fotos se mandan ordenadas por día, hora y selección (la numeración de Drive sigue la app, cierra la pregunta de BL-046). BL-046 sale en esta versión (la 1.9.1 no se publicó).
+- Tests.gs — subidas con fecha del día; probarMEDIA005 y probarMEDIA008 a la regla nueva.
+- CHANGELOG.md — 1.10.0 (reemplaza la 1.9.1 sin publicar). docs/backlog.md — BL-046 Hecho (1.10.0). docs/decisiones.md — DEC-025. docs/modelo-datos.md — fecha_contenido obligatoria, fecha_origen 'subida' solo en filas viejas.
+- Verificado: probarMEDIA005 con el Code.gs de 1.9.0 3 FAIL, con el nuevo 55/55 x3; suite completa en test en verde (16 de 16, detalle en REQ-MEDIA-009); front en 127.0.0.1 con fetch simulado, criterios 1-9, sin pedidos a script.google. clasp push solo al proyecto de test. Sin deploy a prod.
+========================================================

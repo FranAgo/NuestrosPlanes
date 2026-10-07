@@ -5,6 +5,26 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.10.0] - 2026-10-07
+
+### Cambiado
+- Toda foto se sube con fecha. Si alguna de las elegidas no la trae
+  (capturas de pantalla, fotos reenviadas por WhatsApp), al tocar "Subir"
+  queda marcada en rojo y no sube ninguna hasta ponérsela. Con "Ponerles
+  la fecha de la tarea" se completan todas las que faltan de una vez. Las
+  que traen la fecha de la cámara no piden nada. Antes quedaban con el día
+  en que se subían. (REQ-MEDIA-009)
+- En Drive las fotos quedan numeradas en el mismo orden en que se ven en la
+  app: por día y hora. (REQ-MEDIA-009)
+
+### Corregido
+- "Por subir" muestra las fotos en el orden en que se eligieron. Antes
+  podía quedar primero la que terminaba antes de prepararse (una más
+  liviana). (BL-046)
+- Si se cerraba una tarea mientras una foto elegida se estaba preparando,
+  esa foto podía aparecer en "Por subir" de la próxima tarea que se abría.
+  (BL-046)
+
 ## [1.9.0] - 2026-10-06
 
 ### Cambiado

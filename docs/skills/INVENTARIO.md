@@ -11,7 +11,7 @@ Bob, Gary y Roy, DEC-021).
 |---|---|---|---|---|
 | `paul-engineer-pm` | Persona | Paul | sis-web 2026-10-06, tal cual | Sin pasada propia |
 | `hpaul-decision-log` | Herramienta | Paul | sis-web, tal cual (igual a la de hoy) | Sin pasada propia |
-| `hpaul-triage` | Herramienta | Paul | sis-web, tal cual (igual a la de hoy) | Sin pasada propia. Las reglas de Peroncitos "hallazgo sobre REQ existente → al REQ" y "BL que pasa a REQ queda `Pasó a REQ-XXX`" (DEC-016) viven en `CLAUDE.md`, no en la herramienta |
+| `hpaul-triage` | Herramienta | Paul | sis-web, tal cual (igual a la de hoy) | Sin pasada propia. Las reglas de Peroncitos "hallazgo sobre REQ existente → al REQ" y "BL que pasa a REQ queda `Pasó a REQ-XXX`" (DEC-016), con el vínculo escrito una vez en el `Origen` del REQ y el `Pasó a` derivado por `check-sintaxis.js --arreglar` (DEC-024), viven en `CLAUDE.md`, no en la herramienta |
 | `jay-engineer-frontend` | Persona | Jay | sis-web, tal cual (igual a la de hoy) | Sin pasada propia |
 | `hjay-identidad-visual` | Herramienta | Jay | sis-web, tal cual (igual a la de hoy) | Sin pasada propia |
 | `hjay-verificacion-visual` | Herramienta | Jay | sis-web, mejorada acá (BL-020) | Validada A/B el 2026-09-27. sis-web no la cambió desde entonces |

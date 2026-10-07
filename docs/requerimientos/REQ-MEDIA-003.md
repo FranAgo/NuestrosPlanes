@@ -3,6 +3,7 @@
 > **Estado:** CERRADO (2026-10-05)
 > **Historia:** CERRADO (2026-10-05, Franco confirmó que lo usan y anda bien). Antes: en producción desde el 2026-09-28 (tag `v1.1.0`, commit 518e9c3). Alcance y ubicación aprobados por Franco (opción A del mockup). Servidor hecho y probado en test (`getRecuerdos` + `probarMEDIA003` 33/33). Front hecho y verificado en 127.0.0.1 con `fetch` simulado a 375 y 1366 (card, chips, teclado, vacío, falla, visor de tarea sin chips). Servidor en producción desde el 2026-09-28 (Web App @28, "v1.1.0"; rollback `-V 27`). Front en `main` (GitHub Pages sirve 1.1.0). Sale como versión `1.1.0` (DEC-009).
 > **Versión:** 1.1.0
+> **Origen:** BL-007
 > **Nivel:** cambio de fondo (endpoint nuevo + card del dashboard + modal de recuerdos).
 > **Dueño técnico:** Bob (selección en el servidor) + Jay (card y modal) · **DBA:** Gary · **AppSec:** Julia · **DevOps:** Roy · **QA:** Duck · **PM:** Paul
 > **Depende de:** REQ-MEDIA-005 (la fecha de cada foto es la de captura, ya en prod).

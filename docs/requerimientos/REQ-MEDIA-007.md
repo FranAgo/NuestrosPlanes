@@ -3,6 +3,7 @@
 > **Estado:** CERRADO (2026-10-06)
 > **Historia:** EN DESARROLLO (2026-10-05). Franco eligió la variante B del mockup de Mi perfil y la opción A del visor (investigación del 2026-10-05). Incluye BL-036. HECHO el 2026-10-05: implementado y verificado en 127.0.0.1 con `fetch` simulado (4 s por foto), sin pedidos a prod. En producción con 1.6.0 el 2026-10-05 (commit `44ece6b`, tag `v1.6.0`). 2026-10-05: Franco vio que en la computadora Mi perfil quedaba en una columna de 420 px pegada a la izquierda de los 900 del contenido; eligió la variante B de un mockup nuevo (dos columnas desde 720 px). Sale como ajuste en 1.6.1. CERRADO el 2026-10-06: Franco confirmó en uso que la foto siguiente aparece al instante en el visor y que Mi perfil se ve bien en dos columnas en la computadora.
 > **Versión:** 1.6.0
+> **Origen:** BL-036
 > **Nivel:** cambio de fondo (cambia cómo se cargan las fotos del visor y se rehace Mi perfil). Solo front: `Code.gs` no cambia.
 > **Dueño técnico:** Jay · **PM:** Paul · **QA:** Duck · **AppSec:** Julia · **Infra:** Roy
 
