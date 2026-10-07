@@ -367,3 +367,16 @@ Cambios:
 - Incidente (sin efecto): al editar el REQ con un node -e entre comillas dobles, Bash ejecutó dos veces el texto `clasp run instalarTriggerRespaldo` contra prod (sin -P). Las dos respondieron "Request contains an invalid argument" (perfil por defecto sin permiso de clasp run) y el código de prod (1.10.0) no tiene esa función. Queda por confirmar con listarTriggers en prod, con OK de Franco.
 - Verificado en test: probarDATA003 con el Code.gs anterior 1 FAIL; con el nuevo 51/51 x3 (la primera corrida dio 48/51 por 3 errores de la prueba, corregidos, detalle en el REQ); mutante sin verificación por conteo 44/51, detectado. Test vuelto al árbol real. node check-sintaxis.js OK. Sin deploy a prod.
 ========================================================
+========================================================
+2026-10-07 14:22 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy 1.11.0 (REQ-DATA-003), cada paso con OK de Franco.
+- Paso 1 (solo lectura): listarTriggers en prod daba solo purgarSesiones (CLOCK). El incidente de la entrada anterior no instaló nada. Anotado en BL-041.
+- Paso 2: commit 64f6150 + tag v1.11.0, push a main (cuenta FranAgo, entró al primer intento). GitHub no creó la corrida "pages build and deployment" de ese commit: githubstatus con "Incident with Git Operations, Issues, Actions and Pull Requests" (investigating). A las 14:21 Pages seguía sirviendo 1.10.0; el front solo cambia el número de versión, la app anda igual.
+- Paso 3: mismo commit 64f6150; clasp push -f a prod, versión 38, redeploy de AKfycbyKWC… @38 (antes @37). Smoke sin sesión: getPlanes -> 401 "Sesión requerida.". Vuelta atrás: redeploy -V 37 y clasp push del commit c48741e.
+- Paso 4: clasp run instalarTriggerRespaldo -u duck en prod -> triggers respaldoDiario y purgarSesiones (CLOCK). Primera corrida a mano de respaldoDiario: creó la carpeta "Respaldos Nuestros Planes" en la raíz de la Drive de Franco y la copia "Respaldo 2026-10-07 1421". estadoRespaldos: copia y original con las mismas filas (Usuarios 3, Categorias 5, Planes 11, Archivos 64, Auditoria 62), la copia sin Sesiones. Vuelta atrás: instalarTriggerRespaldo(true) y la carpeta a la papelera.
+- Queda por ver: la primera corrida automática (2026-10-08 04:00), con estadoRespaldos; y que Pages publique 1.11.0.
+========================================================
