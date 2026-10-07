@@ -380,3 +380,11 @@ Cambios:
 - Paso 4: clasp run instalarTriggerRespaldo -u duck en prod -> triggers respaldoDiario y purgarSesiones (CLOCK). Primera corrida a mano de respaldoDiario: creó la carpeta "Respaldos Nuestros Planes" en la raíz de la Drive de Franco y la copia "Respaldo 2026-10-07 1421". estadoRespaldos: copia y original con las mismas filas (Usuarios 3, Categorias 5, Planes 11, Archivos 64, Auditoria 62), la copia sin Sesiones. Vuelta atrás: instalarTriggerRespaldo(true) y la carpeta a la papelera.
 - Queda por ver: la primera corrida automática (2026-10-08 04:00), con estadoRespaldos; y que Pages publique 1.11.0.
 ========================================================
+========================================================
+2026-10-07 14:24 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Cierre de sesión. GitHub Pages sirve 1.11.0 desde las 14:23: el push de la bitácora (939ca78) disparó el build que no había salido con 64f6150. Recordatorio en el calendario de Franco cada dos semanas desde el 2026-10-10 para la copia física (Takeout a disco). Pendiente para la próxima sesión: confirmar con estadoRespaldos la primera corrida automática (2026-10-08 04:00). Sin ítems nuevos en el backlog; decisiones y cuidados en las entradas anteriores.
+========================================================
