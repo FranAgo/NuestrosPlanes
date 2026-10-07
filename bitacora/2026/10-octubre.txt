@@ -352,3 +352,18 @@ Cambios:
 - .claude/skills/convenciones-tecnicas/tests.md — §2: ECONNRESET/ENOTFOUND en clasp run es la red, se repite la corrida.
 - Memoria de Claude (fuera del repo): github-cuenta-personal-por-repo con el caso del token.
 ========================================================
+========================================================
+2026-10-07 13:50 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- docs/requerimientos/REQ-DATA-003.md — nuevo, HECHO (1.11.0), Origen BL-040: respaldo diario de la planilla con retención abuelo-padre-hijo (7 diarias, 4 semanales, 12 mensuales, una por año sin tope), sin la hoja Sesiones; las fotos, con la papelera de Drive y una copia física cada dos semanas (Takeout a un disco de Franco). Franco eligió primero copiar también las fotos dentro de Drive y después lo sacó (DEC-026).
+- Code.gs — sección RESPALDO: respaldoDiario (la del trigger), respaldarPlanilla (makeCopy a "Respaldos <planilla>", saca Sesiones, verifica filas por hoja entre el antes y el después; si no coincide, la copia va a la papelera y falla), elegirRespaldosAConservar (pura) y rotarRespaldos (las que salen van a la papelera; un archivo con otro nombre no se toca), instalarTriggerRespaldo (idempotente, 04:00) y estadoRespaldos (solo lectura). Nada en doPost, sin permisos nuevos. APP_VERSION 1.11.0: estaba en 1.9.0, la 1.10.0 no la había subido (DEC-009 pide la misma en index.html y Code.gs).
+- index.html — APP_VERSION 1.11.0 (sin otro cambio).
+- Tests.gs — probarDATA003.
+- docs/backlog.md — BL-040 Pasó a REQ-DATA-003 (escrito por --arreglar). docs/decisiones.md — DEC-026. CHANGELOG.md — 1.11.0. docs/infra/inventario.md §4 — tabla de respaldo, cómo restaurar la planilla y la copia física cada dos semanas.
+- .claude/skills/convenciones-tecnicas/datos.md §6 — la copia antes de escribir puede ser clasp run respaldarPlanilla. apps-script-clasp.md — comillas invertidas dentro de un comando de Bash entre comillas dobles se ejecutan.
+- Incidente (sin efecto): al editar el REQ con un node -e entre comillas dobles, Bash ejecutó dos veces el texto `clasp run instalarTriggerRespaldo` contra prod (sin -P). Las dos respondieron "Request contains an invalid argument" (perfil por defecto sin permiso de clasp run) y el código de prod (1.10.0) no tiene esa función. Queda por confirmar con listarTriggers en prod, con OK de Franco.
+- Verificado en test: probarDATA003 con el Code.gs anterior 1 FAIL; con el nuevo 51/51 x3 (la primera corrida dio 48/51 por 3 errores de la prueba, corregidos, detalle en el REQ); mutante sin verificación por conteo 44/51, detectado. Test vuelto al árbol real. node check-sintaxis.js OK. Sin deploy a prod.
+========================================================

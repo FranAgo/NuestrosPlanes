@@ -245,3 +245,12 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: validar al tocar "Subir", variante B (Franco, 2026-10-07). Las que traen fecha de la cámara no se reconfirman (Franco: "eso traería fricción"). El servidor también la exige. Las fotos se mandan ordenadas por día y hora, así la numeración de Drive coincide con la app (cierra la pregunta de BL-046).
 - Motivo: es el mismo patrón que la categoría (REQ-PLAN-002), dice qué falta y dónde, y B evita fechar de a una un álbum entero de WhatsApp.
 - Reabrir si: el botón de la tarea pone fechas equivocadas a menudo (tareas de varios días, fotos de otro día), o subir varias se vuelve tedioso.
+
+## DEC-026 — Respaldo: planilla diaria con retención abuelo-padre-hijo; fotos con papelera y copia física cada dos semanas
+- Fecha: 2026-10-07
+- Estado: Aceptada
+- Contexto: REQ-DATA-003 (BL-040). No había copia propia de nada y nunca se había probado una restauración. Paul investigó la práctica habitual: regla 3-2-1 (tres copias, dos medios, una fuera del lugar) y retención abuelo-padre-hijo (GFS).
+- Opciones consideradas: planilla semanal con 8 copias o diaria con GFS (7 diarias, 4 semanales, 12 mensuales), con o sin una copia por año que no se borra; fotos: (A) solo la papelera de Drive, (B) copia automática dentro de Drive, (C) exportación de Takeout bajada a un disco, en combinaciones; C trimestral o cada dos semanas.
+- Decisión: planilla diaria con GFS más una por año sin tope, sin la hoja `Sesiones` y con `Auditoria`; fotos A + C, con C cada dos semanas y a mano (Franco, 2026-10-07). Franco eligió primero A + B + C y después sacó B.
+- Motivo: la planilla la escribe la app todo el tiempo y pesa KB: muchas copias no cuestan nada y se pierde a lo sumo un día. Las fotos no las borra la app (borrar una tarea solo archiva filas) y Noelia tiene solo lectura, así que B solo cubría un borrado a mano no notado en 30 días, a cambio del doble de espacio y sin cubrir la pérdida de la cuenta. Eso lo cubre C, que es la única copia fuera de Google. Takeout solo programa cada 2 meses: por eso C es a mano.
+- Reabrir si: la app empieza a borrar archivos de Drive (BL-009), la copia física se deja de hacer seguido, o las copias de la planilla se acercan al límite de espacio.

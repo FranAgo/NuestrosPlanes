@@ -5,6 +5,16 @@ Qué cambió para Franco y Noelia en cada versión. El detalle técnico está en
 Changelog](https://keepachangelog.com/es-ES/1.1.0/); versiones según DEC-009
 (la versión se ve en "Mi perfil").
 
+## [1.11.0] - 2026-10-07
+
+### Agregado
+- Todos los días a las 4 de la mañana se guarda una copia de los datos de
+  la app (tareas, categorías y la lista de fotos) en una carpeta aparte de
+  Drive. Quedan las de la última semana, una por semana del último mes, una
+  por mes del último año y una por año. Si algo se rompe, se puede volver a
+  como estaba. Si una copia sale mal, a Franco le llega un mail de Google.
+  (REQ-DATA-003)
+
 ## [1.10.0] - 2026-10-07
 
 ### Cambiado

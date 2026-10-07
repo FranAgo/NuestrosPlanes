@@ -3443,3 +3443,169 @@ function probarParche181() {
 
   return R.finalizar();
 }
+
+// ============================================================
+// probarDATA003 — REQ-DATA-003: respaldo diario de la planilla.
+// Planilla scratch + carpeta scratch en Drive (RESPALDO_CARPETA_OVERRIDE),
+// reloj fijo con RELOJ_OVERRIDE. Instala y saca el trigger del proyecto de
+// test (lo deja sin trigger).
+//   clasp run probarDATA003 -P .clasp-test.json -u duck
+// ============================================================
+function probarDATA003() {
+  const R = nuevoReporte('REQ-DATA-003');
+  const overrideAnterior = TEST_SPREADSHEET_ID_OVERRIDE;
+  let scratchId = null, raiz = null;
+
+  try {
+    if (typeof elegirRespaldosAConservar !== 'function' || typeof respaldarPlanilla !== 'function' ||
+        typeof respaldoDiario !== 'function' || typeof estadoRespaldos !== 'function') {
+      R.fail('faltan las funciones de respaldo (elegirRespaldosAConservar, respaldarPlanilla, respaldoDiario, estadoRespaldos)');
+      return R.finalizar();
+    }
+
+    // G · Rotación abuelo-padre-hijo, sin Drive.
+    const nombres = [];
+    for (let d = new Date(Date.UTC(2025, 8, 3)); d <= new Date(Date.UTC(2026, 9, 7)); d.setUTCDate(d.getUTCDate() + 1)) {
+      nombres.push('Respaldo ' + d.toISOString().slice(0, 10) + ' 0400');
+    }
+    R.eq('G · 400 días de copias', nombres.length, 400);
+    const quedan = elegirRespaldosAConservar(nombres);
+    R.eq('G1 · quedan 20', quedan.length, 20);
+    ['2026-10-01', '2026-10-07', '2026-09-27', '2026-09-20', '2026-09-30', '2026-02-28', '2025-11-30', '2025-12-31'].forEach(f => {
+      R.check('G1 · queda ' + f, quedan.indexOf('Respaldo ' + f + ' 0400') !== -1);
+    });
+    ['2026-09-26', '2026-09-13', '2025-10-31', '2025-09-03'].forEach(f => {
+      R.check('G1 · no queda ' + f, quedan.indexOf('Respaldo ' + f + ' 0400') === -1);
+    });
+    const conExtras = nombres.concat(['Respaldo 2024-06-01 0400', 'Respaldo 2026-10-07 1530', 'Copia manual']);
+    const quedan2 = elegirRespaldosAConservar(conExtras);
+    R.check('G2 · una de 2024 queda (una por año, sin tope)', quedan2.indexOf('Respaldo 2024-06-01 0400') !== -1);
+    R.check('G2 · de dos el mismo día queda la más nueva',
+            quedan2.indexOf('Respaldo 2026-10-07 1530') !== -1 && quedan2.indexOf('Respaldo 2026-10-07 0400') === -1);
+    R.check('G2 · un nombre que no es de respaldo no aparece', quedan2.indexOf('Copia manual') === -1);
+    R.eq('G2 · quedan 21', quedan2.length, 21);
+
+    // Escenario: planilla scratch con datos y una sesión, carpeta scratch.
+    const ss = SpreadsheetApp.create('SCRATCH probarDATA003 ' + new Date().toISOString());
+    scratchId = ss.getId();
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+    sembrarEstadoMedia002(ss);
+    invalidarCacheHoja(SHEETS.USUARIOS);
+    parseResp(handleCreatePlan({ titulo: 'Cena', userId: 'usr_fran', categoriaId: 'cat_mant', fechaProgramada: '2026-10-10' }));
+    parseResp(handleCreatePlan({ titulo: 'Viaje', userId: 'usr_noe', categoriaId: 'cat_mant', fechaProgramada: '2026-11-02' }));
+    crearSesion('usr_fran');
+    SpreadsheetApp.flush();
+    raiz = DriveApp.createFolder('SCRATCH probarDATA003 ' + new Date().toISOString());
+    const carpetaResp = raiz.createFolder('respaldos');
+    RESPALDO_CARPETA_OVERRIDE = carpetaResp.getId();
+    R.nota('planilla scratch: ' + scratchId + ' · carpeta scratch: ' + raiz.getId());
+    const conteoOriginal = contarFilasPorHoja(ss);
+
+    // P · Copia de la planilla.
+    RELOJ_OVERRIDE = '2026-10-07T07:00:00.000Z';   // 04:00 en Argentina
+    const p = respaldarPlanilla();
+    R.eq('P1 · nombre con fecha y hora Argentina', p.nombre, 'Respaldo 2026-10-07 0400');
+    const enCarpeta = carpetaResp.getFilesByName('Respaldo 2026-10-07 0400');
+    const copiaArchivo = enCarpeta.hasNext() ? enCarpeta.next() : null;
+    R.check('P1 · la copia está en la carpeta de respaldos', !!copiaArchivo);
+    const copia = copiaArchivo ? SpreadsheetApp.openById(copiaArchivo.getId()) : null;
+    R.check('P1 · la copia no tiene Sesiones', !!copia && !copia.getSheetByName('Sesiones'));
+    ['Usuarios', 'Categorias', 'Planes', 'Archivos', 'Auditoria'].forEach(n => {
+      R.eq('P1 · ' + n + ': mismas filas que el original', copia ? copia.getSheetByName(n).getLastRow() : -1, conteoOriginal[n]);
+    });
+    R.eq('P1 · Planes tiene las 2 tareas', conteoOriginal.Planes, 3);
+    R.eq('P1 · el original no cambió', JSON.stringify(contarFilasPorHoja(SpreadsheetApp.openById(scratchId))), JSON.stringify(conteoOriginal));
+    R.check('P1 · el original sigue con su sesión', conteoOriginal.Sesiones >= 2);
+    R.eq('P1 · con una sola copia no rota nada', p.aLaPapelera, 0);
+
+    // V · Copia que no coincide.
+    RELOJ_OVERRIDE = '2026-10-07T08:00:00.000Z';
+    let idMala = null;
+    ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = c => { idMala = c.getId(); c.getSheetByName('Planes').deleteRow(2); };
+    let errV = null;
+    try { respaldarPlanilla(); } catch (e) { errV = e; }
+    ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = null;
+    R.check('V1 · falla si la copia no coincide', !!errV);
+    R.check('V1 · el error nombra la hoja (' + (errV && errV.message) + ')', !!errV && errV.message.indexOf('Planes') !== -1);
+    R.check('V1 · la copia mala quedó en la papelera', !!idMala && DriveApp.getFileById(idMala).isTrashed());
+
+    // X · Restauración: copia de la copia + setupSheets.
+    const antesPlanes = JSON.stringify(parseResp(handleGetPlanes({ authUserId: 'usr_fran' })));
+    const antesCats   = JSON.stringify(parseResp(handleGetCategorias({ authUserId: 'usr_fran' })));
+    const restaurada = copiaArchivo.makeCopy('restaurada', raiz);
+    TEST_SPREADSHEET_ID_OVERRIDE = restaurada.getId();
+    setupSheets();
+    R.eq('X1 · getPlanes igual que el original', JSON.stringify(parseResp(handleGetPlanes({ authUserId: 'usr_fran' }))), antesPlanes);
+    R.eq('X1 · getCategorias igual que el original', JSON.stringify(parseResp(handleGetCategorias({ authUserId: 'usr_fran' }))), antesCats);
+    const sesR = SpreadsheetApp.openById(restaurada.getId()).getSheetByName('Sesiones');
+    R.check('X1 · Sesiones vuelve, vacía', !!sesR && sesR.getLastRow() === 1);
+    R.check('X1 · la copia de respaldo no se tocó', !SpreadsheetApp.openById(copiaArchivo.getId()).getSheetByName('Sesiones'));
+    try { CacheService.getScriptCache().removeAll(['hoja:' + restaurada.getId() + ':Usuarios', 'hoja:' + restaurada.getId() + ':Categorias']); } catch (e) { /* ignorado */ }
+    TEST_SPREADSHEET_ID_OVERRIDE = scratchId;
+
+    // Q · Rotación en la carpeta.
+    for (let dia = 1; dia <= 10; dia++) {
+      carpetaResp.createFile('Respaldo 2026-07-' + ('0' + dia).slice(-2) + ' 0400', 'x');
+    }
+    carpetaResp.createFile('Copia manual', 'x');
+    RELOJ_OVERRIDE = '2026-10-08T07:00:00.000Z';
+    const q = respaldarPlanilla();
+    R.eq('Q1 · manda 4 a la papelera (1 al 4 de julio)', q.aLaPapelera, 4);
+    const vivo = n => { const it = carpetaResp.getFilesByName(n); let v = false; while (it.hasNext()) if (!it.next().isTrashed()) v = true; return v; };
+    R.check('Q1 · 1 de julio a la papelera', !vivo('Respaldo 2026-07-01 0400'));
+    R.check('Q1 · 4 de julio a la papelera', !vivo('Respaldo 2026-07-04 0400'));
+    R.check('Q1 · 5 de julio queda (semanal)', vivo('Respaldo 2026-07-05 0400'));
+    R.check('Q1 · 6 de julio queda (diaria)', vivo('Respaldo 2026-07-06 0400'));
+    R.check('Q1 · las de octubre quedan', vivo('Respaldo 2026-10-07 0400') && vivo('Respaldo 2026-10-08 0400'));
+    R.check('Q1 · "Copia manual" no se toca', vivo('Copia manual'));
+
+    // D · respaldoDiario: la del trigger. Si la copia falla, falla.
+    RELOJ_OVERRIDE = '2026-10-09T07:00:00.000Z';
+    const d = respaldoDiario();
+    R.eq('D1 · copia la planilla', d.nombre, 'Respaldo 2026-10-09 0400');
+    RELOJ_OVERRIDE = '2026-10-09T08:00:00.000Z';
+    ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = c => c.getSheetByName('Planes').deleteRow(2);
+    let errD = null;
+    try { respaldoDiario(); } catch (e) { errD = e; }
+    ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = null;
+    R.check('D2 · si la copia falla, respaldoDiario falla (' + (errD && errD.message) + ')', !!errD);
+
+    // E · estadoRespaldos (solo lectura).
+    const est = estadoRespaldos();
+    R.eq('E1 · la última copia es la del 9', est.copias[0], 'Respaldo 2026-10-09 0400');
+    R.check('E1 · la última sin Sesiones y con las 2 tareas', !!est.ultima && est.ultima.Sesiones === undefined && est.ultima.Planes === 3);
+
+    // T · Trigger: uno solo aunque se instale dos veces; se saca.
+    const cuantos = () => ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'respaldoDiario').length;
+    instalarTriggerRespaldo();
+    instalarTriggerRespaldo();
+    R.eq('T1 · un solo trigger de respaldoDiario', cuantos(), 1);
+    const tr = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'respaldoDiario')[0];
+    R.eq('T1 · es por tiempo', tr ? String(tr.getEventType()) : '', 'CLOCK');
+    instalarTriggerRespaldo(true);
+    R.eq('T2 · quitar lo deja en 0', cuantos(), 0);
+
+  } catch (err) {
+    R.fail('EXCEPCION no controlada en el runner: ' + (err && err.stack ? err.stack : err));
+  } finally {
+    TEST_SPREADSHEET_ID_OVERRIDE = overrideAnterior;
+    if (typeof RESPALDO_CARPETA_OVERRIDE !== 'undefined') {
+      RESPALDO_CARPETA_OVERRIDE = null;
+      ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = null;
+    }
+    RELOJ_OVERRIDE = null;
+    try {
+      if (scratchId) CacheService.getScriptCache().removeAll(['hoja:' + scratchId + ':Usuarios', 'hoja:' + scratchId + ':Categorias']);
+    } catch (e) { /* ignorado */ }
+    if (scratchId) {
+      try { DriveApp.getFileById(scratchId).setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la planilla scratch ' + scratchId + ': ' + e); }
+    }
+    if (raiz) {
+      try { raiz.setTrashed(true); }
+      catch (e) { R.nota('no se pudo borrar la carpeta scratch ' + raiz.getId() + ': ' + e); }
+    }
+  }
+
+  return R.finalizar();
+}

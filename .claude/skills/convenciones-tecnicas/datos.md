@@ -123,11 +123,13 @@ soportar.
 
 ## 6. Respaldo antes de escribir
 
-**Qué cuidar:** hoy no hay copia propia de la planilla ni de las fotos:
-solo el historial de versiones de Sheets y la papelera de Drive (30 días),
-dentro de la misma cuenta (`docs/infra/inventario.md` §4, BL-040). Antes
-de una escritura masiva en prod:
-1. copia de la planilla (Archivo → Hacer una copia, o
+**Qué cuidar:** desde 1.11.0 hay una copia diaria de la planilla a las
+04:00 (REQ-DATA-003, `docs/infra/inventario.md` §4), pero puede tener casi
+un día: no alcanza como vuelta atrás de una escritura de ahora. Antes de
+una escritura masiva en prod:
+1. copia de la planilla: `clasp run respaldarPlanilla -u duck` (la deja
+   en la carpeta de respaldos, ya verificada por conteo, y entra en la
+   rotación; con eso se saltea el paso 2), o bien (Archivo → Hacer una copia, o
    `DriveApp.getFileById(id).makeCopy(nombre)`) con fecha y motivo en el
    nombre, en la Drive de Franco, fuera de la carpeta de fotos;
 2. verificarla: misma cantidad de filas por hoja que el original (una

@@ -69,12 +69,39 @@ Qué hay que poder recuperar: planes, categorías, la relación con las fotos
 (`Archivos`) y las fotos. `Sesiones` y `Auditoria` no son críticas para
 recuperar (DEC pendiente con BL-006, retención).
 
-| Qué | Respaldo hoy | Retención | Restauración probada |
+| Qué | Respaldo | Retención | Restauración probada |
 |---|---|---|---|
-| Planilla prod | Solo el historial de versiones de Google Sheets (automático) | La de Google; no es un respaldo independiente: se pierde si se borra la planilla de la papelera o la cuenta | Nunca |
-| Fotos (Drive) | Ninguno propio; papelera de Drive | 30 días en papelera | Nunca |
+| Planilla prod | Copia diaria (`respaldoDiario`, trigger 04:00) a la carpeta `Respaldos <nombre de la planilla>` de la Drive de Franco, sin la hoja `Sesiones` (REQ-DATA-003). Además, el historial de versiones de Sheets | 7 diarias, 4 semanales, 12 mensuales y una por año sin tope; las que salen van a la papelera (30 días) | Sí, en `probarDATA003` (copia de la copia + `setupSheets`, 2026-10-07) |
+| Fotos (Drive) | Papelera de Drive (la app nunca borra archivos de Drive) + copia física cada dos semanas con Takeout | 30 días en papelera; la copia física, lo que Franco guarde | La copia física: se mira que el ZIP abra |
+| Planilla y fotos fuera de la cuenta | Copia física cada dos semanas (abajo) | — | — |
 
-No hay copia propia fuera de la cuenta: BL-040.
+**Si el respaldo diario falla**, Google le manda a Franco el mail de fallas
+del trigger. Para mirar el estado: `clasp run estadoRespaldos -u duck`
+(solo lectura: nombres de las copias y filas por hoja de la última y del
+original). En la revisión trimestral: `listarTriggers` muestra
+`respaldoDiario` y la última copia es de ayer o de hoy.
+
+**Restaurar la planilla** (con OK de Franco, es prod):
+1. En la carpeta de respaldos, elegir la copia y hacerle una copia
+   ("Hacer una copia"). Nunca se usa la copia de respaldo misma: así sigue
+   intacta.
+2. Poner el ID de esa copia nueva en la Script Property `SPREADSHEET_ID`
+   del proyecto de prod.
+3. `clasp run setupSheets -u duck`: vuelve a crear `Sesiones` vacía. Las dos
+   personas tienen que volver a entrar.
+4. Abrir la app y ver las tareas. Anotar en la bitácora qué copia se usó.
+
+**Copia física cada dos semanas** (Franco, a mano, unos 5 minutos):
+1. takeout.google.com → "Anular la selección" → marcar solo Drive → en
+   "Todos los datos de Drive incluidos", elegir la carpeta de fotos de la
+   app y la planilla de datos.
+2. Exportar una vez, .zip. Google manda un mail cuando está lista (puede
+   tardar horas).
+3. Bajar el ZIP a un disco de Franco (no un pendrive suelto: tiene todas las
+   fotos y datos personales) y ver que abra. Borrar la copia física de hace
+   más de un par de meses si no hace falta guardarla.
+
+Takeout solo programa exportaciones cada 2 meses; por eso es a mano.
 
 ## 5. CI
 

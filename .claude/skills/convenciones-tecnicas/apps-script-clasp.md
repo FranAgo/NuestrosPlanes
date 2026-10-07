@@ -34,6 +34,17 @@ y `clasp deployments`, cada uno en su propia llamada, escritos así: sin
 directorio de trabajo ya es el repo. Para mirar algo antes (`.claspignore`,
 `git status`), otra llamada.
 
+**Ojo con las comillas invertidas:** un texto con `` `clasp run …` ``
+metido en un comando de Bash entre comillas dobles (por ejemplo, un
+`node -e "…"` que edita un documento) se **ejecuta**: Bash toma lo que está
+entre comillas invertidas como un comando. Sin `-P`, eso es prod. Para
+editar documentos que nombran comandos, la herramienta Edit, o un script
+escrito en un archivo y corrido con `node archivo.js`; nunca texto de un
+documento dentro de comillas dobles en Bash. (2026-10-07, REQ-DATA-003: se
+ejecutó dos veces `clasp run instalarTriggerRespaldo` contra prod. Falló
+porque el perfil por defecto no puede correr `clasp run` y prod todavía no
+tenía esa función.)
+
 **Por qué:** las reglas de `.claude/settings.local.json` son
 `Bash(clasp:*)` y parecidas. Un comando encadenado o con `npx` no coincide
 y el modo automático lo bloquea como deploy a prod, aunque Franco ya haya

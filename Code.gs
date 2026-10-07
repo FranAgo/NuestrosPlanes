@@ -856,6 +856,179 @@ function compartirCarpetaComoViewer(email) {
 }
 
 // ------------------------------------------------------------
+// RESPALDO (REQ-DATA-003)
+// ------------------------------------------------------------
+// Un trigger diario (respaldoDiario, 04:00) copia la planilla a la carpeta
+// "Respaldos <nombre de la planilla>" de la Drive del dueño, fuera de la
+// carpeta de fotos (que está compartida). Las copias rotan con una política
+// abuelo-padre-hijo. Si algo falla, la ejecución falla y Google le manda al
+// dueño el aviso del trigger. Las fotos no se copian: papelera de Drive +
+// exportación de Takeout bajada a un disco (REQ-DATA-003).
+// Restauración: docs/infra/inventario.md §4. Nada de esto está en doPost.
+
+const RESPALDO_RETENCION = { diarias: 7, semanales: 4, mensuales: 12 }; // + la más nueva de cada año, sin tope
+const RESPALDO_NOMBRE_RE = /^Respaldo (\d{4})-(\d{2})-(\d{2}) (\d{4})$/;
+// Sesiones lleva hashes de tokens y no hace falta para restaurar (setupSheets
+// la vuelve a crear vacía).
+const RESPALDO_HOJAS_EXCLUIDAS = [SHEETS.SESIONES];
+// Seams de Tests.gs (en la app siempre null): carpeta de respaldos scratch, y
+// un callback que recibe la copia antes de verificarla (para romperla).
+var RESPALDO_CARPETA_OVERRIDE = null;
+var ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE = null;
+
+// La carpeta se crea la primera vez y su ID queda en Script Properties
+// (RESPALDO_FOLDER_ID), como AUDIT_PSEUDONYM_KEY.
+function carpetaRespaldos() {
+  if (RESPALDO_CARPETA_OVERRIDE) return DriveApp.getFolderById(RESPALDO_CARPETA_OVERRIDE);
+  const id = PROPS.getProperty('RESPALDO_FOLDER_ID');
+  if (id) {
+    const carpeta = DriveApp.getFolderById(id);
+    if (carpeta.isTrashed()) throw new Error('La carpeta de respaldos está en la papelera.');
+    return carpeta;
+  }
+  const carpeta = DriveApp.createFolder('Respaldos ' + abrirPlanilla().getName());
+  PROPS.setProperty('RESPALDO_FOLDER_ID', carpeta.getId());
+  return carpeta;
+}
+
+function contarFilasPorHoja(ss) {
+  const conteo = {};
+  ss.getSheets().forEach(sh => { conteo[sh.getName()] = sh.getLastRow(); });
+  return conteo;
+}
+
+function respaldarPlanilla() {
+  const original = abrirPlanilla();
+  const carpeta  = carpetaRespaldos();
+  const ahora    = ahoraApp();
+  const nombre   = 'Respaldo ' + Utilities.formatDate(ahora, TZ_APP, 'yyyy-MM-dd HHmm');
+
+  const antes   = contarFilasPorHoja(original);
+  const archivo = DriveApp.getFileById(original.getId()).makeCopy(nombre, carpeta);
+  const despues = contarFilasPorHoja(original);
+
+  const copia = SpreadsheetApp.openById(archivo.getId());
+  RESPALDO_HOJAS_EXCLUIDAS.forEach(n => {
+    const sh = copia.getSheetByName(n);
+    if (sh) copia.deleteSheet(sh);
+  });
+  if (ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE) ANTES_DE_VERIFICAR_RESPALDO_OVERRIDE(copia);
+  SpreadsheetApp.flush();
+
+  // La app puede escribir mientras se copia: la copia tiene que quedar entre
+  // lo que había antes y lo que hay después.
+  const enCopia = contarFilasPorHoja(copia);
+  const distintas = Object.keys(antes)
+    .filter(n => RESPALDO_HOJAS_EXCLUIDAS.indexOf(n) === -1)
+    .filter(n => {
+      const min = Math.min(antes[n], despues[n] || 0), max = Math.max(antes[n], despues[n] || 0);
+      return !(enCopia[n] >= min && enCopia[n] <= max);
+    });
+  if (distintas.length) {
+    archivo.setTrashed(true);
+    throw new Error('La copia ' + nombre + ' no coincide con la planilla en: ' + distintas.join(', ') + '.');
+  }
+
+  return { nombre: nombre, hojas: enCopia, aLaPapelera: rotarRespaldos(carpeta) };
+}
+
+// Pura (sin Drive): de una lista de nombres, cuáles quedan. Para cada nivel,
+// la copia más nueva de cada uno de los últimos N días / semanas (de lunes a
+// domingo) / meses / años que tienen copia. Un nombre que no es de respaldo
+// no aparece en el resultado (y rotarRespaldos no lo toca).
+function elegirRespaldosAConservar(nombres) {
+  const copias = nombres
+    .map(n => {
+      const m = RESPALDO_NOMBRE_RE.exec(n);
+      return m ? { nombre: n, orden: m[1] + m[2] + m[3] + m[4], y: +m[1], mes: +m[2], dia: +m[3] } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.orden < b.orden ? 1 : a.orden > b.orden ? -1 : 0));
+
+  const conservar = {};
+  function nivel(tope, claveDe) {
+    const vistos = {};
+    let n = 0;
+    for (let i = 0; i < copias.length && (tope === null || n < tope); i++) {
+      const k = claveDe(copias[i]);
+      if (vistos[k]) continue;
+      vistos[k] = true;
+      n++;
+      conservar[copias[i].nombre] = true;
+    }
+  }
+  const lunesDe = c => {
+    const d = new Date(Date.UTC(c.y, c.mes - 1, c.dia));
+    d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7);
+    return d.toISOString().slice(0, 10);
+  };
+  nivel(RESPALDO_RETENCION.diarias,   c => c.orden.slice(0, 8));
+  nivel(RESPALDO_RETENCION.semanales, lunesDe);
+  nivel(RESPALDO_RETENCION.mensuales, c => c.orden.slice(0, 6));
+  nivel(null,                         c => c.y);
+  return Object.keys(conservar);
+}
+
+// Manda a la papelera (no borra) las copias que la política no conserva.
+function rotarRespaldos(carpeta) {
+  const archivos = [];
+  const it = carpeta.getFiles();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (!f.isTrashed() && RESPALDO_NOMBRE_RE.test(f.getName())) archivos.push(f);
+  }
+  const conservar = elegirRespaldosAConservar(archivos.map(f => f.getName()));
+  let aLaPapelera = 0;
+  archivos.forEach(f => {
+    if (conservar.indexOf(f.getName()) === -1) { f.setTrashed(true); aLaPapelera++; }
+  });
+  return aLaPapelera;
+}
+
+// La del trigger. Si falla, la ejecución falla y Google avisa al dueño.
+function respaldoDiario() {
+  try {
+    const resumen = respaldarPlanilla();
+    console.log('respaldoDiario: ' + JSON.stringify(resumen));
+    return resumen;
+  } catch (err) {
+    console.error('respaldoDiario falló: ' + err.message);
+    throw err;
+  }
+}
+
+// Para clasp run, una vez por proyecto. Idempotente: deja un solo trigger.
+// Con quitar = true solo lo saca (el proyecto de test no lo necesita).
+function instalarTriggerRespaldo(quitar) {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'respaldoDiario')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  if (!quitar) {
+    ScriptApp.newTrigger('respaldoDiario').timeBased().everyDays(1).atHour(4).inTimezone(TZ_APP).create();
+  }
+  return listarTriggers();
+}
+
+// Solo lectura, para clasp run (verificación y revisión trimestral): nombres
+// de las copias y filas por hoja de la última y del original.
+function estadoRespaldos() {
+  const carpeta = carpetaRespaldos();
+  const copias = [];
+  const it = carpeta.getFiles();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (!f.isTrashed() && RESPALDO_NOMBRE_RE.test(f.getName())) copias.push({ nombre: f.getName(), id: f.getId() });
+  }
+  copias.sort((a, b) => (a.nombre < b.nombre ? 1 : -1));
+  return {
+    carpeta: carpeta.getName(),
+    copias: copias.map(c => c.nombre),
+    ultima: copias.length ? contarFilasPorHoja(SpreadsheetApp.openById(copias[0].id)) : null,
+    original: contarFilasPorHoja(abrirPlanilla()),
+  };
+}
+
+// ------------------------------------------------------------
 // USUARIOS
 // ------------------------------------------------------------
 
@@ -1687,7 +1860,7 @@ const TZ_APP = 'America/Argentina/Buenos_Aires';
 
 // DEC-009: versión de la app entera. Va igual que APP_VERSION de index.html
 // y en la descripción del `clasp version` de cada salida a prod.
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.11.0';
 
 // Reloj de la app. Tests.gs lo fija para simular una hora puntual (ej. una
 // subida a las 22:30); cada invocación tiene su propio estado global, así

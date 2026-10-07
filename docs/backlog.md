@@ -427,7 +427,7 @@ estado de cada cosa vive en su ítem o su REQ):
 ## Sesión 2026-10-06
 
 ### BL-040 — No hay respaldo propio de la planilla ni de las fotos
-- Estado: Propuesto
+- Estado: Pasó a REQ-DATA-003 (2026-10-07)
 - Prioridad: Media
 - Origen: primera pasada de `hroy-estado-infra` (2026-10-06), `docs/infra/inventario.md` §4.
 - Nota: hoy solo existen el historial de versiones de Sheets y la papelera de Drive (30 días), dentro de la misma cuenta, y nunca se probó una restauración. Si se borra la planilla de la papelera o se pierde la cuenta, no hay vuelta atrás. Propuesta para cuando se priorice (Gary y Roy): un trigger semanal que copie la planilla a una carpeta aparte con fecha en el nombre (`makeCopy`) y borre las copias de más de N semanas, y una restauración de prueba anotada en el inventario. Las fotos son el caso caro: decidir con Franco si alcanza con la papelera o hace falta copiarlas a otra cuenta. Mientras tanto, `datos.md` §6 pide una copia a mano antes de cualquier escritura masiva.
@@ -436,7 +436,7 @@ estado de cada cosa vive en su ítem o su REQ):
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: primera pasada de `hroy-estado-infra` (2026-10-06).
-- Nota: no se leyó si `purgarSesiones` sigue programado (hace falta `clasp run listarTriggers -u duck` contra prod, con el OK de Franco). En prod hay una implementación `AKfycby0ZA5q…` @16 sin descripción: probablemente la API Executable de `clasp run`; confirmarlo y anotarlo en el inventario.
+- Nota: no se leyó si `purgarSesiones` sigue programado (hace falta `clasp run listarTriggers -u duck` contra prod, con el OK de Franco). En prod hay una implementación `AKfycby0ZA5q…` @16 sin descripción: probablemente la API Executable de `clasp run`; confirmarlo y anotarlo en el inventario. 2026-10-07: `listarTriggers` en prod (solo lectura, con OK de Franco) da un solo trigger, `purgarSesiones` por tiempo: esa mitad está confirmada; falta la implementación @16.
 
 ### BL-042 — `docs/modelo-datos.md` no alcanza como mapa de datos
 - Estado: Propuesto
