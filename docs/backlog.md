@@ -418,4 +418,36 @@ estado de cada cosa vive en su ítem o su REQ):
 - Estado: Propuesto
 - Prioridad: Baja
 - Origen: revisión de Duck del parche 1.8.1 (BL-017), 2026-10-05.
-- Nota: dos casos raros dejan una foto `activo` en una tarea borrada: (1) si `archivarFotosDePlanes` falla a mitad del borrado, la tarea queda borrada igual; (2) si alguien sube una foto mientras el otro borra esa tarea (`uploadPlanPhotos` mira la tarea antes de tomar el lock). Ninguno se ve en la app (Recuerdos y el detalle filtran por la tarea) y `archivarFotosDePlanesEliminados()` los corrige. Arreglo de fondo: borrar y subir bajo el mismo lock, y que la subida vuelva a mirar el estado de la tarea adentro del lock. Además, si algún día hay "recuperar tarea", tiene que devolver solo las fotos que archivó ese borrado (misma `fecha_modificacion` que la `fecha_eliminacion` de la tarea), no otras.
+- Nota: dos casos raros dejan una foto `activo` en una tarea borrada: (1) si `archivarFotosDePlanes` falla a mitad del borrado, la tarea queda borrada igual; (2) si alguien sube una foto mientras el otro borra esa tarea (`uploadPlanPhotos` mira la tarea antes de tomar el lock). Ninguno se ve en la app (Recuerdos y el detalle filtran por la tarea) y `archivarFotosDePlanesEliminados()` los corrige. Arreglo de fondo: borrar y subir bajo el mismo lock, y que la subida vuelva a mirar el estado de la tarea adentro del lock. Además, si algún día hay "recuperar tarea", tiene que devolver solo las fotos que archivó ese borrado (misma `fecha_modificacion` que la `fecha_eliminacion` de la tarea), no otras. Corrección del 2026-10-06 (validación de skills): hoy esas dos fechas salen de dos `new Date()` distintos en `handleDeletePlan` y `archivarFotosDePlanes`, así que no coinciden; para usarlas como marca hay que pasar la misma fecha a las dos. Y `getArchivo`/`getArchivos`/`getMiniaturas` miran solo el estado de la foto: en los dos casos raros, la foto se sigue sirviendo a quien tenga su id (`contratos.md` §6).
+
+## Sesión 2026-10-06
+
+### BL-040 — No hay respaldo propio de la planilla ni de las fotos
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: primera pasada de `hroy-estado-infra` (2026-10-06), `docs/infra/inventario.md` §4.
+- Nota: hoy solo existen el historial de versiones de Sheets y la papelera de Drive (30 días), dentro de la misma cuenta, y nunca se probó una restauración. Si se borra la planilla de la papelera o se pierde la cuenta, no hay vuelta atrás. Propuesta para cuando se priorice (Gary y Roy): un trigger semanal que copie la planilla a una carpeta aparte con fecha en el nombre (`makeCopy`) y borre las copias de más de N semanas, y una restauración de prueba anotada en el inventario. Las fotos son el caso caro: decidir con Franco si alcanza con la papelera o hace falta copiarlas a otra cuenta. Mientras tanto, `datos.md` §6 pide una copia a mano antes de cualquier escritura masiva.
+
+### BL-041 — Confirmar las tareas programadas y la implementación @16 de prod
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: primera pasada de `hroy-estado-infra` (2026-10-06).
+- Nota: no se leyó si `purgarSesiones` sigue programado (hace falta `clasp run listarTriggers -u duck` contra prod, con el OK de Franco). En prod hay una implementación `AKfycby0ZA5q…` @16 sin descripción: probablemente la API Executable de `clasp run`; confirmarlo y anotarlo en el inventario.
+
+### BL-042 — `docs/modelo-datos.md` no alcanza como mapa de datos
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: validación con Claude B de las herramientas de Gary (2026-10-06).
+- Nota: `hgary-cambio-datos` y `hgary-integridad` parten del mapa de datos, y el de acá es el documento de diseño de REQ-DATA-001, no el estado actual: falta la hoja `Sesiones`; `Planes` y `Usuarios` aparecen sin las columnas de auditoría ni `carpeta_fotos_drive_id`; no están los valores de `estado` por hoja; dice que `foto_url` se elimina y el código la sigue escribiendo y leyendo (el login, por posición); da `getArchivo` como pendiente; §5 habla de `getConfig` y el código usa `DRIVE_FOLDER_ID`. Falta una sección "hojas actuales" con lectores por columna, copias (`foto_url`, `avatar_archivo_id`, `carpeta_fotos_drive_id`, la descripción JSON en Drive, las cachés de `CacheService` y de `localStorage`) y referencias. Lo hace Gary contra el código, sin cambiar código.
+
+### BL-043 — Acción `getRecentPlanPhotos` sin uso
+- Estado: Propuesto
+- Prioridad: Baja
+- Origen: validación con Claude B de las herramientas de Bob (2026-10-06).
+- Nota: el front no la llama desde 1.1.0 (REQ-MEDIA-003) y sigue en `accionesDelServidor()`; el comentario de `apiLectura` en `index.html` todavía la nombra. Borrarla con `hbob-salud-codigo` (probar que está muerta, sacar su prueba en `probarMEDIA002` o reemplazarla, y `probarParche181` sigue cubriendo el resto), en un cambio aparte.
+
+### BL-044 — Datos personales en el repo público
+- Estado: Propuesto
+- Prioridad: Media
+- Origen: validación con Claude B de las herramientas de Roy (2026-10-06).
+- Nota: el repo es público y Pages sirve todo, incluida la bitácora. Hay emails de Franco en `CLAUDE.md`, `apps-script-clasp.md` y en las entradas de la bitácora (campo Autor), y nombres de las dos personas en varios documentos. La app está bajo la Ley 25.326. Opciones a decidir con Franco y Julia: (A) dejarlo, son datos del propio dueño; (B) reemplazar los emails por nombres de acá en adelante; (C) además, que Pages no sirva `docs/` ni `bitacora/` (publicar desde una carpeta con solo la app) o pasar el repo a privado con otro hosting. Reescribir el historial de git es otro tema y no se recomienda sin una razón fuerte.

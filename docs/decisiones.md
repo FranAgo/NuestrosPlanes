@@ -31,7 +31,7 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 
 ## DEC-003 — Las skills de Peroncitos se mejoran acá; se deja de sincronizar con sis-web
 - Fecha: 2026-09-27
-- Estado: Aceptada
+- Estado: Reemplazada por DEC-021
 - Contexto: la validación A/B (BL-014) encontró que `hjay-verificacion-visual` y `hjulia-revision-cambio` asumen una base con SDK y reglas (Firestore) y propuso mejoras genéricas (BL-020). DEC-001 dejó las skills genéricas como copias de sis-web, que se traían de nuevo a mano cuando sis-web las mejoraba (su condición de "Reabrir si").
 - Opciones consideradas: (1) mejorarlas en sis-web y traerlas; (2) mejorarlas en Peroncitos y llevarlas después a sis-web; (3) mejorarlas en Peroncitos y dejar de sincronizar.
 - Decisión: opción 3, pedida por Franco ("mejoralas acá; ya no tocamos sis-web a menos que indique lo contrario"). Desde ahora las skills de `.claude/skills/` son de este repo y evolucionan acá. DEC-001 sigue vigente en lo demás (estructura y datos en `docs/`).
@@ -199,3 +199,22 @@ reemplaza y la vieja pasa a `Reemplazada por DEC-XXX`.
 - Decisión: C (Franco, 2026-10-05: "lo más formal y profesional, no importa el costo"). `v1:` + 16 hex; email normalizado (minúsculas, sin espacios); clave `AUDIT_PSEUDONYM_KEY` en Script Properties, separada de `SESSION_SECRET`, que se crea sola bajo lock; `email` fuera de la lista blanca de Auditoría. Para saber si un seudónimo es de alguien: `seudonimoEmail(email)` suelta con `clasp run`.
 - Motivo: es lo que recomiendan OWASP y las guías de GDPR para correlacionar sin guardar el dato (seudonimización con clave). Con A o B queda parte del email; con C, sin la clave no se vuelve al email y los reintentos se siguen viendo. Las filas viejas no se reescriben (un log de auditoría no se edita): vencen con BL-006.
 - Reabrir si: hay que rotar la clave (pasa a `v2:`) o se necesita saber quién intentó entrar sin tener su email para comparar.
+
+## DEC-021 — sis-web es la fuente de las herramientas genéricas; lo propio va al catálogo
+- Fecha: 2026-10-06
+- Estado: Aceptada
+- Contexto: Franco pidió traer las versiones "2.0" de las skills de sis-web (pasadas de Duck, Bob, Gary y Roy, 2026-10-05/06): ocho herramientas nuevas y seis personas reescritas, y "lo más prolijo y profesional" con lo que no encaja. Las herramientas de Gary y Roy están escritas pensando en Firestore (reglas, emulador, colecciones, staging) y buscan temas del catálogo (tests, contratos, datos, infraestructura) que acá no existían. DEC-003 había cortado la sincronización; Franco la reabre con este pedido.
+- Opciones consideradas: (A) traerlas como vienen, sin más; (B) reescribir cada herramienta para Apps Script y Sheets; (C) dejar las herramientas lo más parecidas posible a las de sis-web (solo se cambian frases que mandan a hacer algo que acá no existe, como "en el emulador"), y poner todo lo de este proyecto en `convenciones-tecnicas`: cuatro temas nuevos y una tabla de equivalencias (reglas → `Code.gs`, emulador → planilla scratch en test, staging → proyecto de test, colección → hoja).
+- Decisión: C. sis-web es la fuente ("upstream") de las herramientas genéricas; acá se mantiene una diferencia mínima y anotada en `docs/skills/INVENTARIO.md` ("Diferencias con sis-web"). Las mejoras genéricas que salgan acá se anotan ahí y se llevan a sis-web solo cuando Franco lo pida. Las dos herramientas mejoradas acá en BL-020 (`hjay-verificacion-visual`, `hjulia-revision-cambio`) se quedan con la versión de acá, más la línea nueva de sis-web en la de Julia.
+- Motivo: es la política "upstream first" de los proyectos que mantienen derivados (Linux en Chromium OS, Red Hat): cuanto menos se aparta la copia, más barato traer la próxima versión, y lo propio de cada producto vive en una capa aparte. Con B, cada actualización de sis-web habría que rehacerla a mano y las copias divergen; con A, las herramientas mandarían a usar un emulador que no existe. La metodología ya lo pedía (sis-web, pasada de Gary: "lo propio del proyecto va al catálogo, aunque lo pida la herramienta").
+- Reabrir si: sis-web cambia de stack, o la tabla de equivalencias no alcanza y Claude B muestra que una herramienta lleva a un error acá.
+- Reemplaza a: DEC-003.
+
+## DEC-022 — Revisión de infraestructura y de salud del código cada tres meses
+- Fecha: 2026-10-06
+- Estado: Aceptada
+- Contexto: `hroy-estado-infra` y `hbob-salud-codigo` piden una pasada periódica; en sis-web es mensual. Nuestros Planes tiene dos usuarios, un front, un servidor y una planilla, y casi no cambia de infraestructura.
+- Opciones consideradas: (1) mensual, como sis-web; (2) cada tres meses, más una pasada antes de cualquier cambio de infraestructura (scopes, OAuth, implementaciones); (3) solo cuando algo falla.
+- Decisión: 2. Próxima: enero de 2027.
+- Motivo: la frecuencia se ajusta al riesgo y a cuánto cambia el sistema (así lo plantean las revisiones de preparación para producción de Google SRE: se revisa al cambiar, no por calendario fijo). Mensual sería casi siempre una pasada sin novedades; solo ante fallas no ve lo que vence sin avisar (la primera pasada encontró que no hay respaldo propio, y sis-web encontró así un runtime ya vencido).
+- Reabrir si: la app suma piezas (otro servicio, automatizaciones, más usuarios) o una pasada trimestral encuentra algo que ya venció.

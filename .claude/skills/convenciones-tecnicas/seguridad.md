@@ -118,4 +118,5 @@ clasp run probarBUGLOGIN001B -P .clasp-test.json -u duck
 
 "Probá que el test de bloqueo muerde" (`hjulia-revision-cambio`, paso 3)
 acá es: correrlo con el `Code.gs` viejo pusheado a test y ver que falla,
-después con el nuevo. Nunca contra prod.
+después con el nuevo. Nunca contra prod. Cómo hacerlo sin tocar el
+árbol del repo: `tests.md` §3.

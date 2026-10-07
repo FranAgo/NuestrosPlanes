@@ -113,7 +113,8 @@ la interfaz.
 Antes de tocar nada, corré los tests de permisos del proyecto (de reglas
 en un emulador, o del servidor en su ambiente de test) y anotá el
 resultado (cuántos pasan y cuáles fallan ya). Un fallo que ya estaba no
-es tuyo, pero hay que poder decirlo con el número de antes. Si no se
+es tuyo, pero hay que poder decirlo con los nombres de antes (y tiene
+que tener su diagnóstico: `hduck-test-en-rojo`). Si no se
 pueden correr (falta el emulador, el ambiente de test o sus credenciales),
 resolvelo o decilo; no sigas como si hubieran pasado. Que el servidor
 "anda" lo prueban estos tests, no una pantalla que se ve bien.

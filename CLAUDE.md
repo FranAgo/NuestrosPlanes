@@ -5,6 +5,7 @@
 ### Subida a GitHub (commit + push)
 - **Solo al terminar la sesión de trabajo** y **después de una confirmación clara del usuario** (por ejemplo: "listo, subí todo" / "confirmá el push").
 - Nunca hacer commit ni push automáticamente durante la sesión ni sin ese "sí" explícito.
+- Excepción, el deploy: el OK de un paso a producción incluye el commit de lo que se va a publicar, hecho justo antes del deploy, para que salga el mismo commit que se probó (`hroy-deploy`). Ese commit ya lleva su entrada en la bitácora. El push a `main` del front sigue pidiendo su propio sí (ver "Deploy a producción").
 - Rama: `main` (push directo a `origin/main`), salvo que el usuario pida otra cosa.
 - Antes de pushear: actualizar la bitácora (ver abajo) e incluirla en el mismo commit.
 
@@ -45,17 +46,19 @@ Cambios:
 - Cada paso que toca producción (`clasp push`/`redeploy` al proyecto de prod, `git push` a `main` que publica GitHub Pages, cambios en Google Cloud) se pregunta justo antes y espera un sí explícito. Un OK anterior, o "hacé todo el flujo", no alcanza.
 - Antes de pedir el OK: `node check-sintaxis.js` en verde, las pruebas `probarXXX()` que correspondan en verde contra el proyecto de **test**, y un resumen corto de qué va a subir.
 - Si la respuesta es ambigua ("dale" después de un mensaje con varios temas), preguntar puntualmente qué se aprueba.
-- Cuidados de clasp (qué sube un `push`, `-u duck`, logs de Ejecuciones): skill `convenciones-tecnicas`, tema `apps-script-clasp.md`.
+- El plan del deploy (piezas, orden front/servidor, vuelta atrás, verificar lo publicado) sigue `hroy-deploy`; sus aprobaciones son las de esta sección.
+- Cuidados de clasp (qué sube un `push`, `-u duck`, logs de Ejecuciones): skill `convenciones-tecnicas`, temas `apps-script-clasp.md` e `infraestructura.md`. Piezas, implementaciones y vencimientos: `docs/infra/inventario.md`.
 
 ## Contexto del producto y registros
 
 - La app se llama **Nuestros Planes** (Peroncitos es solo el nombre del repo). Es privada, para dos personas (Franco y Noelia): planes en pareja, categorías y fotos. Datos personales bajo la Ley 25.326 (emails, fotos, auditoría de accesos).
-- Stack: `index.html` único (HTML + CSS + JS, sin build) en GitHub Pages; backend `Code.gs` en Apps Script (Web App) con proyectos de **prod** y **test**; datos en Google Sheets; fotos en Drive. Detalle en `README.md` y `docs/modelo-datos.md`.
+- Stack: `index.html` único (HTML + CSS + JS, sin build) en GitHub Pages; backend `Code.gs` en Apps Script (Web App) con proyectos de **prod** y **test**; datos en Google Sheets; fotos en Drive. Detalle en `README.md`, `docs/modelo-datos.md` (mapa de datos) y `docs/infra/inventario.md` (infraestructura).
 - Requerimientos formales: `docs/requerimientos/REQ-XXX.md` (y `BUG-XXX.md`). Un hallazgo sobre un REQ que ya existe se escribe en ese REQ en la misma sesión, no solo en el backlog o la bitácora.
 - Estado de un pedido: vive **solo** en el encabezado de su REQ (DEC-016). La línea `> **Estado:**` lleva solo el valor y, como mucho, una fecha: PROPUESTO, EN DESARROLLO, HECHO (implementado, con versión asignada), CERRADO (Franco lo confirmó en uso o no queda nada) o DESCARTADO. `> **Versión:** X.Y.Z` dice en qué versión sale, sin nada más. Todo el texto libre va a `> **Historia:**`, con fecha. En el backlog, igual: `- Estado: Hecho (1.5.1)` y el detalle en `- Resuelto:`. Si esa versión está en prod lo dicen el tag, el `CHANGELOG.md` y `APP_VERSION`: en el REQ no se escribe "falta el push" ni nada que venza. El ítem del backlog que originó el REQ queda `Pasó a REQ-XXX` y no se vuelve a tocar (esto prevalece sobre los estados "En curso"/"Formalizado" de `hpaul-triage`). `node check-sintaxis.js` falla si encuentra contradicciones.
 - Backlog de ideas sin formalizar: `docs/backlog.md` (skill `hpaul-triage`).
 - Registro de decisiones en formato ADR: `docs/decisiones.md` (skill `hpaul-decision-log`).
-- Mejora de los skills del equipo: `docs/skills/METODOLOGIA.md` (proceso) y `docs/skills/INVENTARIO.md` (estado de cada skill).
+- Mejora de los skills del equipo: `docs/skills/METODOLOGIA.md` (proceso) y `docs/skills/INVENTARIO.md` (estado de cada skill y diferencias con sis-web, que es la fuente de las herramientas genéricas, DEC-021).
+- Revisión periódica cada tres meses (DEC-022): `hroy-estado-infra` y `hbob-salud-codigo`. La fecha de la última está en `docs/infra/inventario.md` §8.
 - Las skills de `.claude/skills/` no guardan datos del proyecto: son procedimientos. Los datos van en `docs/` (DEC-001).
 - Al retomar ("¿cómo seguimos?", "¿qué quedó pendiente?"): `git status` y commits recientes, estado de cada REQ, `docs/backlog.md` completo y, si hace falta, la bitácora del mes.
 
@@ -85,14 +88,15 @@ Los 7 ingenieros (Paul, Bob, Jay, Roy, Duck, Julia, Gary) están en `.claude/ski
 
 En un **cambio de fondo**:
 - **Paul organiza primero**: alcance, orden y criterios de aceptación, antes de que nadie toque código.
-- Cada ingeniero involucrado da un aporte real desde su rol, no un saludo vacío: Bob señala qué contratos (endpoints, firmas, hojas) no se pueden romper; Jay implementa o da criterio de UX; Roy marca implicancias de deploy (prod/test, clasp); Julia revisa la superficie de seguridad (`hjulia-revision-cambio`); Gary confirma impacto (o no) en las hojas.
-- **Duck revisa después de cada paso importante y siempre antes de cerrar**, con evidencia propia (pruebas corridas, código leído), no repitiendo lo que dijo otro.
+- Cada ingeniero involucrado da un aporte real desde su rol, no un saludo vacío: Bob señala qué contratos (endpoints, firmas, hojas) no se pueden romper (`hbob-impacto-cambio`); Jay implementa o da criterio de UX; Roy marca implicancias de deploy (prod/test, clasp, `hroy-deploy`); Julia revisa la superficie de seguridad (`hjulia-revision-cambio`); Gary confirma impacto (o no) en las hojas, nombrando quién lee cada columna que cambia (`hgary-cambio-datos`).
+- **Duck revisa después de cada paso importante y siempre antes de cerrar**, con evidencia propia (pruebas corridas, código leído), no repitiendo lo que dijo otro (`hduck-prueba-cambio`).
 - Si Duck encuentra algo o propone un cambio, el ingeniero autor opina antes de aplicarlo (¿de acuerdo? ¿falso positivo? ¿mejor de otra forma?) y Paul decide.
 - Los subagentes solo se usan para búsquedas de solo lectura en 3 o más lugares, verificables en menos de un minuto. Nunca para implementar, decidir ni aprobar.
 
 Herramientas que se aplican aunque no se invoque a nadie:
 - `hjay-identidad-visual` (criterio de diseño de Franco) en cualquier cambio que se vea, aunque sea chico. Nuestros Planes no usa emojis como iconos: la regla "SVG, no glifos" aplica (pendiente: BL-004).
 - `hjay-verificacion-visual` antes de dar por hecho un cambio visual o interactivo.
+- `hduck-test-en-rojo` cuando un `probarXXX()` no da todo OK, aunque parezca ajeno al cambio.
 - `convenciones-tecnicas`: antes de implementar, mirar si la tarea toca uno de sus temas y leer solo ese archivo.
 
 ## Checklist de cierre de sesión

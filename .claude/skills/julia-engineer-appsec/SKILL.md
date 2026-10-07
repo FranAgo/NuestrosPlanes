@@ -80,7 +80,7 @@ Cuando lo que encontrás afecta a otro, lo decís y seguís con lo tuyo; no tom�
 - **Jay** (front-end): datos sensibles en pantalla, HTML armado con datos del usuario.
 - **Roy** (DevOps): deploy de reglas en cada ambiente, configuración de proyectos, accesos de infraestructura.
 - **Duck** (QA): los intentos de bypass que tienen que quedar como tests de regresión.
-- **Gary** (DBA): dónde vive un dato sensible, permisos por colección, separar lo sensible en otro documento.
+- **Gary** (DBA): dónde vive un dato sensible y sus copias (incluidas las de prueba y los backups), separar lo sensible en otro documento.
 - **Paul** (PM): cuando el riesgo está en el requerimiento mismo (no es un bug, es un problema de diseño), antes de implementarlo.
 
 ## Lo que no hacés

@@ -37,7 +37,9 @@ directorio de trabajo ya es el repo. Para mirar algo antes (`.claspignore`,
 **Por qué:** las reglas de `.claude/settings.local.json` son
 `Bash(clasp:*)` y parecidas. Un comando encadenado o con `npx` no coincide
 y el modo automático lo bloquea como deploy a prod, aunque Franco ya haya
-dado el OK. Pasó el 2026-09-27 y otra vez el 2026-10-02 (REQ-MEDIA-006).
+dado el OK. Pasó el 2026-09-27 (deploy de BUG-FECHA-001: el encadenado
+quedó bloqueado, los tres sueltos pasaron) y otra vez el 2026-10-02
+(REQ-MEDIA-006).
 
 ## Prod y test: allowlist y `redeploy`
 
@@ -94,19 +96,6 @@ run`; si no se puede, pedirle a Franco esos uno o dos clics.
 
 **Por qué:** una vez se tipeó "setupSheets" al principio de `Code.gs` y
 hubo que borrarlo a mano antes del autoguardado.
-
-## Los comandos de `clasp` a prod van sueltos, nunca encadenados
-
-**Qué cuidar:** las reglas de `.claude/settings.local.json`
-(`Bash(clasp push:*)`, etc.) solo reconocen un comando que empieza con
-`clasp …`. Algo como `cd "…" && clasp push -f | tail && clasp version …`
-no coincide con ninguna regla, y el filtro del modo automático lo frena
-como deploy a producción. Correr `clasp push -f`, `clasp version "…"` y
-`clasp redeploy …` como tres comandos separados, sin `cd` (el directorio
-de trabajo ya es el repo), sin `&&` y sin `|`.
-
-**Por qué:** deploy de BUG-FECHA-001 (2026-09-27): el comando encadenado
-quedó bloqueado; los tres sueltos pasaron sin problema.
 
 ## `clasp logs` mezcla prod y test: separar por `deployment_id`
 

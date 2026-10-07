@@ -95,7 +95,8 @@ A partir de acá, los cambios de backend NO se pegan a mano: se despliegan con
 
 ### 6. GitHub Pages
 
-1. Crear un repositorio en GitHub (puede ser privado).
+1. Crear un repositorio en GitHub. El de Nuestros Planes es **público**
+   (lo pide GitHub Pages gratis): nada sensible en el repo.
 2. Subir `index.html` a la raíz del repo.
 3. Ir a **Settings → Pages**:
    - Source: `Deploy from a branch`
@@ -140,7 +141,7 @@ implementación nueva por cada cambio.
 
 ```bash
 clasp push -f                                 # sube Code.gs + appsscript.json
-clasp version "REQ-XXX: descripción corta"     # crea una versión inmutable
+clasp version "<hash> REQ-XXX: descripción"    # versión inmutable, con el commit
 clasp deployments                              # ver el deploymentId del Web App y el nº de versión
 clasp redeploy <deploymentId> -V <n> -d "REQ-XXX: descripción"
 ```
@@ -156,7 +157,7 @@ frontend.
 
 ```bash
 clasp push -f -P .clasp-test.json -I .claspignore-test      # sube Code.gs + Tests.gs al proyecto de test
-clasp run probarDATA002 -P .clasp-test.json                 # corre las pruebas server-side, devuelve JSON
+clasp run probarDATA002 -P .clasp-test.json -u duck         # corre las pruebas server-side, devuelve JSON
 ```
 
 `probarDATA002()` (en `Tests.gs`) crea su **propia planilla scratch**, corre
