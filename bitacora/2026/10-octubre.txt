@@ -331,3 +331,12 @@ Cambios:
 - CHANGELOG.md — 1.10.0 (reemplaza la 1.9.1 sin publicar). docs/backlog.md — BL-046 Hecho (1.10.0). docs/decisiones.md — DEC-025. docs/modelo-datos.md — fecha_contenido obligatoria, fecha_origen 'subida' solo en filas viejas.
 - Verificado: probarMEDIA005 con el Code.gs de 1.9.0 3 FAIL, con el nuevo 55/55 x3; suite completa en test en verde (16 de 16, detalle en REQ-MEDIA-009); front en 127.0.0.1 con fetch simulado, criterios 1-9, sin pedidos a script.google. clasp push solo al proyecto de test. Sin deploy a prod.
 ========================================================
+========================================================
+2026-10-07 12:21 (hora Argentina, UTC-3)
+Autor: Franco Agoglia <agoglia.franco@gmail.com>
+Herramienta: Claude Code (Opus 5.5)
+--------------------------------------------------------
+Cambios:
+- Deploy front 1.10.0 con OK de Franco: commit 3da1961 + tag v1.10.0, push a main (cuenta FranAgo). Los primeros 5 intentos dieron "remote rejected … Internal Server Error" sin la ventana de elegir cuenta (GitHub "operational", repo sin avisos): era un token guardado de FranAgo en el Git Credential Manager. Franco corrió "git credential-manager github logout FranAgo" y el push siguiente entró. GitHub Pages sirve 1.10.0 desde las 12:18 (curl).
+- Deploy servidor con OK de Franco: mismo commit 3da1961; clasp push -f a prod, versión 37, redeploy de AKfycbyKWC… @37 (antes @36). Sin setupSheets (no hay columnas nuevas). Smoke sin sesión contra prod: getPlanes y uploadPlanPhotos -> 401. Vuelta atrás: redeploy -V 36 y clasp push del commit ed8344e.
+========================================================
